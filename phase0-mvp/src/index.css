@@ -1,0 +1,405 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 14px;
+  color: #212529;
+  background: #fff;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e9ecef;
+  background: #fff;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #868e96;
+  background: #f1f3f5;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.modes {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.mode-label {
+  font-size: 12px;
+  color: #868e96;
+  white-space: nowrap;
+}
+
+/* ---------- layout ---------- */
+
+.main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.graph-container {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.side {
+  width: 340px;
+  border-left: 1px solid #e9ecef;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.panel {
+  padding: 18px 18px 28px;
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.panel h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.section {
+  margin-top: 20px;
+}
+
+.muted {
+  color: #868e96;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #868e96;
+  line-height: 1.5;
+}
+
+.stat {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c92a2a;
+  background: #fff5f5;
+  border: 1px solid #ffc9c9;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  padding: 7px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #343a40;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.btn.active,
+.btn.active:hover:not(:disabled) {
+  background: #212529;
+  color: #fff;
+  border-color: #212529;
+}
+
+.btn.primary {
+  background: #1c7ed6;
+  border-color: #1c7ed6;
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #1971c2;
+}
+
+.btn.primary.done {
+  background: #2f9e44;
+  border-color: #2f9e44;
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.btn.block {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #1c7ed6;
+  font-weight: 600;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ---------- chips ---------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 4px 9px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip:hover {
+  filter: brightness(0.92);
+}
+
+/* ---------- people ---------- */
+
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: #495057;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.dot.me {
+  background: #e03131;
+}
+
+.dot.person {
+  background: #495057;
+}
+
+.dot.interest {
+  background: #1c7ed6;
+  width: 14px;
+  height: 14px;
+}
+
+.person-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #495057;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.avatar.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+
+.avatar.me {
+  background: #e03131;
+}
+
+.people-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.person-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+}
+
+.person-row:hover {
+  background: #f8f9fa;
+  border-color: #e9ecef;
+}
+
+.person-name {
+  font-weight: 600;
+}
+
+.person-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: #868e96;
+}
+
+/* ---------- cards ---------- */
+
+.card {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.card.highlight {
+  border-color: #ffa8a8;
+  background: #fff5f5;
+}
+
+.card-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.card-members {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.card .chips {
+  margin-bottom: 10px;
+}
+
+/* ---------- posts ---------- */
+
+.post {
+  padding: 10px 0;
+  border-top: 1px solid #f1f3f5;
+}
+
+.post-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.post-body {
+  line-height: 1.5;
+}
+
+.compose textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
+
+/* ---------- toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  background: #212529;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
