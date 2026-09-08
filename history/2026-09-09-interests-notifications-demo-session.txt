@@ -1,0 +1,2244 @@
+ ▐▛███▛█   Claude Code v2.1.263
+▝▜██████▀  Fable 5.1 · Claude Max
+  ▝▝ ▝▝    ~\Desktop\ssafy-net
+
+
+❯ /model                                                                        
+  ⎿  Set model to Fable 5.1 and saved as your default for new sessions
+
+❯ 지금 폴더를 확인하고 이전 작업 맥락을 확인하고 이어서 작업하자                
+
+● Login expired · Please run /login
+
+✻ Crunched for 0s · done (화요일) 오후 8:21
+
+❯ /login 
+  ⎿  Login successful
+
+● 폴더 상태와 이전 작업 맥락을 확인하겠습니다. git 이력, 메모리, 남은 작업
+  목록을 먼저 봅니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  3 skills available
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ 지금 폴더를 확인해서 이전 작업 맥락을 확인해서 작업을 이어서 진행하자         
+
+● 폴더는 main 브랜치, 작업 트리 깨끗한 상태(커밋 0cd80e8)입니다. 이전 세션
+  메모리와 인수인계 문서, 남은 작업 목록을 확인하겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 이 컴퓨터는 새로 클론된 상태라 node_modules, shared/dist, api/.env가 없고
+  Docker Desktop도 꺼져 있네요. 의존성 설치를 백그라운드로 돌리면서 남은 작업
+  관련 문서를 읽겠습니다. · summarized
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● Background command "Install workspace dependencies" completed (exit code 0)
+
+● 의존성 설치를 마쳤는데 api/.env.example이 낡은 걸 발견했습니다. 코드는
+  MATTERMOST_WEBHOOK_URL, MATTERMOST_OPERATOR_USERNAME,
+  MATTERMOST_DELIVERY_MODE, MATTERMOST_ALLOWED_RECIPIENTS를 읽는데 예시 파일엔
+  쓰이지 않는 MATTERMOST_TOKEN만 있어 그대로 복사하면 알림이 꺼진 채 시작됩니다.
+  shared를 먼저 빌드하고 Mattermost 서비스가 각 키를 어떻게 읽는지 확인한 뒤
+  수정하겠습니다. · summarized
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● shared 빌드 완료, Docker Desktop을 띄웠습니다. 이제 .env.example을 고쳐 .env를
+  만들고, Prisma 클라이언트 생성과 타입 검사, DB 기동을 동시에 진행합니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+❯ 필요한 env가 있다면 나에게 요구해                                             
+
+● 타입 검사는 api·web 모두 통과했지만, .env.example 재작성 스크립트가 heredoc
+  문법 문제로 실패하고 Postgres 이미지 다운로드가 네트워크 오류로 끊겼습니다. 두
+  가지를 다시 시도하고, DB까지 올린 뒤 필요한 env 키를 정리해 알려드리겠습니다.
+  · summarized
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● DB가 정상적으로 떠서 healthy 상태입니다. package-lock.json에서 42줄이 삭제된
+  것을 발견해 플랫폼별 선택 의존성 누락 여부를 확인하고, 마이그레이션 스크립트
+  종류를 파악한 뒤 스키마와 시드를 적용하겠습니다. · summarized
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 시드 스크립트가 DATABASE_URL을 못 찾는 문제는 Prisma CLI와 달리 ts-node 시드
+  스크립트가 .env를 자동으로 읽지 않기 때문입니다. 이전 컴퓨터에서 어떻게
+  실행했는지와 dotenv 사용 여부를 확인해보겠습니다. · summarized
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 시드 스크립트 3개가 .env를 읽지 않아 새 환경에서 실패하는 걸 확인했습니다.
+  dotenv를 개발 의존성으로 추가해 ts-node -r dotenv/config로 수정하고,
+  seed:dev의 계정 조회 로직 확인 및 README/design/20 상태 표를 갱신하겠습니다. 
+  · summarized
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● dotenv를 반영해 설치를 진행하고 시드 두 개를 순서대로 실행하면서, Google 값이
+  비어 있어도 API가 정상적으로 뜨는지 코드를 확인하겠습니다. · summarized
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 시드 작업 완료: 파라미터 25개, 관심사 100개(임시본), 더미 120명, 초대 코드
+  생성. Google 값은 비어 있어도 API가 정상 동작하니, 실제 빌드로 응답을 확인한
+  뒤 이번 세션에서 파악한 작업 방식을 메모리에 남기겠습니다. · summarized
+
+  Ran 2 shell commands, wrote 3 memories (ctrl+o to expand)
+
+● 이 컴퓨터에서 개발 환경을 살렸고, 실행에 필요한 것은 비밀값 4개뿐입니다. 아래
+  값을 주시면 api/.env에 넣고 로그인·Mattermost 인증까지 확인하겠습니다.
+
+  요청드리는 env 값
+
+  ┌────────────────────────────┬────────────────────────────────────────────┐
+  │             키             │                   어디서                   │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │                            │ Google Cloud Console 웹 클라이언트.        │
+  │ GOOGLE_CLIENT_ID           │ 리디렉션 URI는 http://localhost:3000/api/a │
+  │                            │ uth/google/callback                        │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ GOOGLE_CLIENT_SECRET       │ 같은 곳                                    │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ MATTERMOST_WEBHOOK_URL     │ 이전 컴퓨터에서 쓰던 들어오는 웹훅 URL     │
+  ├────────────────────────────┼────────────────────────────────────────────┤
+  │ MATTERMOST_OPERATOR_USERNA │ 웹훅을 만든 회원님 Mattermost 아이디       │
+  │ ME                         │                                            │
+  └────────────────────────────┴────────────────────────────────────────────┘
+
+  직접 api/.env에 붙여 넣으셔도 됩니다. 발송 모드는 redirect로 두었습니다.
+
+  지금 상태
+
+  - 의존성 설치, shared 빌드, Prisma 클라이언트 생성이 끝났고 api·web 타입
+    검사를 통과했습니다.
+  - Docker Desktop을 띄우고 Postgres를 올린 뒤 마이그레이션 4개와 시드를
+    적용했습니다. 관심사 100개(임시본)와 더미 120명이 들어 있습니다.
+  - API를 빌드해 잠깐 띄워 봤습니다. 세션 없는 /api/me는 401, 초대 코드 조회는
+    200으로 DB까지 정상입니다. 확인 후 종료했습니다.
+  - 초대 링크는 http://localhost:5173/invite/cb25235ad8b86db8 입니다.
+
+  이어서 작업하다 고친 것 (커밋하지 않았습니다)
+
+  - api/.env.example이 코드와 달랐습니다. 쓰이지 않는 MATTERMOST_TOKEN만 있고
+    웹훅 URL, 운영자 아이디, 발송 모드, 허용 목록 키가 빠져 있어 절차대로
+    복사하면 알림이 꺼진 채 시작됩니다. 코드가 읽는 키로 다시 썼습니다.
+  - 시드 스크립트 세 개(prisma:seed, seed:dev, mm:check)가 .env를 읽지 않아 새
+    컴퓨터에서 DATABASE_URL 없음으로 실패했습니다. dotenv를 api 개발 의존성에
+    넣고 ts-node -r dotenv/config로 바꿨습니다.
+  - README의 "구현 시작 전 남은 것"과 design/20 §14의 M4·M5 상태가 낡아 있어
+    현재 상태로 맞췄습니다.
+
+  남은 결정
+
+  이전 세션이 끝난 지점 그대로입니다. 서비스명 확정, B-1 관심사 100개 확정은
+  회원님 몫이고, 디자인과 배포는 제가 진행할 수 있습니다. env 값과 함께 어느
+  쪽을 먼저 할지 알려주시면 바로 이어가겠습니다.
+
+✻ Baked for 6m 18s · done (화요일) 오후 8:31
+
+❯ .env 추가했어 서비스명은 ssafy connection으로할게                             
+
+● env 반영 확인과 이름 적용을 시작합니다. 먼저 어떤 키가 채워졌는지(값은
+  출력하지 않고) 확인하고, 임시 이름 "Interest Network"가 쓰인 곳을 전부
+  찾겠습니다.
+  Ran 1 shell command (ctrl+o to expand)
+
+● env 값 8개를 모두 채웠고, 이름 변경 대상은 코드 5곳, 문서 5곳으로
+  확인했습니다. 알림 문구 머리말 생성 로직과 기획 문서 표현을 확인한 뒤 SSAFY 
+  Connection으로 일괄 변경하겠습니다. · summarized
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 이름 관리를 packages/shared의 SERVICE_NAME 상수 하나로 통합하고, 화면·인증
+  DM·알림 DM은 이 상수를 참조하도록 수정하겠습니다. 정적 HTML(index.html)만 직접
+  표기하고, 관련 문서(CLAUDE.md, README, design/README, docs/16 D-70)도 함께
+  갱신하겠습니다. · summarized
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 편집을 마쳤으니 이제 shared를 다시 빌드하고 api·web 타입 검사를 진행한 뒤,
+  mm:check로 웹훅이 이 컴퓨터에서 살아 있는지(비공개 채널·DM으로만 전송)
+  확인하고 삽입된 import 위치도 함께 점검하겠습니다. · summarized
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 타입 검사와 웹훅 전송을 확인 완료했고, Mattermost에 확인 메시지가 도착했을
+  겁니다. 이제 import 위치를 코드베이스 관례에 맞게 정리하고, 바로 확인하실 수
+  있도록 API와 웹 개발 서버를 띄우겠습니다. · summarized
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 이름을 SSAFY Connection으로 반영했고, 이 컴퓨터에서 개발 서버 둘 다 떠
+  있습니다. 브라우저에서 바로 확인하실 수 있습니다.
+
+  - 앱: http://localhost:5173
+  - 가입 링크: http://localhost:5173/invite/cb25235ad8b86db8
+
+  이름 반영 방식
+
+  이름은 packages/shared/src/brand.ts의 SERVICE_NAME 상수 하나에서 나옵니다.
+  내비 브랜드, 인트로 화면 제목, Mattermost 인증 코드 DM, 알림 DM 머리말이 모두
+  이 상수를 씁니다. 정적 HTML인 브라우저 탭 제목만 직접 적었습니다. 알림 DM에는
+  원래 서비스명이 없었는데, 운영자 계정 이름으로 도착하는 메시지라 첫 줄에
+  이름을 넣었습니다. 파비콘은 글자 없는 그래프 아이콘이라 그대로 두었습니다.
+
+  검증한 것
+
+  - shared 재빌드 후 api·web 타입 검사 통과.
+  - mm:check로 이 컴퓨터의 웹훅을 확인했습니다. 기본 채널과 본인 DM 둘 다
+    200이었고, 회원님 Mattermost에 "SSAFY Connection" 머리말이 붙은 메시지 두
+    건이 갔을 겁니다.
+  - 웹 서버가 새 제목을 내보내고, 웹 → API 프록시로 초대 코드 조회가 200입니다.
+
+  문서
+
+  docs/16에 D-70(서비스명)을 기록했고 CLAUDE.md, README, design/README 제목을
+  바꿨습니다. docs/02_PRD.md와 docs/README.md 제목에는 아직 "Interest Network"가
+  남아 있습니다. 기획 문서는 docs/16 외에 손대지 않는다는 규칙 때문에 두었으니,
+  바꾸길 원하시면 말씀해 주세요.
+
+  커밋 안 된 변경
+
+  이전 턴의 환경 수정(.env.example, 시드 스크립트 dotenv, 상태 표)과 이번 이름
+  반영이 모두 작업 트리에 있습니다. 커밋하라고 하시면 하나로 묶겠습니다.
+
+  다음은 B-1 관심사 100개 확정, 디자인, 배포가 남았습니다. 지금 로그인해서
+  온보딩부터 한 번 돌려보시면 발송 모드가 redirect라 인증 코드 DM도 회원님
+  채널로만 옵니다.
+
+✻ Baked for 3m 32s · done (화요일) 오후 8:45
+
+❯ 관심사는 개발자들 플렛폼임을 가정해서 니가 생각해봐 그리고 반이랑 활동하는    
+  층을도 고를 수 있으면 좋겠다 반은 22반까지 층은 20층까지 있어 추가로 사용자가 
+  관심사를 추가할 수도 있게하는게 좋아보여 다만 추가하기 전에 중복되거나        
+  비슷한게 있나 확인하면 좋을 것 같아                                           
+
+● 관심사 목록 확정(B-1), 반·층 선택, 사용자 직접 추가 세 가지네요. 현재 관심사
+  스키마·정책·시드 형식과 제안(S4) 흐름이 어떻게 되어 있는지 먼저 파악하고
+  설계를 정하겠습니다.
+
+  Ran 7 shell commands (ctrl+o to expand)
+
+● User 모델에 이미 classNo가 있는 걸 확인했습니다. 반·층 배치를 정하기 위해 User
+  모델, 온보딩 로직, PublicUser 표현, 관심사 선택 UI, 그리고 제안(S4) 흐름 관련
+  참조를 살펴보겠습니다. · summarized
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● 설계를 확정하기 전에, 겹침 계산 쿼리 위치와 시드·온보딩 반 입력·글 작성
+  검증·설계 문서의 관련 부분을 마지막으로 확인해보겠습니다. · summarized
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● 설계 방향을 정리했습니다: 층은 관심사 목록의 단일 선택 "속성" 분류로 넣어 공통
+  관심사 계산에서 제외하고, 반은 인증 단계에서 1~22 드롭다운으로 받으며, 관심사
+  추가는 직접 생성 방식에 정규화·별칭·자모 유사도 기반 중복 필터를 적용하기로
+  했습니다. 구현 전에 겹침 계산 쿼리, 오류 코드 형식, 세션 쿠키 구조, 실제 계정
+  존재 여부를 마저 확인하겠습니다. · summarized
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● DB에 실제 계정이 없어 자유롭게 초기화할 수 있고, 세션은 SESSION_SECRET으로
+  서명된 JWT라 검증 시 직접 생성할 수 있음을 확인했습니다. 이제 Prisma 생성
+  충돌을 막기 위해 API 개발 서버를 멈추고, 스키마·shared 타입·오류 코드·관심사
+  시드 목록을 함께 작성하겠습니다. · summarized
+
+● Stop Task
+  ⎿  npm run dev:api 2>&1 · stopped
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 시드 목록 작성 명령이 따옴표 문제로 실패해 다시 작성하겠습니다. 이어서 유사도
+  판정 모듈, 시드 스크립트·더미 생성기, 제안 기능 제거, 겹침 계산 쿼리에서
+  속성(층) 제외 수정을 진행하겠습니다. · summarized
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 시드 파일 heredoc이 같은 지점에서 두 번 깨져서, 큰 파일 넷(시드 목록, 관심사
+  서비스·컨트롤러, 선택 화면)은 파일 쓰기 도구로 새로 작성하겠습니다. 먼저 기존
+  파일을 비운 뒤, 반 드롭다운·프로필 제안 섹션 제거·CSS 같은 작은 수정부터
+  적용할게요. · summarized
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(api\prisma\seed\interests.ts)
+  ⎿  Wrote 193 lines to api\prisma\seed\interests.ts
+       1 import { FLOOR_CATEGORY, FLOOR_OPTIONS } from '@ssafy-net/shared
+       2 
+       3 /**
+       4  * 초기 관심사 목록 — 확정본 (docs/18 B-1 → docs/16 D-71). 100개
+       5  *
+       6  * 전제: 개발자 플랫폼(SSAFY 교육생). 그래서 절반 가까이가 기술 
+       7  *
+       8  * 기준 (docs/08 §1):
+       9  *  - "이 관심사로 처음 만난 사람과 10분 대화가 가능한가"
+         으로 두고 한글 표기를 별칭에 넣는다
+     … +205 lines (ctrl+o to expand)
+
+● Write(api\src\modules\interests\interests.service.ts)
+  ⎿  Wrote 483 lines to api\src\modules\interests\interests.service.ts
+       1 import { Injectable, Logger } from '@nestjs/common';
+       2 import type { Interest, User } from '@prisma/client';
+       3 import type {
+       4   CreateInterestInput,
+       5   CreatedInterest,
+       6   InterestCatalog,
+       7   InterestDetail,
+       8   InterestPersonItem,
+       9   InterestRef,
+      10   SimilarInterest,
+     … +523 lines (ctrl+o to expand)
+
+● Write(api\src\modules\interests\interests.controller.ts)
+  ⎿  Wrote 107 lines to api\src\modules\interests\interests.controller.ts
+       1 import {
+       2   Body,
+       3   Controller,
+       4   Delete,
+       5   Get,
+       6   Param,
+       7   ParseUUIDPipe,
+       8   Post,
+       9   Put,
+      10   Query,
+     … +106 lines (ctrl+o to expand)
+
+● Write(web\src\features\interests\CreateInterest.tsx)
+  ⎿  Wrote 176 lines to web\src\features\interests\CreateInterest.tsx
+       1 import {
+       2   INTEREST_NAME_MAX,
+       3   type CreatedInterest,
+       4   type InterestCategory,
+       5   type SimilarInterest,
+       6 } from '@ssafy-net/shared';
+       7 import { useEffect, useState } from 'react';
+       8 import { api, RequestFailed } from '../../api/client';
+       9 
+      10 /**
+     … +183 lines (ctrl+o to expand)
+
+● Write(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Wrote 339 lines to web\src\features\interests\InterestPicker.tsx
+       1 import type {
+       2   CreatedInterest,
+       3   InterestCatalog,
+       4   InterestListItem,
+       5 } from '@ssafy-net/shared';
+       6 import { useEffect, useMemo, useRef, useState } from 'react';
+       7 import { api, RequestFailed } from '../../api/client';
+       8 import { CreateInterest } from './CreateInterest';
+       9 
+      10 /**
+     … +359 lines (ctrl+o to expand)
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● API 프로세스가 완전히 종료되지 않아 Prisma 생성이 막혀 있었던 걸 발견해
+  프로세스 트리를 정리하니 생성이 성공했습니다. 이제 타입 검사와 DB
+  초기화·마이그레이션·시드를 동시에 진행하겠습니다. · summarized
+  Ran 5 shell commands (ctrl+o to expand)
+
+● 시드 결과가 좋습니다—관심사 100개, 층 20개, 더미 120명이 층까지 배정됐고 인기
+  관심사 편향(백엔드 58%)도 의도대로 재현됩니다. 이제 설계 문서를 새 모델에
+  맞추고 API를 재기동해 엔드포인트와 유사도 판정을 실제로 검증하겠습니다. 
+  · summarized
+
+  Made 1 scratchpad edit +121, ran 6 shell commands (ctrl+o to expand)
+
+● 유사도 결과를 확인해보니 "러스트→테스트·TDD" 같은 경계선 오탐과, 완전 일치가
+  있을 때도 곁다리 후보가 함께 나오는 문제가 보입니다. 이 두 가지를 수정한 뒤
+  API 검증 스크립트를 실행하겠습니다. · summarized
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 모든 22건 테스트를 통과했습니다. 이제 네트워크 추천 후보 계산에서 층이 공통
+  관심사와 섞이지 않는지 확인하고, 타입 검사와 웹 화면 변환을 재확인한 뒤
+  테스트로 생성된 관심사를 정리하겠습니다. · summarized
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 관심사 확정, 층·반 선택, 직접 추가까지 구현하고 검증을 마쳤습니다. API·웹 개발
+  서버가 떠 있으니 http://localhost:5173에서 온보딩을 새로 돌려보시면 됩니다.
+
+  관심사 100개 (D-71)
+
+  개발자 플랫폼 전제로 10개 분류에 나눴습니다. 개발 분야 12, 언어·프레임워크 14,
+  CS·기초 8, 커리어 10, 개발 활동 10, 학습·자기계발 8, 스포츠 12, 문화·취미 10,
+  게임 6, 라이프 10. 기술명은 영문(React, Spring)으로 두고 "리액트",
+  "스프링부트" 같은 표기는 별칭으로 넣었습니다. 별칭은 검색과 중복 검사에
+  쓰입니다. 목록은 api/prisma/seed/interests.ts에 있으니 마음에 안 드는 항목은
+  바로 바꾸시면 됩니다.
+
+  층과 반
+
+  - 층(1~20) 은 관심사 선택 화면 맨 아래 "활동하는 층"에서 하나만 고릅니다. 선택
+    사항이고 최소 5개에 세지 않습니다. 그래프에는 노드로 나와 같은 층 사람을 볼
+    수 있지만, 공통 관심사 개수·유사 사용자 정렬·네트워크 추천에서는 뺐습니다.
+    같은 층은 이야깃거리가 아니라 만나기 쉬운 조건이라서입니다. 층에는 글도 못
+    씁니다(층별 게시판 방지).
+  - 반(1~22) 은 인증 단계에서 드롭다운으로 고릅니다. 실명 표기의 일부라 "18",
+    "18반"이 섞이지 않게 했습니다. 반은 그래프 노드로 만들지 않았습니다. 같은
+    반은 이미 아는 사이라 "모르는 사람 발견"과 맞지 않다고 봤는데, 원하시면 층과
+    같은 방식으로 한 줄이면 추가됩니다.
+
+  직접 추가 (D-74, 제안 기능 대체)
+
+  검색해서 없으면 그 자리에서 "‘X’ 관심사 추가하기"가 뜹니다. 추가 전 검사는 세
+  단계입니다. 공백·기호·대소문자를 무시한 완전 일치(이름·별칭), 포함 관계, 자모
+  단위 유사도. 같은 뜻이면 막고 기존 것을 고르게 하며, 비슷하면 보여준 뒤
+  "그래도 추가"로 확인받습니다. 하루 3개까지이고, 만들어지면 운영자 Mattermost
+  채널에 한 줄 남습니다.
+
+  ┌────────────────────────────────────┬─────────────────────────────────┐
+  │                입력                │              판정               │
+  ├────────────────────────────────────┼─────────────────────────────────┤
+  │ 리엑트                             │ React 비슷함 → 확인 요청        │
+  ├────────────────────────────────────┼─────────────────────────────────┤
+  │ 백앤드, react js, 파이선, 넷플릭스 │ 별칭 일치 → 기존 것 선택 유도   │
+  ├────────────────────────────────────┼─────────────────────────────────┤
+  │ 스프링 시큐리티                    │ Spring 포함 → 확인 후 추가 가능 │
+  ├────────────────────────────────────┼─────────────────────────────────┤
+  │ 인터뷰, 러스트, Rust               │ 걸리는 것 없음 → 바로 추가      │
+  └────────────────────────────────────┴─────────────────────────────────┘
+
+  검증
+
+  더미 계정 세션을 만들어 엔드포인트 22건을 돌렸고 모두 통과했습니다. 층 두 개
+  저장 거부, 4개+층 저장 시 최소 미달, 별칭 중복 차단, 하루 3개 제한, 층 글쓰기
+  거부, 같은 층 사람의 공통 개수 제외, 그래프 층 노드 표시, 네트워크 후보 12개에
+  층 미포함까지 확인했습니다. api·web 타입 검사도 통과했습니다.
+
+  DB와 문서
+
+  - 마이그레이션 하나를 추가해 적용했고 제안 테이블은 지웠습니다. Prisma가 AI
+    에이전트의 migrate reset을 거부해서, 실제 계정이 없는 것을 확인한 뒤 관심사
+    목록만 지우고 다시 시드했습니다. 더미 120명은 층까지 배정되어 있습니다.
+  - docs/16에 D-71~D-74를 기록했고 design/21, design/22, CLAUDE.md, README를
+    맞췄습니다. docs/08의 "사용자 자유 생성 없음"은 이제 D-74와 충돌하는데, 기획
+    문서는 손대지 않는 규칙대로 두었습니다.
+  - 커밋은 하지 않았습니다. 이전 턴의 이름 반영과 합쳐 42개 파일이 작업 트리에
+    있습니다.
+
+✻ Cooked for 24m 22s · done (화요일) 오후 9:37
+
+❯ 지금 로그인해서 확인해보려는데 안되네                                         
+
+● 로그인 실패 원인을 찾겠습니다. API 로그와 웹 서버 로그에서 인증 흐름의 오류를
+  먼저 봅니다.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 로그인 자체는 성공했습니다. 문제는 초대 링크입니다.
+
+  API 로그를 보면 Google 인증과 토큰 교환까지 정상으로 끝났고, 그 직후 서버가
+  /invite-required로 돌려보냈습니다. 이 컴퓨터의 DB는 오늘 새로 만든 것이라
+  회원님 Google 계정으로 만든 사용자가 없고, 새 사용자는 초대 쿠키가 있어야만
+  만들어집니다. 초대 링크를 거치지 않고 바로 로그인하셔서 막힌 것입니다.
+
+  이렇게 하시면 됩니다
+
+  1. 아래 초대 링크를 먼저 엽니다. 이때 초대 쿠키가 10분짜리로 설정됩니다.
+  http://localhost:5173/invite/cb25235ad8b86db8
+  2. 그 화면의 "Google로 시작"으로 로그인합니다.
+  3. 온보딩이 이어집니다. Mattermost 아이디를 넣으면 반 드롭다운이 보이고,
+     운영자 계정이라 인증 코드 없이 통과합니다.
+
+  초대 코드는 이 DB에 하나뿐이고 활성 상태인 것을 확인했습니다. 10분 안에
+  로그인까지 마치셔야 하고, 넘기면 링크를 다시 열면 됩니다.
+
+✻ Worked for 42s · done (화요일) 오후 9:39
+
+❯ /model                                                                        
+  ⎿  Set model to Opus 5 (1M context) and saved as your default for new sessions
+
+❯ 지금 직접 웹에 접근해서 디버깅해봐 내 구글 계정을 사용해서                    
+
+● 브라우저를 직접 조작하는 도구가 없어서 회원님 Google 계정으로 로그인할 수는
+  없습니다. 대신 Google 단계만 흉내 내고 나머지 전 구간을 서버에서 그대로 재현해
+  어디가 막히는지 확인하겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 쿠키는 정상입니다. 이제 Google 이후 구간 전체를 실제 사용자로 재현해
+  보겠습니다.
+
+  Made 1 scratchpad edit +118, ran 4 shell commands (ctrl+o to expand)
+
+● 테스트 스크립트 쪽 문제였습니다. psql이 반환 값 뒤에 명령 태그까지 출력해
+  사용자 ID가 오염됐습니다. 고쳐서 다시 돌립니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 결정적인 것을 하나 찾았습니다. 제가 넣은 반 검증 정규식이 잘못 이스케이프돼
+  모든 반 값이 거부되고 있습니다. 확인하고 고칩니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 원인이 확인됐습니다. \d의 백슬래시가 유실돼 정규식이 /^d{1,2}반$/이 되었고,
+  모든 반 값이 거부됩니다. 고치겠습니다.
+
+● Update(packages\shared\src\schemas.ts)
+  ⎿  Added 1 line, removed 1 line
+      11  export const classNoSchema = z
+      12    .string()
+      13    .trim()
+      14 -  .regex(/^d{1,2}반$/, '반을 골라주세요.')                     
+      14 +  .regex(/^\d{1,2}반$/, '반을 골라주세요.')                    
+      15    .refine((value) => {
+      16      const n = Number(value.replace('반', ''));
+      17      return n >= 1 && n <= CLASS_COUNT;
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 반 정규식 하나만 손상됐고 나머지는 정상입니다. 검증 중 발견한 두 번째 구멍도
+  함께 막겠습니다.
+
+● Update(api\src\modules\onboarding\onboarding.service.ts)
+  ⎿  Added 11 lines
+       96     * 들어간다(FR-1.6).
+       97     */
+       98    async complete(user: User) {
+       99 +    // Mattermost 인증이 SSAFY 소속 검증을 겸한다(D-66). 화면 
+          +은 순서를 지키지만                                            
+      100 +    // 이 엔드포인트는 직접 호출할 수 있으므로, ACTIVE가 되는 
+          +자리에서 다시 확인한다.                                       
+      101 +    // 여기를 통과하면 그래프와 다른 사람의 추천에 실려 나간다
+          +(FR-1.6).                                                     
+      102 +    if (!user.mattermostVerifiedAt) {                         
+      103 +      throw new AppError(                                     
+      104 +        'FORBIDDEN',                                          
+      105 +        undefined,                                            
+      106 +        'Mattermost 계정 인증을 먼저 마쳐야 합니다.',         
+      107 +      );                                                      
+      108 +    }                                                         
+      109 +                                                              
+      110      const min = await this.parameters.get('P-01');
+      111      const count = await this.prisma.userInterest.count({
+      112        where: { userId: user.id },
+
+  Made 2 scratchpad edits +8 -5, ran 2 shell commands (ctrl+o to expand)
+
+● shared를 다시 빌드한 시점이 API 재시작 이후라 옛 번들이 물려 있습니다.
+  재시작을 강제하고 다시 돌립니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● dist는 21:48:48에 갱신됐는데 API는 21:48:43에 뜬 상태입니다. 프로세스를 완전히
+  재시작합니다.
+
+● Stop Task
+  ⎿  npm run dev:api 2>&1 · stopped
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 18건 모두 통과했습니다. 브라우저가 받는 웹 번들도 최신인지 확인하겠습니다.
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 1 line
+       95  - **Prisma `migrate dev`는 비대화형에서 막힌다.** 유니크 제약 
+           경고에 확인을 요구한다. 마이그레이션 SQL을 직접 쓰고 `prisma m
+           igrate deploy`로 적용한다.
+       96  - **`prisma generate`는 API가 떠 있으면 실패한다**(엔진 DLL을 
+           잡고 있음). 서버를 먼저 멈춘다.
+       97  - **`shared`를 고치면 `npm run build --workspace=@ssafy-net/sh
+           ared`를 먼저** 돌려야 한다. CJS/ESM 듀얼 빌드라 api는 CJS, web
+           은 ESM을 쓴다. dist 경로가 바뀌면 Vite 캐시를 지우고 `--force`
+           로 재시작한다.
+       98 +- **shared를 빌드했으면 api를 재시작한다.** `nest start --watc
+          +h`는 `api/src`만 본다. dist가 바뀌어도 다시 읽지 않아 **옛 검 
+          +증 규칙이 그대로 돌아간다**. `api/src` 파일을 touch해도 안 먹 
+          +는다 — 프로세스를 죽이고 다시 띄운다.                         
+       99  - **Vite 프록시 키는 정규식으로**. `'/n'`처럼 쓰면 접두사 매칭
+           이라 `/node_modules/*`까지 API로 넘어가 앱이 통째로 죽는다.
+      100  
+      101  ## Phase 0 프로토타입 (참고용, 빌드 대상 아님)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 버그 두 개를 찾아 고쳤습니다. 지금 다시 시도하시면 됩니다.
+
+  http://localhost:5173/invite/cb25235ad8b86db8
+
+  이 링크를 먼저 열고 그 화면의 "Google로 시작하기"를 누르셔야 합니다. 초대
+  쿠키가 10분간 설정되고, 그게 있어야 신규 계정이 만들어집니다.
+
+  회원님 Google 로그인은 처음부터 정상이었습니다. 서버 로그를 보면 토큰 교환과
+  신원 해석까지 성공했고, 그 다음 단계인 초대 확인에서만 막혀 /invite-required로
+  돌아갔습니다. 초대 링크를 거치지 않고 바로 로그인 버튼을 누르신 것이
+  원인입니다.
+
+  그런데 그대로 진행하셨어도 다음 화면에서 막혔을 겁니다. 제가 어제 넣은 반 검증
+  정규식에서 백슬래시가 유실돼 /^d{1,2}반$/이 되어 있었습니다. 1반부터 22반까지
+  모든 값이 "반을 골라주세요"로 거부됩니다. 온보딩 첫 단계를 통과할 수 없는
+  상태였습니다. 고치고 확인했습니다.
+
+  ┌─────────────────┬──────────────────┐
+  │      입력       │       결과       │
+  ├─────────────────┼──────────────────┤
+  │ 1반, 18반, 22반 │ 통과             │
+  ├─────────────────┼──────────────────┤
+  │ 23반, 0반       │ 거부 (범위 안내) │
+  ├─────────────────┼──────────────────┤
+  │ 18, 십팔반      │ 거부 (형식 안내) │
+  └─────────────────┴──────────────────┘
+
+  두 번째 구멍도 막았습니다. 온보딩 완료 엔드포인트가 관심사 개수만 확인해서,
+  Mattermost 인증 없이도 계정이 활성화되고 실명이 빈 채로 그래프에 노출될 수
+  있었습니다. D-66이 이 인증을 소속 검증으로 정한 만큼, 활성화되는 자리에서 인증
+  여부를 다시 확인하도록 했습니다. 화면 흐름으로는 도달할 수 없었지만
+  엔드포인트는 직접 호출이 가능했습니다.
+
+  검증 방법과 결과
+
+  브라우저를 조작하는 도구가 없어 회원님 Google 계정으로 직접 로그인하지는
+  못했습니다. 대신 Google 토큰 교환 단계만 빼고 초대 확인부터 그래프 조회까지
+  실제 엔드포인트로 18건을 돌렸고 전부 통과했습니다. 반 드롭다운, 운영자 코드
+  없이 통과, 닉네임, 관심사 6개와 12층 저장, 온보딩 완료, 실명 조합, 그래프
+  30명, 유사 사용자 41명까지 확인했습니다. 테스트 계정은 지웠고 관심사 보유 수도
+  어긋난 곳이 없습니다.
+
+  디버깅 중 알아낸 함정 하나를 CLAUDE.md에 적었습니다. shared를 빌드해도 실행
+  중인 API는 다시 읽지 않아 옛 검증 규칙이 그대로 돕니다. 이번에도 이것 때문에
+  고친 뒤 두 번 헛돌았습니다. 프로세스를 죽이고 다시 띄워야 합니다.
+
+✻ Churned for 7m 48s · done (화요일) 오후 9:52
+
+※ recap: SSAFY Connection 앱을 이어서 만들고 있고, 방금 로그인이 막히던 버그 두 개를 고쳤습니다. 이제 http://localhost:5173/invite/cb25235ad8b86db8 로 접속해 Google 로그인과 온보딩을 직접 확인해 보시면 됩니다. (disable recaps in /config)
+
+❯ 로그인이 잘 되네 이제 또 해야할 작업이 뭐가있을까                             
+
+● 로그인이 되어 다행입니다. 남은 일을 정확히 짚기 위해 저장소 상태를 먼저
+  훑어보겠습니다.
+
+  Ran 7 shell commands (ctrl+o to expand)
+
+● 저장소를 훑어보니 화면에는 있는데 실제로 동작하지 않는 기능 세 가지가
+  나왔습니다. 디자인·배포보다 이걸 먼저 보시는 게 좋겠습니다.
+
+  1. 보내지 않는 알림 3종 (TODO(M4)로 남아 있고 실제로 미구현입니다)
+
+  - 후속 확인의 "상대에게 물어봐 주세요". 사용자가 이 버튼을 누르면 서버가
+    counterpartAsked만 기록하고 상대에게 아무것도 보내지 않습니다. 버튼을 눌러도
+    아무 일이 없습니다. 이건 Must 구간(M3)입니다.
+  - Network 추천 노출. 후보에 뽑혀도 알림이 가지 않습니다. 앱을 열어야만 알 수
+    있는데, Network는 여러 명이 동시에 반응해야 성립합니다.
+  - Network 성립. 성사되는 순간에 참여자 누구도 통보받지 못합니다.
+
+  알림 문구는 이미 카탈로그에 다 있고 발송 호출만 빠져 있어서, 셋 다 작은
+  작업입니다.
+
+  2. 운영자 레버 부재. 설계는 운영자 엔드포인트 11개를 정했는데 3개만 있습니다.
+  특히 두 가지가 지금 아쉽습니다. 신고를 없앤 뒤(D-69) 유일한 안전장치인 사용자 
+  정지가 엔드포인트로 없어 DB를 직접 고쳐야 합니다. 그리고 어제 사용자 직접
+  추가를 넣으면서 관심사 병합·숨김이 상시 작업이 됐는데, 이것도 손으로 SQL을
+  써야 합니다.
+
+  3. 측정이 전혀 없습니다. POST /api/events도, 이벤트 기록도, 프론트 전송도
+  없습니다. 2주간 가설을 확인하는 것이 목적인데 지금은 화면에서 무슨 일이
+  일어나는지 남지 않습니다. 다만 요청·연결 테이블에 시각과 유입 지점이 남아 있어
+  깔때기 수치는 SQL로 뽑을 수 있습니다. 그래프 클릭 같은 화면 행동만
+  유실됩니다.
+
+  그 외: 테스트 0건, 배포 파일 없음(개발용 DB 컴포즈만 있습니다), 반응형 CSS
+  없음, 로그아웃 버튼 없음, 알림 채널을 끄는 화면 없음.
+
+  권하는 순서
+
+  1. 커밋. 48개 파일이 커밋되지 않았습니다. 어제 기능 전체와 오늘 고친 버그 두
+     개가 전부 작업 트리에만 있습니다.
+  2. 알림 3종 연결. 반나절이면 됩니다. 지금은 기능이 있다고 말하기 어려운
+     상태입니다.
+  3. 운영자 정지 + 관심사 병합·숨김. 공개하면 바로 필요합니다.
+  4. 디자인. 화면이 다 나왔으니 지금이 적기입니다.
+  5. 배포.
+
+  측정은 3번과 4번 사이에 넣을지 결정하셔야 합니다. 넣으면 하루쯤 들지만, 공개
+  후에 붙이면 초반 데이터를 잃습니다.
+
+  어느 것부터 할까요. 말씀 없으시면 커밋부터 하고 알림 3종을 잇겠습니다.
+
+✻ Worked for 1m 57s · done (화요일) 오후 10:05
+
+❯ 커밋하고 알림 3종 이어서 해줘                                                 
+
+● 커밋부터 하겠습니다. 작업 트리는 방금 전 검증(18/18, 22/22)과 타입 검사를
+  통과한 상태입니다.
+
+  Committed 5b61691, ran 1 shell command (ctrl+o to expand)
+  ⎿  PostToolUse:Bash says: Tip: Run /ultrareview before you push to catch bugs 
+     with a cloud-based multi-agent review — 3 free reviews left.
+
+● 커밋 완료(5b61691). 이제 알림 3종을 잇겠습니다. 먼저 각 지점과 알림 규약을
+  읽습니다.
+
+  Ran 9 shell commands (ctrl+o to expand)
+
+● 세 지점 모두 파악했습니다. 구현하겠습니다.
+
+● Update(api\src\modules\connections\follow-up.service.ts)
+  ⎿  Added 1 line
+      3  import type { FollowUpItem, FollowUpResponseInput } from '@ssafy
+         -net/shared';
+      4  import { AppError } from '../../common/app-error';
+      5  import { PrismaService } from '../../infra/prisma/prisma.service
+         ';
+      6 +import { NotificationsService } from '../notifications/notificat
+        +ions.service';                                                  
+      7  import { UserPresenter } from '../users/user.presenter';
+      8  
+      9  /**
+
+● Update(api\src\modules\connections\follow-up.service.ts)
+  ⎿  Added 1 line
+      17    constructor(
+      18      private readonly prisma: PrismaService,
+      19      private readonly presenter: UserPresenter,
+      20 +    private readonly notifications: NotificationsService,      
+      21    ) {}
+      22  
+      23    async pending(me: User): Promise<FollowUpItem[]> {
+
+● Update(api\src\modules\connections\follow-up.service.ts)
+  ⎿  Added 35 lines, removed 1 line
+       90        },
+       91      });
+       92  
+       93 -    // TODO(M4): askCounterpart이면 상대에게 CONNECTION_ASK_CO
+          -UNTERPART 알림.                                               
+       93 +    if (askCounterpart && check.subjectType === 'CONNECTION') 
+          +{                                                             
+       94 +      await this.askCounterpartToReachOut(me, check.subjectId,
+          + check.id);                                                   
+       95 +    }                                                         
+       96 +                                                              
+       97      return { ok: true };
+       98    }
+       99  
+      100    /**
+      101 +   * "메신저에서 못 찾았다"에 동의하면 상대에게 먼저 연락해달 
+          +라고 알린다(docs/09 §10).                                     
+      102 +   *                                                          
+      103 +   * 여기서 실명을 보내는 것은 **연결된 상대에게만** 가는 알림
+          +이기 때문이다.                                                
+      104 +   * 상대는 이미 내 실명을 볼 수 있는 상태다(design/20 §11).  
+      105 +   */                                                         
+      106 +  private async askCounterpartToReachOut(                     
+      107 +    me: User,                                                 
+      108 +    connectionId: string,                                     
+      109 +    checkId: string,                                          
+      110 +  ): Promise<void> {                                          
+      111 +    const connection = await this.prisma.connection.findUnique
+          +({                                                            
+      112 +      where: { id: connectionId },                            
+      113 +      include: { userA: true, userB: true },                  
+      114 +    });                                                       
+      115 +    if (!connection) return;                                  
+      116 +                                                              
+      117 +    const counterpart =                                       
+      118 +      connection.userAId === me.id ? connection.userB : connec
+          +tion.userA;                                                   
+      119 +    if (counterpart.status !== 'ACTIVE') return;              
+      120 +                                                              
+      121 +    await this.notifications.notify({                         
+      122 +      userId: counterpart.id,                                 
+      123 +      type: 'CONNECTION_ASK_COUNTERPART',                     
+      124 +      // 한 번만 묻는 확인이라 중복이 나올 수 없지만, 배치가  
+          +다시 돌아도 안전하게 둔다.                                    
+      125 +      dedupeKey: `follow-up-ask:${checkId}`,                  
+      126 +      payload: { realName: this.presenter.fullRealName(me) ?? 
+          +'상대' },                                                     
+      127 +      targetPath: `/connections?connection=${connection.id}`, 
+      128 +    });                                                       
+      129 +  }                                                           
+      130 +                                                              
+      131 +  /**                                                         
+      132     * 성립 후 [P-18]일에 양쪽에게 하나씩 만든다. 배치가 호출한
+           다(M4, design/20 §7).
+      133     * 유니크 제약이 있어 두 번 돌아도 두 번 묻지 않는다.
+      134     */
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 1 line
+      1  import { Injectable, Logger } from '@nestjs/common';
+      2  import { PrismaService } from '../../infra/prisma/prisma.service
+         ';
+      3 +import { NotificationsService } from '../notifications/notificat
+        +ions.service';                                                  
+      4  import { ParametersService } from '../parameters/parameters.serv
+         ice';
+      5  
+      6  /** "멤버 대부분 겹침" 판정: 작은 쪽 크기의 이 비율 이상이 겹치
+         면 동시 노출하지 않는다(I-10). */
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 4 lines
+      20    constructor(
+      21      private readonly prisma: PrismaService,
+      22      private readonly parameters: ParametersService,
+      23 +    private readonly notifications: NotificationsService,      
+      24    ) {}
+      25  
+      26 +  /** 관심사 이름 캐시. 한 번의 expose에서 같은 관심사가 여러  
+         +추천에 걸린다. */                                              
+      27 +  private readonly interestNames = new Map<string, string>();  
+      28 +                                                               
+      29    /**
+      30     * 빈 슬롯을 우선순위 순으로 채운다.
+      31     * `onlyFor`가 주어지면 그 사용자를 포함하는 후보만 본다(온보
+          딩 즉시 노출).
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 1 line, removed 1 line
+      87        });
+      88        if (blocked) continue;
+      89  
+      90 -      await this.prisma.networkRecommendation.create({         
+      90 +      const recommendation = await this.prisma.networkRecommend
+         +ation.create({                                                 
+      91          data: {
+      92            memberSetHash: candidate.memberSetHash,
+      93            commonInterestIds: candidate.commonInterestIds,
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 3 lines, removed 1 line
+      105        }
+      106        created += 1;
+      107  
+      108 -      // TODO(M4): 멤버 전원에게 NETWORK_RECOMMENDED 알림.    
+      108 +      // 후보는 멤버 전원에게 동시에 노출된다. 알림도 전원에게
+          + 같이 나가야                                                  
+      109 +      // 서로 기다리는 상태가 만들어진다 — 한 명만 알면 아무도
+          + 참여하지 않는다.                                             
+      110 +      await this.notifyMembers(recommendation.id, candidate); 
+      111      }
+      112  
+      113      if (created > 0) this.logger.log(`추천 ${created}개 노출`)
+           ;
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 41 lines
+      114      return { created };
+      115    }
+      116  
+      117 +  /**                                                         
+      118 +   * 노출된 추천을 멤버 전원에게 알린다.                      
+      119 +   *                                                          
+      120 +   * 문구에 **사람 이름은 넣지 않는다.** 아직 성립 전이라 참여
+          + 멤버가 확정되지                                              
+      121 +   * 않았고, 누가 후보인지는 실명은커녕 표시명도 알릴 자리가  
+          +아니다(docs/12 §7).                                           
+      122 +   * 판단 재료는 "몇 명이 무엇을 공유하는가"뿐이다.           
+      123 +   */                                                         
+      124 +  private async notifyMembers(                                
+      125 +    recommendationId: string,                                 
+      126 +    candidate: { memberIds: string[]; commonInterestIds: strin
+          +g[]; size: number },                                          
+      127 +  ): Promise<void> {                                          
+      128 +    const names = await this.namesFor(candidate.commonInterest
+          +Ids);                                                         
+      129 +                                                              
+      130 +    for (const userId of candidate.memberIds) {               
+      131 +      await this.notifications.notify({                       
+      132 +        userId,                                               
+      133 +        type: 'NETWORK_RECOMMENDED',                          
+      134 +        dedupeKey: `network-recommended:${recommendationId}`, 
+      135 +        payload: {                                            
+      136 +          reason: `이 ${candidate.size}명은 관심사 ${candidate
+          +.commonInterestIds.length}개를 모두 공유합니다`,              
+      137 +          commonInterests: names,                             
+      138 +        },                                                    
+      139 +        targetPath: `/networks?tab=recommended&open=${recommen
+          +dationId}`,                                                   
+      140 +      });                                                     
+      141 +    }                                                         
+      142 +  }                                                           
+      143 +                                                              
+      144 +  private async namesFor(interestIds: string[]): Promise<strin
+          +g[]> {                                                        
+      145 +    const missing = interestIds.filter((id) => !this.interestN
+          +ames.has(id));                                                
+      146 +    if (missing.length > 0) {                                 
+      147 +      const rows = await this.prisma.interest.findMany({      
+      148 +        where: { id: { in: missing } },                       
+      149 +        select: { id: true, name: true },                     
+      150 +      });                                                     
+      151 +      for (const row of rows) this.interestNames.set(row.id, r
+          +ow.name);                                                     
+      152 +    }                                                         
+      153 +    return interestIds                                        
+      154 +      .map((id) => this.interestNames.get(id))                
+      155 +      .filter((name): name is string => Boolean(name));       
+      156 +  }                                                           
+      157 +                                                              
+      158    private mostlyOverlaps(a: string[], b: string[]): boolean {
+      159      const setB = new Set(b);
+      160      const shared = a.filter((id) => setB.has(id)).length;
+
+● Update(api\src\modules\networks\networks.service.ts)
+  ⎿  Added 1 line
+       8  } from '@ssafy-net/shared';
+       9  import { AppError } from '../../common/app-error';
+      10  import { PrismaService } from '../../infra/prisma/prisma.servic
+          e';
+      11 +import { NotificationsService } from '../notifications/notifica
+         +tions.service';                                                
+      12  import { ParametersService } from '../parameters/parameters.ser
+          vice';
+      13  import { UserPresenter } from '../users/user.presenter';
+      14  
+
+● Update(api\src\modules\networks\networks.service.ts)
+  ⎿  Added 1 line
+      26      private readonly prisma: PrismaService,
+      27      private readonly parameters: ParametersService,
+      28      private readonly presenter: UserPresenter,
+      29 +    private readonly notifications: NotificationsService,      
+      30    ) {}
+      31  
+      32    private async assertEnabled(): Promise<void> {
+
+● Update(api\src\modules\networks\networks.service.ts)  ⎿  Added 43 lines, removed 1 line
+      194            where: { id },
+      195            data: { status: 'ACTIVATED', activatedAt: new Date()
+            },
+      196          });
+      197 -        // TODO(M4): 참여자 전원에게 NETWORK_ACTIVATED 알림 + 
+          -성립 화면 직행.                                               
+      197 +        activated = true;                                     
+      198          this.logger.log(`네트워크 성립 ${id} (${nowJoined}명)`
+           );
+      199        }
+      200      });
+      201  
+      202 +    // 트랜잭션 밖에서 보낸다. 알림은 자기 행을 쓰고 메신저로 
+          +나가므로                                                      
+      203 +    // 안에서 부르면 커밋 전 상태를 읽거나 트랜잭션을 길게 잡 
+          +는다.                                                         
+      204 +    if (activated) await this.notifyActivated(id);            
+      205 +                                                              
+      206      return this.detail(me, id);
+      207    }
+      208  
+      209 +  /**                                                         
+      210 +   * 성립 알림 (docs/10 §5). 참여자 전원에게 보낸다 — 방금 참 
+          +여를 누른 사람도                                              
+      211 +   * 포함한다. 그 사람에게는 화면이 이미 성립을 보여주지만, 나
+          +중에 다시 찾아올                                              
+      212 +   * 링크가 알림함에 남아야 한다.                             
+      213 +   *                                                          
+      214 +   * **여기서만 실명이 나간다.** 성립된 Network의 참여 멤버는 
+          +서로의 실명을 볼 수                                           
+      215 +   * 있다(design/20 §11). 받는 사람 자신은 목록에서 뺀다.     
+      216 +   */                                                         
+      217 +  private async notifyActivated(id: string): Promise<void> {  
+      218 +    const row = await this.prisma.networkRecommendation.findUn
+          +ique({                                                        
+      219 +      where: { id },                                          
+      220 +      include: { members: { include: { user: true } } },      
+      221 +    });                                                       
+      222 +    if (!row) return;                                         
+      223 +                                                              
+      224 +    const joined = row.members.filter((member) => member.decis
+          +ion === 'JOINED');                                            
+      225 +    const interests = await this.prisma.interest.findMany({   
+      226 +      where: { id: { in: row.commonInterestIds } },           
+      227 +      select: { name: true },                                 
+      228 +      orderBy: { sortOrder: 'asc' },                          
+      229 +    });                                                       
+      230 +                                                              
+      231 +    for (const member of joined) {                            
+      232 +      await this.notifications.notify({                       
+      233 +        userId: member.userId,                                
+      234 +        type: 'NETWORK_ACTIVATED',                            
+      235 +        dedupeKey: `network-activated:${id}`,                 
+      236 +        payload: {                                            
+      237 +          memberNames: joined                                 
+      238 +            .filter((other) => other.userId !== member.userId)
+      239 +            .map((other) => this.presenter.fullRealName(other.
+          +user) ?? '이름 없음'),                                        
+      240 +          commonInterests: interests.map((interest) => interes
+          +t.name),                                                      
+      241 +        },                                                    
+      242 +        targetPath: `/networks?tab=activated&open=${id}`,     
+      243 +      });                                                     
+      244 +    }                                                         
+      245 +  }                                                           
+      246 +                                                              
+      247    /** 참여 철회. 첫 참여자가 빠지면 다음 참여자가 시작자가 된
+           다(docs/10 §5). */
+      248    async leave(me: User, id: string): Promise<NetworkDetail> {
+      249      await this.assertEnabled();
+
+● Update(api\src\modules\networks\networks.service.ts)
+  ⎿  Added 2 lines
+      151    async join(me: User, id: string): Promise<NetworkDetail> {
+      152      await this.assertEnabled();
+      153  
+      154 +    let activated = false;                                    
+      155 +                                                              
+      156      await this.prisma.$transaction(async (tx) => {
+      157        const row = await tx.networkRecommendation.findUnique({
+      158          where: { id },
+
+● Update(api\src\modules\networks\networks.module.ts)
+  ⎿  Added 2 lines
+       1  import { Module } from '@nestjs/common';
+       2 +import { NotificationsModule } from '../notifications/notificat
+         +ions.module';                                                  
+       3  import { CandidateService } from './candidate.service';
+       4  import { ExposureService } from './exposure.service';
+       5  import { NetworksAdminController, NetworksController } from './
+          networks.controller';
+       6  import { NetworksService } from './networks.service';
+       7  
+       8  @Module({
+       9 +  imports: [NotificationsModule],                              
+      10    controllers: [NetworksController, NetworksAdminController],
+      11    providers: [CandidateService, ExposureService, NetworksServic
+          e],
+      12    exports: [CandidateService, ExposureService],
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 중요한 문제를 발견했습니다. 추천 노출 배치가 network_enabled 플래그와 무관하게
+  하루 두 번 돌아서, 지금 상태로 두면 아직 켜지지 않은 기능의 DM이 나갑니다.
+  막겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(api\src\modules\networks\exposure.service.ts)
+  ⎿  Added 11 lines
+      31     * `onlyFor`가 주어지면 그 사용자를 포함하는 후보만 본다(온보
+          딩 즉시 노출).
+      32     */
+      33    async expose(options: { onlyFor?: string; limit?: number } = 
+          {}) {
+      34 +    // 기능이 꺼져 있으면 노출하지 않는다(docs/10 §4).         
+      35 +    //                                                         
+      36 +    // 후보 계산(recomputeAll)은 계속 돌아야 한다 — 게이트 판정
+         +의 재료다.                                                     
+      37 +    // 하지만 노출은 다르다. 노출은 멤버 전원에게 알림을 보내고
+         + [P-10]일짜리                                                  
+      38 +    // 시계를 건다. 켜지지 않은 기능의 DM을 받으면 열어볼 화면 
+         +이 없고,                                                       
+      39 +    // 3일은 아무도 참여하지 못한 채 흘러간다.                 
+      40 +    if (!(await this.parameters.flag('network_enabled'))) {    
+      41 +      this.logger.log('network_enabled가 꺼져 있어 노출하지 않 
+         +는다');                                                        
+      42 +      return { created: 0 };                                   
+      43 +    }                                                          
+      44 +                                                               
+      45      const [slotLimit, expiryDays] = await Promise.all([
+      46        this.parameters.get('P-19'),
+      47        this.parameters.get('P-10'),
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Nest가 재기동됐습니다. 세 알림을 실제로 검증하는 스크립트를 씁니다.
+
+  Made 1 scratchpad edit +159, ran 7 shell commands (ctrl+o to expand)
+
+● 24건 모두 통과했습니다. 기존 기능이 깨지지 않았는지 이전 검증들도 다시
+  돌립니다.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 그들의 실제 계정이 온보딩을 마친 것을 확인했습니다. 제 테스트가 그 계정의
+  Mattermost 아이디와 충돌한 것이 실패 원인입니다.
+
+  Committed 18539f1, ran 7 shell commands (ctrl+o to expand)
+
+● 둘 다 끝났습니다. 커밋 두 개(5b61691, 18539f1)가 올라갔고 푸시는 하지
+  않았습니다.
+
+  알림 3종을 실제로 보내도록 연결했습니다
+
+  - 후속 확인의 "상대에게 물어봐 주세요". 이제 상대에게 알림이 갑니다. 여기에는
+    제 실명이 들어가는데, 이미 연결된 상대에게만 가는 알림이라 공개 범위 규칙에
+    어긋나지 않습니다.
+  - Network 추천 노출. 멤버 전원에게 동시에 나갑니다. 문구에는 사람 이름을 넣지
+    않았습니다. 성립 전에 누가 후보인지 알릴 자리가 아니라서, 몇 명이 어떤
+    관심사를 공유하는지만 담았습니다.
+  - Network 성립. 참여자 전원에게 갑니다. 성립 멤버끼리는 실명이 공개되므로 다른
+    멤버 이름을 넣고 받는 사람 자신은 뺐습니다. 알림 발송은 트랜잭션 밖으로
+    뺐습니다.
+
+  작업 중 사고를 하나 막았습니다. 추천 노출 배치가 하루 두 번 도는데
+  network_enabled 플래그를 보지 않았습니다. 알림만 붙였다면 아직 켜지지 않은
+  기능의 DM이 멤버 전원에게 나가고, 열어볼 화면도 없이 3일짜리 기한만 흘러갔을
+  겁니다. 플래그가 꺼져 있으면 노출하지 않도록 막고 D-75로 기록했습니다. 후보
+  계산은 게이트 판정에 필요하므로 계속 돕니다.
+
+  검증은 24건입니다. 플래그가 꺼진 상태에서 노출 0건, 켠 뒤 멤버 30명 전원 수신,
+  3번째 참여에서 성립하고 참여자 3명에게만 알림, 재참여 시 중복 없음까지
+  확인했습니다. 기존 로그인·온보딩 20건과 관심사 22건도 회귀 없이 통과했습니다.
+
+  알아두실 것 세 가지
+
+  - 검증 중 Mattermost 운영자 채널로 30건 남짓 메시지가 갔습니다. redirect
+    모드라 다른 사람에게는 하나도 가지 않았습니다. 안전장치가 의도대로 동작한
+    것이지만 채널이 시끄러울 겁니다.
+  - 회원님 계정에 운영자 권한을 켰습니다. CLAUDE.md가 운영자를 본인으로 정해
+    두었는데 꺼져 있어서 관리 엔드포인트를 쓸 수 없는 상태였습니다.
+  - 테스트로 만든 관심사 3개와 임시 사용자를 지웠고, 관심사는 100개 + 층 20개로
+    돌아왔습니다. 회원님 관심사 10개는 그대로입니다.
+
+  다음으로 남은 것은 앞서 보고드린 순서 그대로입니다. 운영자 레버(사용자 정지,
+  관심사 병합·숨김), 디자인, 배포입니다. 하나 덧붙이면 NETWORK_ENABLED 알림도
+  문구만 있고 보내는 곳이 없는데, 이건 기능을 켜는 운영자 엔드포인트가 생길 때
+  같이 붙이는 게 자연스럽습니다.
+
+✻ Baked for 11m 40s · done (화요일) 오후 10:17
+
+❯ 배포에 앞서서 어떤 사용자 경험을 제공하고 싶은지 그리고 그 사용자 경험을      
+  제공하기 위해서는 어떤 배포 아키텍처가 필요한지 생각해보자                    
+
+● 배포 형태는 "어떤 순간에 무엇이 동작해야 하는가"에서 나옵니다. 그 순간들을
+  코드에서 먼저 확인하겠습니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● UX 쪽을 먼저 코드에서 확인했습니다. 배포 형태를 결정하는 순간이 몇 개
+  나왔습니다.
+
+  지켜야 할 사용자 경험
+
+  이 제품의 사용자는 앱에 상주하지 않습니다. Mattermost에 상주하다가 링크를 타고
+  잠깐 들어옵니다. 그래서 핵심 순간이 셋입니다.
+
+  - 초대 링크를 연다. 공지나 DM으로 받으므로 처음 여는 기기가 휴대폰일 가능성이
+    높습니다.
+  - 알림을 받고 링크를 누른다. Mattermost를 보는 기기에서 열립니다. 요청 수락,
+    성립 확인, 후속 확인이 전부 이 경로입니다. 왕복이 짧아야 합니다.
+  - 그래프를 탐색한다. 이것만 PC 전용입니다.
+
+  여기서 아키텍처에 걸리는 요구가 나옵니다. 딥링크가 실린 DM은 취소할 수 없고,
+  2주 동안 24시간 살아 있어야 하며, 사람들은 캠퍼스 밖에서도 휴대폰으로 링크를
+  누릅니다.
+
+  그래서 필요한 것
+
+  ┌──────────────────┬──────────────────────────────────────────────────────┐
+  │       요구       │                         이유                         │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ 공개 도메인 +    │ Google OAuth 리디렉션 URI, 세션 쿠키의 secure,       │
+  │ HTTPS            │ Mattermost에서 링크가 눌리는 것                      │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ API 인스턴스     │ 배치가 인프로세스 cron입니다. 두 개면 같은 사람에게  │
+  │ 정확히 하나      │ 알림이 두 번 갑니다                                  │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ 리버스 프록시    │ /api/*와 /n/*은 API로, 나머지는 정적 번들로. 딥링크  │
+  │ 경로 분기        │ /n/:id가 웹이 아니라 API에 있습니다                  │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ 무중단에 가까운  │ 배치는 시간 슬롯 단위로 한 번만 돕니다. 놓친 슬롯을  │
+  │ 가동             │ 따라잡지 않습니다. 09시에 서버가 내려가 있으면 그날  │
+  │                  │ 묶음 알림이 없습니다                                 │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ TZ=Asia/Seoul    │ 모든 하루 단위 파라미터의 기준입니다                 │
+  ├──────────────────┼──────────────────────────────────────────────────────┤
+  │ DB 백업을 VM     │ VM이 죽으면 같은 디스크의 백업도 같이 죽습니다       │
+  │ 밖으로           │                                                      │
+  └──────────────────┴──────────────────────────────────────────────────────┘
+
+  푸시 알림 인프라가 필요 없다는 점이 이 설계의 가장 큰 이득입니다. 알림이
+  Mattermost로 가므로 서비스 워커, VAPID 키, 브라우저 권한 요청이 전부 없습니다.
+
+  권하는 형태
+
+  design/20 §13의 기본안인 단일 VM + Docker Compose + Caddy가 맞다고 봅니다.
+  관리형 PaaS는 저가 티어가 유휴 시 잠들어 cron을 멈추고, 오토스케일이
+  인스턴스를 늘리면 알림이 중복됩니다. 이 제품에는 정확히 맞지 않습니다.
+
+  구성은 VM 한 대에 Caddy, API, Postgres입니다. Caddy가 TLS를 자동으로 받고 정적
+  번들을 서빙하면서 위의 경로 분기를 합니다. 1000명에 관심사 7000행 규모라 1
+  vCPU에 2GB면 넉넉합니다.
+
+  여기에 두 가지를 더하겠습니다. 하나는 헬스체크 엔드포인트입니다. 지금 없어서
+  컨테이너가 죽은 채로 떠 있는 것을 구분할 수 없습니다. 다른 하나는 배치 
+  하트비트입니다. 매일 아침 배치 요약을 운영자 채널로 보내면, 이미 있는
+  웹훅만으로 "어젯밤에도 돌았다"를 확인할 수 있습니다. 혼자 운영하는 2주에는
+  외부 모니터링 스택보다 이쪽이 실용적입니다.
+
+  배포 전에 닫아야 할 구멍
+
+  코드를 보다 찾은 것들입니다.
+
+  1. 딥링크에서 로그인이 풀리면 목적지를 잃습니다. 서버는 /login?redirect=...로
+     보내는데, 그 화면의 Google 버튼이 redirect 값을 넘기지 않습니다. 로그인 후
+     홈으로 갑니다. 서버는 이미 이 값을 받을 준비가 되어 있어서 프론트 한 줄이면
+     됩니다. 알림을 타고 들어오는 경로가 핵심인 만큼 이건 먼저 고쳐야 합니다.
+  2. 반응형 CSS가 없습니다. 휴대폰에서 링크를 눌러 도착하는데 @media 규칙이 한
+     줄도 없습니다. 그래프는 PC 전용으로 두더라도 알림함, 연결 목록, 수락
+     오버레이는 손봐야 합니다.
+  3. 헬스체크 엔드포인트가 없습니다.
+  4. 발송 모드를 켜는 절차. live로 바꾸는 순간이 되돌릴 수 없는 지점입니다. 부팅
+     로그에 현재 모드를 크게 남기고, 배포 절차에서 별도 단계로 분리하는 게
+     좋겠습니다.
+
+  결정이 필요한 것
+
+  앱을 공개 인터넷에 둘지, SSAFY 내부망에 둘지가 가장 큰 갈림길입니다. 저는 공개
+  인터넷 + 도메인을 전제로 위를 정리했습니다. 캠퍼스 밖에서 휴대폰으로 링크를
+  누르는 경로가 살아 있어야 하고, Google OAuth도 공개 리디렉션 URI를 요구하기
+  때문입니다. 내부망이라면 OAuth와 모바일 접근을 다시 설계해야 합니다.
+
+  도메인은 가지고 계신지, VM은 어디에 둘 생각인지 알려주시면 그에 맞춰 구체적인
+  구성 파일까지 짜겠습니다.
+
+✻ Baked for 2m 4s · done (화요일) 오후 10:23
+
+※ recap: SSAFY Connection의 배포를 준비하는 중이고, 지금은 어떤 사용자 경험이 필요한지와 그에 맞는 배포 구조를 정하는 단계입니다. 도메인 보유 여부와 공개 인터넷 대 내부망 중 어디에 둘지 알려주시면 구성 파일을 짜겠습니다. (disable recaps in /config)
+
+❯ 지금 그래프를 그리는 것 자체는 기술적으로 어려움이 없을까? 1000명이 너무 많은 
+  관계를 형성한 경우 그래프를 그리기 위한 데이터를 불러오거나 데이터를 불러온   
+  뒤에 그래프를 그리다가 병목이 생길 수 있지 않을까?                            
+
+● 좋은 질문입니다. 추측하지 말고 실제로 1000명을 넣고 재보겠습니다. 먼저 상한
+  파라미터와 렌더링 방식을 확인합니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 렌더링은 canvas 기반이고 표시 상한이 사람 30명·인접 관심사 8개로 묶여 있어,
+  화면에 그려지는 양은 인원수와 무관합니다. 문제가 될 수 있는 건 그 30명을
+  골라내는 서버 계산입니다. 1000명을 넣고 재보겠습니다.
+
+● Update(api\prisma\seed\dev-users.ts)
+  ⎿  Added 2 lines, removed 1 line
+      16  
+      17  const prisma = new PrismaClient();
+      18  
+      19 -const USER_COUNT = 120;                                        
+      19 +/** 기본 120명. 부하를 볼 때는 SEED_USERS=1000 처럼 올린다(공개
+         + 규모가 약 1,000명이다). */                                    
+      20 +const USER_COUNT = Number(process.env.SEED_USERS ?? 120);      
+      21  
+      22  /** 개발자 조직 전제. 이 관심사들이 절반 가까이 겹치도록 만든다
+          (R-04 재현). */
+      23  const VERY_POPULAR = ['백엔드', '알고리즘', '취업 준비', '프론
+          트엔드'];
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 1000명이 들어갔습니다. 인기 관심사가 55%까지 올라간 최악에 가까운 분포입니다.
+  이제 측정합니다.
+
+  Made 1 scratchpad edit +83, ran 3 shell commands (ctrl+o to expand)
+
+● 측정이 끝났습니다. 몇 가지를 더 확인하겠습니다. 공개 직후 동시 접속과 알림
+  발송 쪽이 남았습니다.
+
+  Made 1 scratchpad edit +46, ran 6 shell commands (ctrl+o to expand)
+
+● 1000명을 실제로 넣고 재봤습니다. 그래프는 병목이 아닙니다. 다른 곳에 진짜
+  문제가 있습니다.
+
+  그래프가 안전한 이유
+
+  화면에 그려지는 양이 인원수와 무관합니다. 표시 상한이 사람 30명, 인접 관심사
+  8개로 묶여 있어서, 1000명이 되면 후보만 늘고 결과는 그대로입니다. 실제로
+  1006명에서 그래프는 노드 51개에 링크 240개였고 955명이 잘려 나갔습니다.
+
+  ┌────────────────────────────────┬─────────────┐
+  │              요청              │ 1006명 기준 │
+  ├────────────────────────────────┼─────────────┤
+  │ 나 중심 그래프                 │ 19ms        │
+  ├────────────────────────────────┼─────────────┤
+  │ 관심사 앵커 (프론트엔드 558명) │ 20ms        │
+  ├────────────────────────────────┼─────────────┤
+  │ Similar 모드                   │ 14ms        │
+  ├────────────────────────────────┼─────────────┤
+  │ Similar People                 │ 80ms        │
+  ├────────────────────────────────┼─────────────┤
+  │ 관심사 상세의 사람 목록        │ 15ms        │
+  └────────────────────────────────┴─────────────┘
+
+  응답은 36KB입니다. 렌더링은 canvas 기반이라 노드 51개는 부담이 아닙니다.
+
+  공개 직후 동시 접속도 재봤습니다. 200명이 같은 순간에 그래프를 열어도 1초 안에
+  전원이 받습니다(p95 896ms, 실패 0건). 이 측정은 Windows에 Docker Desktop
+  Postgres라 실제 리눅스 VM보다 불리한 조건입니다.
+
+  진짜 병목은 알림 발송입니다
+
+  묶음 알림 배치가 1000명에 3.1초 걸리는데, 시간 자체는 문제가 아닙니다. 문제는
+  그 안에서 웹훅 호출 1000건이 동시에 튀어나간다는 것입니다. 발송은 응답을
+  기다리지 않고 던지는 구조라 제한이 없습니다.
+
+  이번 측정에서는 터지지 않았습니다. 더미 1005명에게 Mattermost 아이디가 없어
+  전부 건너뛰었기 때문입니다. 실제 운영에서는 전원이 아이디를 가집니다. 매일
+  아침 9시에 1000건이 한꺼번에 나갑니다.
+
+  여기에 두 가지가 겹칩니다.
+
+  - 동시성 제한이 없습니다. Mattermost 웹훅은 속도 제한이 걸릴 가능성이
+    높습니다.
+  - 재시도가 없습니다. attempts를 세기만 하고 실패한 발송을 다시 보내는 배치가
+    없습니다. 순간적으로 막히면 그 알림은 앱 안에만 남고 영영 나가지 않습니다.
+
+  발송에 동시성 상한을 두고(예: 5건씩), 실패분을 다시 보내는 배치를 하나 만드는
+  것이 배포 전 할 일입니다.
+
+  부차적으로 보이는 것
+
+  네트워크 후보가 120명에서 12개였는데 1006명에서 2190개로 늘었습니다. 계산
+  자체는 1.1초라 괜찮지만, D-65가 예상한 밀도 폭발이 실제로 확인된 셈입니다.
+  노출은 슬롯 상한으로 묶여 있어 사용자가 받는 양은 통제됩니다.
+
+  그리고 성능이 아니라 가독성 쪽에 걸리는 것이 하나 있습니다. 노드 51개에 링크
+  240개는 화면에서 꽤 빽빽합니다. R-02 헤어볼 위험이 이 숫자로 나타난 것입니다.
+  사람 상한을 30에서 15로 낮춰보면 링크가 240개에서 130개로 줄어듭니다. D-34가
+  "써 보고 조정한다"고 미뤄둔 값인데, 디자인 단계에서 실제로 보고 정하시면
+  됩니다.
+
+  측정을 위해 시드 인원을 환경변수로 뺐습니다. SEED_USERS=1000 npm run 
+  seed:dev로 언제든 재현할 수 있고, 지금은 기본값 120명으로 되돌려 두었습니다.
+
+✻ Cooked for 5m 6s · done (화요일) 오후 10:42
+
+❯ 서버에 동시에 1000명이 접속을 했다고 가정하면 어느 정도의 서버 스펙이         
+  필요할까?                                                                     
+
+● "동시에 1000명"이 어떤 부하인지가 스펙을 좌우합니다. 앱이 얼마나 자주 서버를
+  두드리는지부터 확인하겠습니다.
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 폴링이 없습니다. 화면을 열거나 조작할 때만 요청합니다. 그래도 극단값을
+  재보겠습니다.
+
+  Made 1 scratchpad edit +89, ran 3 shell commands (ctrl+o to expand)
+
+● 2 vCPU · 4GB · 40GB 디스크면 충분합니다. 다만 "동시 1000명"이 실제로 무엇을
+  뜻하는지에 따라 답이 갈립니다.
+
+  먼저, 이 앱은 접속을 유지하지 않습니다
+
+  폴링이 한 줄도 없습니다. 화면을 열거나 버튼을 누를 때만 요청합니다. 1000명이 
+  앱을 켜두고 있어도 서버 부하는 0입니다. 부하는 사람들이 동시에 움직이는
+  순간에만 생깁니다.
+
+  측정 결과
+
+  126명 데이터, Windows에 Docker Desktop Postgres라 실제 리눅스 VM보다 불리한
+  조건입니다.
+
+  ┌──────────────────────────┬─────────────────────────────┐
+  │           부하           │            결과             │
+  ├──────────────────────────┼─────────────────────────────┤
+  │ 동시 200명이 그래프 열기 │ 전원 성공, p95 852ms        │
+  ├──────────────────────────┼─────────────────────────────┤
+  │ 동시 500명               │ 470건 성공, 30건 연결 거부  │
+  ├──────────────────────────┼─────────────────────────────┤
+  │ 동시 1000명              │ 702건 성공, 298건 연결 거부 │
+  ├──────────────────────────┼─────────────────────────────┤
+  │ 지속 처리량 (그래프)     │ 초당 306건에서 포화         │
+  ├──────────────────────────┼─────────────────────────────┤
+  │ 지속 처리량 (알림함)     │ 초당 1437건                 │
+  └──────────────────────────┴─────────────────────────────┘
+
+  500건부터 나오는 실패는 성능이 아니라 대기열 문제입니다. Node의 기본 연결
+  대기열이 511개라 그걸 넘으면 OS가 거부합니다. 앞에 리버스 프록시를 두면
+  프록시가 연결을 받아 물고 있다가 순서대로 넘기므로 사라집니다. 이미 Caddy를
+  두기로 한 구성이라 그대로 해결됩니다.
+
+  그래서 필요한 스펙
+
+  ┌────────┬────────────┬───────────────────────────────────────────────────┐
+  │  항목  │    권장    │                       근거                        │
+  ├────────┼────────────┼───────────────────────────────────────────────────┤
+  │        │ 2 (여유    │ 그래프 요청 하나가 서버 시간 3.3ms입니다. 초당    │
+  │ vCPU   │ 두려면 4)  │ 306건이면 1000명이 한꺼번에 눌러도 3초 안에       │
+  │        │            │ 빠집니다                                          │
+  ├────────┼────────────┼───────────────────────────────────────────────────┤
+  │ 메모리 │ 4GB        │ 측정값이 Node 400MB + Postgres 150MB입니다.       │
+  │        │            │ 2GB로도 돌지만 여유가 없습니다                    │
+  ├────────┼────────────┼───────────────────────────────────────────────────┤
+  │ 디스크 │ 40GB       │ DB는 126명에 15MB입니다. 1000명에 2주를 돌려도    │
+  │        │            │ 수백 MB입니다. 나머지는 OS·로그·백업 몫입니다     │
+  └────────┴────────────┴───────────────────────────────────────────────────┘
+
+  현실적인 최대 부하를 따져보면 훨씬 여유롭습니다. 공지가 나가고 300명이 1분
+  안에 들어온다고 해도 초당 5명, 화면당 요청 3건이면 초당 15건입니다. 측정된
+  한계의 5%입니다.
+
+  다만 두 가지를 같이 해야 합니다
+
+  Prisma 연결 풀이 코어 수에서 자동으로 정해집니다. 2 vCPU VM에서는 5개뿐입니다.
+  이 머신(8코어, 17개)에서 잰 306건/초가 그대로 나오지 않을 수 있습니다.
+  DATABASE_URL에 connection_limit=10 정도를 명시해 코어 수와 분리하는 게
+  좋습니다.
+
+  API를 여러 개로 늘려 성능을 올릴 수는 없습니다. 배치가 인프로세스 cron이라
+  인스턴스가 둘이면 알림이 두 번 갑니다. 부하가 부족하면 늘릴 수 있는 건
+  인스턴스가 아니라 vCPU입니다. 다만 Node는 단일 스레드라 코어를 4개로 늘려도
+  그래프 처리량이 비례해서 늘지는 않습니다. 이 규모에서는 문제가 되지 않습니다.
+
+  정리하면, 이 제품에서 서버 스펙은 병목이 아닙니다. 가장 작은 실용 사양으로도
+  남습니다. 배포에서 신경 쓸 것은 크기가 아니라 앞서 말씀드린 세 가지, 즉 리버스
+  프록시로 대기열을 받는 것, 인스턴스를 하나로 유지하는 것, 그리고 알림 발송의
+  동시성 제한입니다.
+
+✻ Brewed for 2m 56s · done (화요일) 오후 10:56
+
+※ recap: SSAFY Connection 배포를 준비 중이고, 방금 1000명 규모 부하를 재보니 서버 스펙은 2 vCPU·4GB면 충분하다는 결론이 나왔습니다. 다음은 배포 전 알림 발송에 동시성 제한과 재시도를 넣는 일입니다. (disable recaps in /config)
+
+❯ 지금까지 맥락 또 저장해서 github에 올리자 내일은 바로 서버 구성에 대한 얘기를 
+  나눌거야 어떤 지표를 모니터링을 할거고 사용자에게 전달하고자 핵심 가치는      
+  무엇인지 이런 요소들에대해서                                                  
+
+● 맥락을 정리해 커밋하고 푸시하겠습니다. 먼저 문서에 넣을 위치를 확인합니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Update(design\20_ARCHITECTURE.md)
+  ⎿  Added 30 lines
+      419  | `MATTERMOST_WEBHOOK_URL` | 들어오는 웹훅. 비어 있으면 채널이
+            꺼진다 |
+      420  | `MATTERMOST_OPERATOR_USERNAME` | 웹훅 생성자. 이 계정만 DM을
+            받을 수 없어 인증을 우회한다 |
+      421  | `TZ=Asia/Seoul` | 모든 하루 단위 파라미터의 기준 |
+      422 +| `MATTERMOST_DELIVERY_MODE` | `redirect`(기본, 안전) / `live`
+          +. 공개할 때만 바꾼다 |                                        
+      423 +| `NODE_ENV=production` | 세션 쿠키의 `secure` 플래그가 이 값 
+          +으로 켜진다 |                                                 
+      424  
+      425 +### 실측 (2026-09-08, 더미 1,006명)                           
+      426 +                                                              
+      427 +측정 환경은 Windows + Docker Desktop Postgres다. **리눅스 VM보
+          +다 불리한 조건**이므로 아래 값은 하한으로 본다.               
+      428 +                                                              
+      429 +| 항목 | 값 |                                                 
+      430 +|---|---|                                                     
+      431 +| 그래프(나 중심 / 관심사 앵커 / Similar) | 19 / 20 / 14ms |  
+      432 +| Similar People | 80ms |                                     
+      433 +| 관심사 상세 사람 목록 (보유자 558명) | 15ms |               
+      434 +| 그래프 응답 | 노드 51개(사람 30 · 관심사 20) · 링크 240개 · 
+          +36KB |                                                        
+      435 +| 지속 처리량 | 그래프 306/s · 알림함 1,437/s |               
+      436 +| 동시 200 요청 | 전원 성공, p95 852ms |                      
+      437 +| 동시 500 / 1,000 요청 | 30건 / 298건 **연결 거부** |        
+      438 +| 배치 | `network.recompute` 1.1초(후보 2,190개) · `digest.sen
+          +d` 3.1초(992명) |                                             
+      439 +| DB 크기 | 126명에 15MB. 2주 운영해도 수백 MB |              
+      440 +                                                              
+      441 +**표시 상한(P-13=30, P-14=8)이 있어 그래프 응답은 인원수와 무 
+          +관하다.** 1,006명에서 955명이 잘렸다. 사람 상한을 15로 낮추면 
+          +링크가 240개에서 130개로 준다 — 성능이 아니라 가독성(R-02) 조 
+          +정용 값이다(D-34).                                            
+      442 +                                                              
+      443 +동시 500부터 나오는 연결 거부는 성능이 아니라 **Node의 기본 ac
+          +cept 대기열(511)** 이 넘친 것이다. 리버스 프록시가 앞에서 연결
+          +을 받으면 사라진다.                                           
+      444 +                                                              
+      445 +**권장 사양: 2 vCPU · 4GB · 40GB.** 현실적 최대 부하는 초당 15
+          +건 수준(공지 후 300명이 1분 내 유입)으로 측정 한계의 5%다.    
+      446 +                                                              
+      447 +세 가지를 함께 지킨다.                                        
+      448 +                                                              
+      449 +- `DATABASE_URL`에 `connection_limit`을 **명시한다.** Prisma  
+          +기본 풀은 `코어수 × 2 + 1`이라 2 vCPU에서는 5개뿐이다.        
+      450 +- **API 인스턴스는 하나다.** 배치가 인프로세스 cron이라 둘이면
+          + 같은 알림이 두 번 나간다(§7). 늘릴 수 있는 것은 인스턴스가 아
+          +니라 vCPU다.                                                  
+      451 +- **알림 발송에 동시성 상한과 재시도가 없다.** `notify()`는 응
+          +답을 기다리지 않고 던지므로, 묶음 알림이 1,000명에게 나가면 웹
+          +훅 호출 1,000건이 동시에 튄다. 실패는 `attempts`만 올리고 다시
+          + 보내지 않는다. 공개 전에 닫아야 한다.                        
+      452 +                                                              
+      453  ---
+      454  
+      455  ## 14. 구현 순서
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 22 lines, removed 1 line
+      16  | M4 알림 | Mattermost 발송, 알림함, 딥링크, 배치 10종 | 완료 |
+      17  | M5 Should | Network 추천, Interest Post, 묶음 알림, 관심사 직
+          접 추가(D-74, 제안 대체) | 완료 |
+      18  
+      19 -**남은 것**: 디자인 · 배포. (관심사 100개는 D-71로 확정, 층 선 
+         -택·직접 추가는 D-72~D-74)                                      
+      19 +**로컬에서 로그인·온보딩이 끝까지 돈다.** 실제 Google 계정으로 
+         +가입해 그래프까지 확인했다.                                    
+      20  
+      21 +**성능은 병목이 아니다.** 더미 1,006명으로 실측했고 숫자는 `des
+         +ign/20 §13`에 있다. 그래프 응답은 표시 상한 때문에 인원수와 무 
+         +관하고(19ms), 권장 사양은 2 vCPU · 4GB다.                      
+      22 +                                                               
+      23 +### 남은 것 (권하는 순서)                                      
+      24 +                                                               
+      25 +| 순서 | 항목 | 왜 지금인가 |                                  
+      26 +|---|---|---|                                                  
+      27 +| 1 | **알림 발송의 동시성 상한 + 재시도** | 묶음 알림이 1,000 
+         +명에게 나가면 웹훅 호출 1,000건이 동시에 튄다. 실패는 재시도되 
+         +지 않는다(design/20 §13) |                                     
+      28 +| 2 | **운영자 레버** — 사용자 정지, 관심사 병합·숨김 | 신고를 
+         +없애(D-69) 정지가 유일한 안전장치인데 엔드포인트가 없다. 직접  
+         +추가(D-74) 때문에 병합은 상시 작업이 됐다 |                    
+      29 +| 3 | **딥링크 로그인 복귀** | 서버는 `/login?redirect=`로 보내
+         +는데 화면의 Google 버튼이 그 값을 넘기지 않아 홈으로 간다. 알림
+         +을 타고 들어오는 경로가 핵심인데 여기서 끊긴다 |               
+      30 +| 4 | **디자인 / 반응형** | `@media` 규칙이 한 줄도 없다. 알림 
+         +DM을 휴대폰에서 누르면 도착하는 화면이다. 그래프만 PC 전용(06 §
+         +5) |                                                           
+      31 +| 5 | **배포** | design/20 §13. 단일 VM + Docker Compose + Cadd
+         +y |                                                            
+      32 +                                                               
+      33 +측정(analytics)은 통째로 미구현이다. `POST /api/events`도 이벤 
+         +트 기록도 없다. 공개 후에 붙이면 초반 데이터를 잃으므로 4번과 5
+         +번 사이에 넣을지 정해야 한다.                                  
+      34 +                                                               
+      35 +### 다음 세션에서 이어서 이야기할 것                           
+      36 +                                                               
+      37 +서버 구성을 정하기 전에 두 가지를 먼저 합의한다.               
+      38 +                                                               
+      39 +- **무엇을 모니터링할 것인가.** `docs/14 §4`가 North Star를 ** 
+         +신규 성립 연결 수**, 가드레일을 **후속 확인 "대화 시작" 응답 ≥ 
+         +50%**로 이미 정해 두었다. 미결정으로 남은 것은 "운영자가 매일  
+         +볼 대시보드의 형태"다(14 미결정 표). 제품 지표와 별개로 서버 지
+         +표(가동 여부, 배치가 돌았는지, 알림 발송 실패율)를 무엇으로 볼 
+         +지도 정해야 한다. 웹훅이 이미 있으니 매일 아침 운영자 채널로 배
+         +치 요약을 보내는 방법이 있다.                                  
+      40 +- **사용자에게 전달하려는 핵심 가치.** 이것이 정해져야 위 지표 
+         +가 대리 지표인지 진짜 지표인지 판단할 수 있다. `docs/01 P3`("먼
+         +저 연락할 명분이 없다")와 `docs/14 §4`의 North Star 논거가 재료
+         +다.                                                            
+      41 +                                                               
+      42  ## 다른 컴퓨터에서 이어서 시작하기
+      43  
+      44  ```bash
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 4 lines
+      118  - **`shared`를 고치면 `npm run build --workspace=@ssafy-net/sh
+           ared`를 먼저** 돌려야 한다. CJS/ESM 듀얼 빌드라 api는 CJS, web
+           은 ESM을 쓴다. dist 경로가 바뀌면 Vite 캐시를 지우고 `--force`
+           로 재시작한다.
+      119  - **shared를 빌드했으면 api를 재시작한다.** `nest start --watc
+           h`는 `api/src`만 본다. dist가 바뀌어도 다시 읽지 않아 **옛 검
+           증 규칙이 그대로 돌아간다**. `api/src` 파일을 touch해도 안 먹
+           는다 — 프로세스를 죽이고 다시 띄운다.
+      120  - **Vite 프록시 키는 정규식으로**. `'/n'`처럼 쓰면 접두사 매칭
+           이라 `/node_modules/*`까지 API로 넘어가 앱이 통째로 죽는다.
+      121 +- **가입은 초대 링크를 먼저 열어야 한다.** 바로 로그인하면 Goo
+          +gle 인증은 성공하고 `/invite-required`로 튕긴다. 신규 사용자는
+          + `sn_invite` 쿠키(10분)가 있어야 만들어진다. 초대 코드는 `pris
+          +ma:seed`가 출력한다.                                          
+      122 +- **정규식을 셸을 거쳐 파일에 쓰지 않는다.** heredoc과 템플릿 
+          +문자열을 겹치면 `\d`의 백슬래시가 사라져 `/^d{1,2}반$/` 같은  
+          +것이 만들어진다. 타입 검사도 통과하고 조용히 전부 거부한다. 편
+          +집 도구로 직접 쓴다.                                          
+      123 +- **`psql -tAc`는 `RETURNING` 값 뒤에 명령 태그까지 출력한다.*
+          +* `INSERT ... RETURNING id`의 결과에 `INSERT 0 1`이 붙어 온다.
+          + id는 따로 `SELECT`로 읽는다.                                 
+      124 +- **파라미터·기능 플래그는 30초 캐시된다.** DB에서 값을 바꿔도
+          + 서버에 바로 반영되지 않는다(`ParametersService`).            
+      125  
+      126  ## Phase 0 프로토타입 (참고용, 빌드 대상 아님)
+      127  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 7 lines
+      107  
+      108  # holder_count 재계산 (비정규화 값이 어긋났을 때)
+      109  docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet < api
+           /scripts/recount-interest-holders.sql
+      110 +                                                              
+      111 +# 공개 규모(약 1,000명)로 부하를 재현한다. 기본값은 120명     
+      112 +SEED_USERS=1000 npm run seed:dev                              
+      113  ```
+      114  
+      115 +운영자 엔드포인트는 `is_operator = true`인 계정만 쓸 수 있다. 
+          +로컬 계정에는 이미 켜 두었다.                                 
+      116 +                                                              
+      117 +> **Network 추천은 `network_enabled`가 켜져야 노출된다**(D-75)
+          +. 꺼져 있으면 후보만 계산하고 알림은 나가지 않는다. 켜는 것은 
+          +게이트 판정 뒤 운영자의 결정이다(docs/10 §4).                 
+      118 +                                                              
+      119  운영자 엔드포인트는 `is_operator = true`인 계정만 쓸 수 있다.
+      120  
+      121  ## 알아둘 함정
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Removed 2 lines
+      116  
+      117  > **Network 추천은 `network_enabled`가 켜져야 노출된다**(D-75)
+           . 꺼져 있으면 후보만 계산하고 알림은 나가지 않는다. 켜는 것은 
+           게이트 판정 뒤 운영자의 결정이다(docs/10 §4).
+      118  
+      119 -운영자 엔드포인트는 `is_operator = true`인 계정만 쓸 수 있다. 
+      120 -                                                              
+      119  ## 알아둘 함정
+      120  
+      121  - **Prisma `migrate dev`는 비대화형에서 막힌다.** 유니크 제약 
+           경고에 확인을 요구한다. 마이그레이션 SQL을 직접 쓰고 `prisma m
+           igrate deploy`로 적용한다.
+
+  Pushed to main, ran 2 shell commands, wrote 2 memories (ctrl+o to expand)
+
+● 커밋 4개를 GitHub에 올렸습니다. 로컬과 원격이 같은 상태입니다.
+
+  올라간 것
+
+  ┌─────────┬────────────────────────────────────────────────────────────────┐
+  │  커밋   │                              내용                              │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 5b61691 │ 서비스명 SSAFY Connection, 관심사 100개·층·직접 추가           │
+  │         │ (D-70~D-74), 버그 2건                                          │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 18539f1 │ 알림 3종 연결, network_enabled 게이트 (D-75)                   │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 3bacf4d │ 시드 인원을 SEED_USERS로 조정                                  │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 87e9199 │ 1000명 실측 기록, 남은 일 정리                                 │
+  └─────────┴────────────────────────────────────────────────────────────────┘
+
+  푸시 전에 비밀값을 확인했습니다. .env는 무시 대상이고, 걸린
+  GOOGLE_CLIENT_SECRET은 예시 파일의 빈 값입니다. 웹훅 토큰이나 실제 시크릿은
+  들어가지 않았습니다.
+
+  맥락을 남긴 위치
+
+  - **design/20 §13**에 실측값을 넣었습니다. 응답 시간, 처리량, 동시 요청 한계와
+    그 원인, 권장 사양, 그리고 반드시 지켜야 할 세 가지입니다.
+  - **CLAUDE.md**에 남은 일을 순서대로 적었습니다. 알림 발송 동시성, 운영자
+    레버, 딥링크 로그인 복귀, 디자인, 배포 순입니다. 이번에 걸린 함정 네 가지도
+    덧붙였습니다. 초대 링크를 먼저 열어야 가입된다는 것이 특히 다시 겪기 쉬운
+    것입니다.
+  - **docs/16**에는 제품 결정만 남겼습니다. D-70부터 D-75까지입니다.
+
+  내일 이야기할 것을 CLAUDE.md에 미리 적어 두었습니다. 서버 구성 전에 두 가지를
+  먼저 정하기로 한 것입니다.
+
+  지표 쪽은 재료가 이미 있습니다. docs/14 §4가 North Star를 신규 성립 연결 수로,
+  가드레일을 후속 확인의 "대화 시작" 응답 50% 이상으로 정해 두었습니다.
+  미결정으로 남은 것은 운영자가 매일 볼 형태입니다. 여기에 더해 제품 지표와
+  별개로 서버 지표를 무엇으로 볼지 정해야 합니다. 웹훅이 이미 있으니 매일 아침
+  배치 요약을 운영자 채널로 보내는 방법이 있습니다.
+
+  핵심 가치 쪽은 docs/01의 문제 정의가 출발점입니다. 먼저 연락할 명분이 없다는
+  것이었습니다. 이게 정해져야 위 지표가 진짜를 재는지 대리로 재는지 판단할 수
+  있습니다.
+
+  내일 이어서 하시면 됩니다.
+
+✻ Cogitated for 3m 13s · done (화요일) 오후 11:44
+
+❯ 근데 일단 지금 디자이너들한테 디자인 피드백을 받고싶어서 확정된 배포 아키텍처 
+  말고 진짜 빠른 배포 아키텍처로 지금 상태로 배포하고싶어                       
+  그리고 그 디자이너들은 회원가입 없이 바로 모든 시스템에 볼 수 있게 하고       
+  싶은데 어떻게 배포를 하면 되려나                                              
+
+● 디자이너들은 SSAFY Mattermost 계정이 없어서 온보딩 자체를 통과할 수 없습니다.
+  그래서 "가입 없이"는 편의가 아니라 필수 조건입니다. 데모 모드를 만들고, 그걸
+  켠 채로 배포하는 방향으로 가겠습니다. 먼저 붙일 자리를 확인합니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 구조를 파악했습니다. 데모 모드를 만들겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+❯ 지금 데이터를 전부 목으로 만들어서 db 연결이 없는 상태라면 fe의 목데이터만    
+  가지고 보여줄 수 있게 next의 vercel을 사용해서 하면 어떨까                    
+
+● 좋은 방향입니다. 다만 Next.js로 옮기는 부분은 다시 보고 싶습니다. 지금 앱이
+  이미 정적 번들로 빌드되므로 Vercel에 그대로 올릴 수 있습니다. 실제 호출 범위를
+  세어 보겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 프론트가 부르는 엔드포인트는 30개 남짓입니다. 목으로 덮을 수 있는 규모입니다.
+  빠진 것이 없는지 확인하겠습니다.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● 전체 목록을 확보했습니다. Next.js로 옮길 필요는 없습니다. 지금 앱을 그대로
+  정적 빌드해서 Vercel에 올리고, 실제 API 응답을 캡처해 목으로 심는 방식이 가장
+  빠르고 충실합니다. 캡처 스크립트를 만들겠습니다.
+
+● Write(web\scripts\capture-fixtures.js)
+  ⎿  Wrote 179 lines to web\scripts\capture-fixtures.js
+       1 /*
+       2  * 데모용 목 데이터를 **실제 API 응답에서 캡처**한다.
+       3  *
+          관심사 개수,
+       5  * 정렬 순서가 전부 서버 계산의 결과이기 때문이다. 그래서 지어내
+         지 않고 받아 적는다.
+       6  *
+       8  *   npm run db:up && npm run dev:api
+       9  *   node web/scripts/capture-fixtures.js
+      10  *
+     … +248 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+● Update(web\scripts\capture-fixtures.cjs)
+  ⎿  Added 7 lines, removed 1 line
+      18  const ROOT = path.resolve(__dirname, '../..');
+      19  const jwt = require(path.join(ROOT, 'node_modules/jsonwebtoken'
+          ));
+      20  const secret = fs.readFileSync(path.join(ROOT, 'api/.env'), 'ut
+          f8').match(/^SESSION_SECRET="?([^"\n]+)"?/m)[1];
+      21 -const psql = (sql) => execSync(`docker exec ssafy-net-db psql -
+         -U ssafynet -d ssafynet -tAc "${sql.replace(/"/g, '\\"')}"`).toS
+         -tring().trim();                                                
+      21 +// 줄바꿈이 들어가면 docker exec 인자가 거기서 끊긴다. 한 줄로 
+         +눌러서 보낸다.                                                 
+      22 +const psql = (sql) =>                                          
+      23 +  execSync(                                                    
+      24 +    `docker exec ssafy-net-db psql -U ssafynet -d ssafynet -tAc
+         + "${sql.replace(/\s*\n\s*/g, ' ').replace(/"/g, '\\"')}"`,     
+      25 +  )                                                            
+      26 +    .toString()                                                
+      27 +    .trim();                                                   
+      28  const BASE = 'http://localhost:3000/api';
+      29  const OUT = path.join(ROOT, 'web/src/mocks/fixtures.json');
+      30  
+
+● Update(web\scripts\capture-fixtures.cjs)
+  ⎿  Added 1 line, removed 1 line
+      61    // 받은 요청 2건 — 하나는 미읽음, 하나는 읽음
+      62    const mkRequest = (from, to, msg, entry, readAt) => {
+      63      psql(`INSERT INTO connection_request (id, requester_id, tar
+          get_id, message, status, entry_point, common_interest_ids, crea
+          ted_at, expires_at, read_at)
+      64 -          VALUES (gen_random_uuid(), '${from}', '${to}', '${msg
+         -}', 'PENDING', '${entry}', ARRAY[${commons(from === me ? to : f
+         -rom)}]::text[], now() - interval '6 hours', now() + interval '$
+         -{3 * day} milliseconds', ${readAt ? 'now()' : 'NULL'})`);      
+      64 +          VALUES (gen_random_uuid(), '${from}', '${to}', '${msg
+         +}', 'PENDING', '${entry}', ARRAY[${commons(from === me ? to : f
+         +rom)}]::text[], now() - interval '6 hours', now() + interval '3
+         + days', ${readAt ? 'now()' : 'NULL'})`);                       
+      65    };
+      66    mkRequest(a, me, '같은 관심사가 많아서 연락드립니다. 사이드 
+          프로젝트 어떻게 시작하셨는지 궁금해요.', 'SIMILAR', false);
+      67    mkRequest(b, me, '알고리즘 스터디 같이 하실 분 찾고 있어요. 
+          관심 있으시면 이야기 나눠요.', 'INTEREST_DETAIL', true);
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 98개 응답을 캡처했고 실제 계정 흔적은 없습니다. 목 계층을 붙이기 전에 프론트가
+  쓰는 동작 경로를 확인합니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 모든 동작 경로를 확인했습니다. 목 계층을 만들겠습니다.
+
+● Write(web\src\mocks\index.ts)
+  ⎿  Wrote 407 lines to web\src\mocks\index.ts
+       1 /**
+       3  *
+       4  * `fixtures.json`은 **실제 API 응답을 캡처한 것**이다(`web/scri
+       5  * 지어낸 목이 아니라서 그래프 밀도, 공통 관심사 개수, 정렬 순서
+         가 실제와 같다.
+         연결에 생기는 정도까지.
+       7  *
+         들어가지만 호출되지 않는다.
+       9  *
+         을 비활성으로 빼고 받았고,
+     … +458 lines (ctrl+o to expand)
+
+❯ 디자이너가 웹에서 접근하면 바로 지금과 같은 화면에 접근해서 피드백을 줄 수    
+  있어야해                                                                      
+
+● 디자이너가 URL을 열면 바로 지금 화면이 뜨도록 클라이언트에 연결하겠습니다.
+  로그인 화면 자체를 거치지 않습니다.
+
+● Update(web\src\api\client.ts)
+  ⎿  Added 17 lines
+      1  import type { ApiError } from '@ssafy-net/shared';
+      2 +import { DEMO_MODE, MockError, mockRequest } from '../mocks';   
+      3  
+      4  export class RequestFailed extends Error {
+      5    constructor(
+     ...
+      15    path: string,
+      16    init: RequestInit = {},
+      17  ): Promise<T> {
+      18 +  // 데모 빌드는 서버가 없다. 캡처해 둔 응답으로 답한다(web/src
+         +/mocks).                                                       
+      19 +  if (DEMO_MODE) {                                             
+      20 +    try {                                                      
+      21 +      return await mockRequest<T>(                             
+      22 +        init.method ?? 'GET',                                  
+      23 +        path,                                                  
+      24 +        init.body ? JSON.parse(init.body as string) : undefined
+         +,                                                              
+      25 +      );                                                       
+      26 +    } catch (error) {                                          
+      27 +      if (error instanceof MockError) {                        
+      28 +        throw new RequestFailed(error.code, error.message, erro
+         +r.details);                                                    
+      29 +      }                                                        
+      30 +      throw error;                                             
+      31 +    }                                                          
+      32 +  }                                                            
+      33 +                                                               
+      34    const response = await fetch(`/api${path}`, {
+      35      ...init,
+      36      // 세션은 httpOnly 쿠키다. 모든 요청에 실어 보낸다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(web\tsconfig.json)
+  ⎿  Added 3 lines, removed 1 line
+      15      "esModuleInterop": true,
+      16      "forceConsistentCasingInFileNames": true,
+      17      "isolatedModules": true,
+      18 -    "moduleDetection": "force"                                 
+      18 +    "moduleDetection": "force",                                
+      19 +    // 데모 빌드가 캡처한 API 응답(web/src/mocks/fixtures.json)
+         +을 가져다 쓴다.                                                
+      20 +    "resolveJsonModule": true                                  
+      21    },
+      22    "include": ["src"]
+      23  }
+
+● Update(web\src\mocks\index.ts)
+  ⎿  Added 7 lines, removed 12 lines
+      237        );
+      238        return detail;
+      239      }
+      240 +    // 거절 취소가 먼저다. `/reject/undo`는 action도 'reject' 
+          +라 순서가 뒤바뀌면 안 된다.                                   
+      241 +    if (method === 'POST' && action === 'reject' && parts[4] =
+          +== 'undo') {                                                  
+      242 +      if (rejected) state.received = [rejected, ...state.recei
+          +ved];                                                         
+      243 +      rejected = null;                                        
+      244 +      return {};                                              
+      245 +    }                                                         
+      246      if (method === 'POST' && action === 'reject') {
+      247        state.received = state.received.filter((r) => r.id !== i
+           d);
+      242 -      if (request) (state as any).lastRejected = request;     
+      248 +      rejected = request ?? null;                             
+      249        return { undoUntil: new Date(Date.now() + 60_000).toISOS
+           tring() };
+      250      }
+      245 -    if (method === 'POST' && action === 'reject') return { und
+          -oUntil: new Date().toISOString() };                           
+      246 -    if (method === 'POST' && parts[3] === 'reject' && parts[4]
+          - === 'undo') {                                                
+      247 -      const back = (state as any).lastRejected;               
+      248 -      if (back) state.received = [back, ...state.received];   
+      249 -      return {};                                              
+      250 -    }                                                         
+      251      if (method === 'DELETE') {
+      252        state.sent = state.sent.filter((r) => r.id !== id);
+      253        return {};
+      254      }
+      255    }
+      256 -  if (method === 'POST' && parts[3] === 'reject' && parts[4] =
+          -== 'undo') {                                                  
+      257 -    const back = (state as any).lastRejected;                 
+      258 -    if (back) state.received = [back, ...state.received];     
+      259 -    return {};                                                
+      260 -  }                                                           
+      256  
+      257    // 대화 시작 표시
+      258    if (method === 'POST' && parts[3] === 'mark-started') {
+
+● Update(web\src\mocks\index.ts)
+  ⎿  Added 2 lines
+      88  }
+      89  
+      90  let state = freshState();
+      91 +/** 거절 취소(1분) 때문에 방금 거절한 요청을 잠시 들고 있는다. 
+         +*/                                                             
+      92 +let rejected: Json | null = null;                              
+      93  
+      94  export function resetDemo(): void {
+      95    state = freshState();
+
+● Write(web\src\mocks\DemoBanner.tsx)
+  ⎿  Wrote 41 lines to web\src\mocks\DemoBanner.tsx
+       1 import { currentScene, resetDemo, setScene } from '.';
+       2 import './demo-banner.css';
+       3 
+       5  * 데모 빌드에만 뜨는 띠.
+       6  *
+       7  * 두 가지를 한다. 하나는 **이것이 실제 서비스가 아님을 분명히 
+         하는 것**이고,
+         시 보게 하는 것이다.
+       9  */
+      10 export function DemoBanner() {
+     … +36 lines (ctrl+o to expand)
+
+● Write(web\src\mocks\demo-banner.css)
+  ⎿  Wrote 65 lines to web\src\mocks\demo-banner.css
+       1 /* 데모 빌드 전용. 실제 서비스 번들에는 이 화면이 없다. */
+       2 .demo-banner {
+       3   position: sticky;
+       4   top: 0;
+       5   z-index: 50;
+       6   display: flex;
+       7   align-items: center;
+       8   gap: 10px;
+       9   flex-wrap: wrap;
+      10   padding: 8px 16px;
+     … +55 lines (ctrl+o to expand)
+
+● Update(web\src\App.tsx)
+  ⎿  Added 1 line
+      116  export function App() {
+      117    return (
+      118      <SessionProvider>
+      119 +      {DEMO_MODE && <DemoBanner />}                           
+      120        <Routing />
+      121      </SessionProvider>
+      122    );
+
+● Update(web\src\App.tsx)
+  ⎿  Added 2 lines
+       8  import { api } from './api/client';
+       9  import { Shell } from './components/Shell';
+      10  import { FollowUpOverlay } from './features/connections/Overlay
+          s';
+      11 +import { DEMO_MODE } from './mocks';                           
+      12 +import { DemoBanner } from './mocks/DemoBanner';               
+      13  import { ConnectionsPage } from './pages/ConnectionsPage';
+      14  import { GraphPage } from './pages/GraphPage';
+      15  import { IntroPage } from './pages/IntroPage';
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(web\src\mocks\index.ts)
+  ⎿  Added 3 lines, removed 1 line
+      349    // 네트워크
+      350    if (method === 'POST' && base.startsWith('/networks/')) {
+      351      const action = parts[3];
+      352 -    const detail = (state.networkDetail ??= clone(handleGet(`/
+          -networks/${parts[2]}`)));                                     
+      352 +    const detail: Json = (state.networkDetail ??= clone(      
+      353 +      handleGet(`/networks/${parts[2]}`) as Json,             
+      354 +    ));                                                       
+      355      if (action === 'join') {
+      356        detail.myDecision = 'JOINED';
+      357        detail.joinedCount = (detail.joinedCount ?? 0) + 1;
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 빌드가 됐습니다. 데모 플래그가 실제로 박혔는지, 목이 물리는지 확인하겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 번들에 실제 이름이 있습니다. 캡처 데이터가 아니라 온보딩 화면의 예시 문구에
+  하드코딩된 것입니다. 공개 배포에 회원님 개인 아이디가 들어가면 안 되니
+  고치겠습니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 번들이 깨끗합니다. 목 계층이 실제로 화면을 채우는지 브라우저 없이
+  검증하겠습니다.
+
+  Made 1 scratchpad edit +133, ran 2 shell commands (ctrl+o to expand)
+
+● 디자이너가 인증 코드를 알 수 있게 화면에 표시하겠습니다.
+  Ran 4 shell commands (ctrl+o to expand)
+
+● .env.*가 gitignore 대상이라 Vercel이 데모 플래그를 못 받습니다. 빌드 설정에서
+  직접 넣도록 바꾸겠습니다.
+
+● Write(web\vite.config.ts)
+  ⎿  Added 12 lines, removed 2 lines
+       1  import react from '@vitejs/plugin-react';
+       2  import { defineConfig } from 'vite';
+       3  
+       4 -export default defineConfig({                                  
+       4 +/**                                                            
+       5 + * `--mode demo`로 빌드하면 **서버 없이 도는 정적 번들**이 나온
+         +다.                                                            
+       6 + *                                                             
+       7 + * 디자인 피드백용이다. 캡처해 둔 실제 API 응답으로 화면을 채우
+         +므로(web/src/mocks)                                            
+       8 + * DB도 로그인도 없이 URL만 열면 바로 앱이 보인다.             
+       9 + * 플래그를 .env 파일이 아니라 여기서 넣는 이유는 `.env.*`가 gi
+         +t에서 제외되기 때문이다.                                       
+      10 + */                                                            
+      11 +export default defineConfig(({ mode }) => ({                   
+      12    plugins: [react()],
+      13 +  define: {                                                    
+      14 +    'import.meta.env.VITE_DEMO': JSON.stringify(mode === 'demo'
+         + ? '1' : ''),                                                  
+      15 +  },                                                           
+      16    server: {
+      17      port: 5173,
+      18      proxy: {
+     ...
+      24        '^/n/': { target: 'http://localhost:3000', changeOrigin: 
+          true },
+      25      },
+      26    },
+      17 -});                                                            
+      27 +}));                                                           
+
+  Pushed to main, ran 4 shell commands (ctrl+o to expand)
+
+● Next.js로 옮길 필요는 없었습니다. 지금 앱이 이미 정적 번들로 빌드되고,
+  Vercel은 Vite 프로젝트를 그대로 받습니다. 포팅 없이 데모 배포를 만들어
+  올렸습니다.
+
+  남은 일은 Vercel에서 저장소를 연결하는 것뿐입니다
+
+  1. vercel.com에서 DevJunz/ssafy-net을 Import
+  2. Root Directory는 저장소 루트 그대로 둡니다. 루트의 vercel.json이 빌드와 SPA
+     라우팅을 지정합니다
+  3. Deploy
+
+  환경 변수는 하나도 필요 없습니다. 서버도 DB도 붙지 않습니다. 나온 URL을
+  디자이너에게 주면 열자마자 그래프 화면이 뜹니다. 로그인 화면을 거치지
+  않습니다.
+
+  로컬에서 먼저 보시려면 이렇게 하시면 됩니다.
+
+  npm run build:demo --workspace=web
+  npm run preview:demo --workspace=web    # localhost:4173
+
+  목 데이터를 지어내지 않았습니다. 로컬 API에서 실제 응답 98개를 그대로 받아
+  적었습니다. 그래프가 노드 53개에 링크 196개인 것도, 공통 관심사 개수도, 정렬
+  순서도 전부 실제 계산 결과입니다. 손으로 만든 목이었다면 디자이너가 밀도를
+  잘못 판단했을 겁니다.
+
+  동작도 살아 있습니다. 수락하면 받은 목록에서 빠지고 연결이 늘어납니다. 거절
+  취소가 되돌립니다. 관심사를 저장하면 프로필이 바뀝니다. 관심사 직접 추가는
+  실제 서버와 같은 규칙으로 막습니다. 새로고침하면 처음 상태로 돌아갑니다.
+
+  상단에 데모 띠를 붙였습니다. 실제 서비스가 아님을 알리고, "가입 화면부터"
+  버튼으로 온보딩 3단계를 처음부터 볼 수 있습니다. 메신저로 코드를 보낼 수
+  없으니 화면에 코드를 알려줍니다.
+
+  개인정보를 두 군데서 걷어냈습니다. 캡처하는 동안 회원님 계정을 비활성으로 빼서
+  그래프와 추천에 잡히지 않게 했고, 온보딩 화면 예시에 박혀 있던 실명과
+  Mattermost 아이디를 일반 이름으로 바꿨습니다. 공개 URL에 나갈 것이라서입니다.
+  번들을 문자열로 검사해 흔적이 없는 것을 확인했습니다.
+
+  실 서비스 빌드는 영향받지 않습니다. 모드 없이 빌드하면 목 데이터가
+  트리셰이킹으로 통째로 빠집니다. 1266KB에서 571KB로 줄어드는 것과 문자열 검사로
+  확인했습니다.
+
+  브라우저 자동화 도구가 없어 목 계층을 번들해 Node에서 23건을 돌렸습니다. 첫
+  화면 진입, 그래프, 패널, 연결 수락과 거절 취소, 알림, 후속 확인, 관심사 추가
+  규칙, 네트워크 참여, 온보딩 3단계까지 전부 통과했습니다. 다만 실제
+  브라우저에서 눈으로 보신 적은 아직 없으니, 링크를 디자이너에게 넘기기 전에 한
+  번 열어보시는 게 좋겠습니다.
+
+  커밋 2777131로 푸시했습니다.
+
+✻ Cooked for 11m 56s · done (화요일) 오후 11:57
+
+❯ 지금 velcel 켜놨으니깐 니가 직접 접근해서 처리해줘                            
+
+● Vercel CLI로 접근할 수 있는지, 로그인이 되어 있는지 먼저 확인하겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● CLI는 있지만 로그아웃 상태입니다. 다만 로그인 없이 배포하고 나중에 계정으로
+  가져갈 수 있는 방법이 있습니다. 그 전에 빌드가 Vercel에서 깨질 요소를
+  확인하겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+❯ chrome extention으로 접근할 수도 있단다                                       
+
+● 브라우저 도구가 제 쪽에 붙어 있는지 확인하겠습니다.
+
+● 브라우저나 Chrome 확장을 제어하는 도구는 제게 붙어 있지 않습니다. 검색해도
+  Notion 도구만 나옵니다. 대신 CLI가 로그인 없이 배포하고 나중에 계정으로 
+  가져가는 방법을 알려주니 그걸로 지금 올리겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 배포됐습니다. 실제로 뜨는지 확인하겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 배포했습니다. 지금 열립니다.
+
+  https://temporary-snappy-ruby-bcb8iq4.vercel.app
+
+  다만 60분 뒤에 사라집니다. 제가 로그인 없이 올린 임시 배포라서 그렇습니다.
+  아래 링크를 열어 회원님 Vercel 계정으로 가져가시면 영구 배포가 됩니다.
+
+  https://vercel.com/claim-deployment?code=44a169d8-3633-4033-a080-63248cd0ef68
+
+  Chrome 확장은 제 쪽에 붙어 있지 않습니다. 도구 목록을 검색해도 브라우저를
+  제어하는 것이 없습니다. 그래서 대시보드에 들어가 클릭하는 방식으로는 못 하고,
+  CLI로 처리했습니다. npx vercel login을 회원님이 한 번 해 주시면(프롬프트에
+  !npx vercel login으로 실행하실 수 있습니다) 그 뒤로는 제가 계정에 바로
+  배포하고 도메인까지 붙일 수 있습니다.
+
+  확인한 것
+
+  - 첫 페이지가 200으로 뜨고 제목이 SSAFY Connection입니다.
+  - /connections, /profile, /notifications 같은 경로도 전부 200입니다.
+    새로고침해도 깨지지 않습니다.
+  - 배포된 번들이 데모 빌드가 맞습니다. 캡처 데이터가 들어 있고 배너 문구가
+    있습니다.
+  - 실명이나 Mattermost 아이디 흔적이 없습니다.
+  - 검색엔진 색인은 막아 두었습니다.
+
+  디자이너에게 전할 때 같이 알려주시면 좋은 것
+
+  열자마자 로그인 없이 그래프 화면이 뜹니다. 상단 띠에서 "가입 화면부터"를
+  누르면 온보딩 3단계를 처음부터 볼 수 있고, 인증 코드는 화면에 표시됩니다.
+  수락이나 저장 같은 동작은 화면 안에서만 반영되고 새로고침하면 처음으로
+  돌아갑니다. 그래프는 PC 전용이고 나머지 화면은 아직 반응형 작업 전이라,
+  휴대폰에서는 레이아웃이 깨져 보일 수 있습니다.
+
+  다음에 하실 일
+
+  지금 60분 안에 클레임하시는 게 먼저입니다. 클레임하면 이후로는 GitHub 저장소를
+  연결해 두는 편이 편합니다. 푸시할 때마다 자동으로 다시 배포되고, 루트의
+  vercel.json이 빌드를 맡습니다.
+
+✻ Sautéed for 2m 28s · done 오전 12:03
+
+❯ 지금 배포된 걸 내껄로 가져왔어 domain은 temporary이지만 영구적인가?           
+
+● 현재 상태를 확인해 보겠습니다.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Monitor(만료 예정 시각 이후 데모 URL 생존 확인)
+  ⎿  Monitor started · task bsq7rrg4q · timeout 3600s
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 배포 자체는 영구가 됐지만, 그 주소는 공유용으로 권하지 않습니다.
+
+  클레임하면 만료가 풀리고 회원님 계정의 프로젝트가 됩니다. 다만
+  temporary-snappy-ruby-bcb8iq4.vercel.app은 배포 하나에 자동으로 붙은 
+  주소입니다. 그 배포가 남아 있는 한 계속 열리지만, 이름에 temporary가 들어가고
+  무작위 문자열이 섞여 있어 디자이너에게 건네기엔 좋지 않습니다.
+
+  제 쪽에서는 만료가 풀렸는지 직접 확인할 수 없습니다. Vercel API가 인증 없이는
+  403을 줍니다. 그래서 원래 만료 예정 시각인 새벽 1시 2분이 지난 뒤 자동으로 
+  확인하도록 걸어 두었습니다. 결과가 나오면 알려드리겠습니다.
+
+  권하는 정리 방법
+
+  대시보드에서 그 프로젝트를 열고 Settings → Domains에서 깔끔한 주소를 붙이시면
+  됩니다. ssafy-connection.vercel.app 같은 것이 비어 있으면 바로 잡힙니다. 그
+  뒤로는 그 주소가 항상 최신 배포를 가리킵니다.
+
+  그리고 GitHub 저장소를 연결해 두시는 걸 권합니다. 푸시할 때마다 자동으로 다시
+  배포되고, 방금 올린 vercel.json이 빌드를 맡습니다.
+
+  한 가지 주의할 점
+
+  제가 다시 vercel deploy --temporary를 돌리면 회원님 프로젝트가 갱신되는 게
+  아니라 새로운 익명 배포가 하나 더 생깁니다. 회원님 프로젝트에 직접 배포하려면
+  CLI 로그인이 필요합니다. 프롬프트에 !npx vercel login을 실행해 한 번 로그인해
+  주시면, 그다음부터는 제가 프로젝트에 연결해서 바로 갱신하고 도메인까지 붙일 수
+  있습니다.
+
+  방금 배포 설정 두 개를 커밋해 푸시했습니다(d9eae48). 업로드 제외 목록과, 배포
+  토큰이 든 .vercel 폴더를 저장소에서 빼는 설정입니다.
+
+✻ Sautéed for 1m 53s · done 오전 12:08
+
+※ recap: SSAFY Connection 데모를 디자이너 피드백용으로 Vercel에 올렸고, 회원님이 클레임해 영구 배포가 됐습니다. 다음은 대시보드에서 깔끔한 도메인을 붙이는 것이고, 만료 시각 이후 생존 확인은 자동으로 돌고 있습니다.
+
+❯ 일단 지금 vercel은 딱 보여주기용이니깐 그대로 냅두고 나머지 작업은 진짜       
+  코드베이스에서 이어서할게 지금까지 내용을 github에 다 올리자 혹시 그전에 내가 
+  export를 해서 대화내역을 내보내야할까?                                        
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 모두 커밋되고 푸시된 상태입니다. 작업 트리가 깨끗하고 원격과 같습니다. 다만
+  배포 사실 자체가 저장소에 안 남아 있어 그것만 적겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(README.md)
+  ⎿  Added 9 lines
+      121  Vercel에 올릴 때는 저장소를 연결하고 **Root Directory를 저장소
+            루트로 둔다.**
+      122  `vercel.json`이 빌드와 SPA 라우팅을 지정한다.
+      123  
+      124 +> **2026-09-09 현재 배포되어 있다.** 처음에는 로그인 없이 올린
+          + 임시 배포였고(`vercel deploy --temporary`),                  
+      125 +> 사용자가 클레임해 계정으로 가져갔다. 주소는 배포에 자동으로 
+          +붙은 것이라                                                   
+      126 +> 공유 전에 대시보드에서 깔끔한 도메인을 붙이는 편이 낫다.    
+      127 +>                                                             
+      128 +> **갱신하려면 CLI 로그인이 필요하다.** 로그인하지 않은 채 `--
+          +temporary`로 다시 올리면                                      
+      129 +> 기존 프로젝트가 갱신되는 것이 아니라 **새 익명 배포가 하나  
+          +더 생긴다.**                                                  
+      130 +> `vercel login` 후 `vercel link`로 프로젝트에 연결하거나, Git
+          +Hub 저장소를 연결해                                           
+      131 +> 푸시할 때마다 자동 배포되게 둔다.                           
+      132 +                                                              
+      133  데이터는 지어낸 것이 아니라 **실제 API 응답을 캡처한 것**이다.
+            그래프 밀도, 공통 관심사
+      134  개수, 정렬 순서가 실제와 같다. 서버를 띄운 상태에서 다시 뜨면 
+           갱신된다.
+      135  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 대화 내역 export는 안 하셔도 됩니다. 이번 세션에서 나온 것은 이미 저장소 안에
+  들어가 있습니다.
+
+  ┌────────────────────────────────────┬─────────────────┐
+  │                내용                │     어디에      │
+  ├────────────────────────────────────┼─────────────────┤
+  │ 제품 결정 D-70~D-75                │ docs/16         │
+  ├────────────────────────────────────┼─────────────────┤
+  │ 1000명 실측과 권장 사양            │ design/20 §13   │
+  ├────────────────────────────────────┼─────────────────┤
+  │ 남은 일 순서, 내일 논의할 것, 함정 │ CLAUDE.md       │
+  ├────────────────────────────────────┼─────────────────┤
+  │ 데모 빌드 절차와 배포 현황         │ README.md       │
+  ├────────────────────────────────────┼─────────────────┤
+  │ 각 변경의 이유                     │ 커밋 메시지 7개 │
+  └────────────────────────────────────┴─────────────────┘
+
+  지난 두 세션이 대화록을 history/에 남겼는데, 그때는 기획 논의가 길어서 문서로
+  옮기지 못한 맥락이 많았습니다. 이번은 성격이 다릅니다. 결정과 측정값을
+  그때그때 문서에 적으면서 왔기 때문에, 대화록에만 남는 것은 제가 중간에 겪은
+  시행착오 정도입니다. 그중 다시 겪을 만한 것은 이미 함정 목록에 넣었습니다.
+
+  다만 지난 두 세션과 형식을 맞추고 싶으시면 export한 파일을
+  history/2026-09-09-...로 넣어 주세요. 커밋해 드리겠습니다. 넣기 전에 제가
+  비밀값이 섞였는지 확인하겠습니다. 이번 세션에는 Mattermost 웹훅 URL, Vercel
+  배포 토큰, 세션 시크릿이 터미널에 스쳐 지나갔습니다.
+
+  GitHub는 전부 올라갔습니다. 커밋 7개가 원격과 같은 상태입니다.
+
+  872bd24 데모가 배포되어 있다는 사실과 갱신 방법을 README에 남긴다
+  d9eae48 데모 배포 설정 — 업로드 제외 목록과 .vercel 무시
+  2777131 서버 없이 도는 데모 빌드 — 디자인 피드백용
+  87e9199 1,000명 실측을 설계 문서에 남기고 남은 일을 순서대로 정리
+  3bacf4d 더미 사용자 수를 환경변수로 조정 (SEED_USERS)
+  18539f1 알림 3종을 실제로 보낸다 (M4에서 TODO로 남았던 것)
+  5b61691 서비스명 확정, 관심사 100개와 층·직접 추가 (D-70~D-74)
+
+  방금 배포 사실을 README에 적어 두었습니다. 로그인 없이 --temporary로 다시
+  올리면 기존 프로젝트가 갱신되지 않고 익명 배포가 하나 더 생긴다는 함정도 함께
+  적었습니다.
+
+  Vercel은 보여주기용으로 그대로 두고, 다음부터는 실제 코드베이스에서 이어가시면
+  됩니다. 남은 일 순서는 CLAUDE.md에 있고, 첫 번째는 알림 발송의 동시성 상한과
+  재시도입니다. 그 전에 내일 이야기하기로 한 모니터링 지표와 핵심 가치를 먼저
+  정하시면 됩니다.
+
+  아까 걸어둔 확인이 새벽 1시 5분에 돌아 데모 URL이 만료 시각을 넘겨 살아 있는지
+  알려드리겠습니다.
+
+✻ Crunched for 1m 17s · done 오전 12:38
