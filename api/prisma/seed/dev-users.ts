@@ -16,7 +16,8 @@ import { CLASS_COUNT, FLOOR_OPTIONS } from '@ssafy-net/shared';
 
 const prisma = new PrismaClient();
 
-const USER_COUNT = 120;
+/** 기본 120명. 부하를 볼 때는 SEED_USERS=1000 처럼 올린다(공개 규모가 약 1,000명이다). */
+const USER_COUNT = Number(process.env.SEED_USERS ?? 120);
 
 /** 개발자 조직 전제. 이 관심사들이 절반 가까이 겹치도록 만든다(R-04 재현). */
 const VERY_POPULAR = ['백엔드', '알고리즘', '취업 준비', '프론트엔드'];
