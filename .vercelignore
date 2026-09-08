@@ -1,0 +1,13 @@
+# 데모 배포는 web 만 빌드한다. 나머지는 올릴 필요가 없다.
+# (api/package.json 은 npm workspaces 해석에 필요해서 남긴다)
+node_modules
+.git
+api/dist
+api/src
+api/prisma
+api/scripts
+web/dist
+history
+phase0-mvp
+docs
+design

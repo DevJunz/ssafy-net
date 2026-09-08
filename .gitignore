@@ -8,3 +8,5 @@ Thumbs.db
 .env.*
 !.env.example
 *.tsbuildinfo
+
+.vercel
