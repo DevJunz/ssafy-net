@@ -54,7 +54,8 @@ button.primary:hover:not(:disabled) {
   background: #1971c2;
 }
 
-input[type='text'] {
+input[type='text'],
+select {
   font: inherit;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -62,7 +63,8 @@ input[type='text'] {
   width: 100%;
 }
 
-input[type='text']:focus {
+input[type='text']:focus,
+select:focus {
   outline: 2px solid var(--accent-soft);
   border-color: var(--accent);
 }
@@ -176,4 +178,15 @@ input[type='text']:focus {
 
 .steps span.done {
   background: var(--accent);
+}
+
+/* 문장 속에 놓이는 버튼. 링크처럼 보이되 버튼으로 동작한다. */
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }

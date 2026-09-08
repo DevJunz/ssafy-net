@@ -12,24 +12,20 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import {
+  createInterestSchema,
   interestSelectionSchema,
-  suggestionSchema,
+  type CreateInterestInput,
   type InterestSelectionInput,
-  type SuggestionInput,
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from './interests.service';
-import { SuggestionsService } from './suggestions.service';
 
 @Controller()
 @UseGuards(AuthGuard)
 export class InterestsController {
-  constructor(
-    private readonly interests: InterestsService,
-    private readonly suggestions: SuggestionsService,
-  ) {}
+  constructor(private readonly interests: InterestsService) {}
 
   /** 온보딩과 My Profile 관심사 수정이 같은 화면·같은 응답을 쓴다(D-24). */
   @Get('interests')
@@ -38,20 +34,25 @@ export class InterestsController {
   }
 
   /**
-   * 관심사 제안 (S4). 사용자가 직접 만들지는 못한다 —
-   * 자유 입력은 같은 뜻이 흩어져 공통 관심사 계산을 망친다(docs/08 §1).
+   * 관심사 직접 추가 전 중복 검사 (D-74).
+   * `interests/:id`보다 앞에 둔다 — 뒤에 두면 "similar"가 id로 해석된다.
    */
-  @Get('interest-suggestions/similar')
-  similarInterests(@Query('q') q: string | undefined) {
-    return this.suggestions.similar(q ?? '');
+  @Get('interests/similar')
+  similar(@Query('q') q: string | undefined) {
+    return this.interests.similar(q ?? '');
   }
 
-  @Post('interest-suggestions')
-  suggest(
+  /**
+   * 관심사 직접 추가 (D-74). 온보딩 중에도 쓸 수 있다.
+   * 같은 뜻이 있으면 INTEREST_EXISTS, 비슷한 것이 있으면 INTEREST_SIMILAR로 멈추고
+   * details.similar를 준다. 화면이 확인을 받은 뒤 confirmSimilar로 다시 보낸다.
+   */
+  @Post('interests')
+  create(
     @CurrentUser() user: User,
-    @Body(new ZodValidationPipe(suggestionSchema)) body: SuggestionInput,
+    @Body(new ZodValidationPipe(createInterestSchema)) body: CreateInterestInput,
   ) {
-    return this.suggestions.create(user, body);
+    return this.interests.create(user, body);
   }
 
   @Get('interests/:id')

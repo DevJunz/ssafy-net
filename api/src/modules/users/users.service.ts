@@ -44,7 +44,7 @@ export class UsersService {
     const [theirInterests, myInterestIds, relation, recentPosts] = await Promise.all([
       this.prisma.userInterest.findMany({
         where: { userId: targetId },
-        include: { interest: true },
+        include: { interest: { include: { category: true } } },
       }),
       this.prisma.userInterest
         .findMany({ where: { userId: me.id }, select: { interestId: true } })
@@ -64,7 +64,12 @@ export class UsersService {
       // 공통 관심사를 앞에 모은다(docs/06 §3.4).
       .sort((a, b) => Number(b.isCommon) - Number(a.isCommon));
 
-    const commonCount = refs.filter((ref) => ref.isCommon).length;
+    // 같은 층은 칩으로는 강조하되(isCommon) 공통 개수에는 세지 않는다(D-72).
+    const commonCount = theirInterests.filter(
+      (row) =>
+        row.interest.category.kind === 'INTEREST' &&
+        myInterestIds.has(row.interest.id),
+    ).length;
 
     const view =
       relation.status === 'CONNECTED'

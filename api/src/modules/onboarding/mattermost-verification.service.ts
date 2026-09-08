@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { randomInt } from 'node:crypto';
+import { SERVICE_NAME } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import {
   MattermostService,
@@ -96,7 +97,7 @@ export class MattermostVerificationService {
     const result = await this.mattermost.sendDirectMessage(
       username,
       [
-        '**Interest Network 인증 코드**',
+        `**${SERVICE_NAME} 인증 코드**`,
         '',
         `${fullName}님, 인증 코드는 \`${code}\` 입니다.`,
         '10분 안에 입력해주세요.',

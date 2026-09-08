@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NotificationType } from '@prisma/client';
+import { SERVICE_NAME } from '@ssafy-net/shared';
 import { MattermostService } from '../../infra/mattermost/mattermost.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import {
@@ -129,6 +130,9 @@ export class NotificationsService {
 
     const base = this.config.get<string>('APP_BASE_URL') ?? '';
     const body = [
+      // 받는 사람에게는 운영자 계정의 DM으로 보인다. 어느 서비스의 알림인지 머리말로 밝힌다.
+      `**${SERVICE_NAME}**`,
+      '',
       NOTIFICATION_RULES[type].render(payload),
       '',
       // 알림에 행동 버튼을 두지 않는다. 링크 하나로 행동 화면에 직행한다(D-25, FR-14.4).

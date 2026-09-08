@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
+import { SERVICE_NAME } from '@ssafy-net/shared';
 import { useSession } from '../session';
 import './shell.css';
 
@@ -22,7 +23,7 @@ export function Shell({
   return (
     <div className="shell">
       <header className="nav">
-        <span className="brand">Interest Network</span>
+        <span className="brand">{SERVICE_NAME}</span>
 
         <nav>
           <NavLink to="/" end>

@@ -12,6 +12,7 @@
  * 정리: 같은 스크립트가 googleSub이 'dev-seed-'로 시작하는 사용자를 먼저 지운다.
  */
 import { PrismaClient } from '@prisma/client';
+import { CLASS_COUNT, FLOOR_OPTIONS } from '@ssafy-net/shared';
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,7 @@ const USER_COUNT = 120;
 
 /** 개발자 조직 전제. 이 관심사들이 절반 가까이 겹치도록 만든다(R-04 재현). */
 const VERY_POPULAR = ['백엔드', '알고리즘', '취업 준비', '프론트엔드'];
-const POPULAR = ['AI', '독서', '러닝', '헬스', '영화', '여행', '맛집', 'CS 기초'];
+const POPULAR = ['AI·머신러닝', 'Spring', 'React', '코딩 테스트', '헬스', '영화', '여행', '카페·맛집'];
 
 const SURNAMES = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배'.split('');
 const GIVEN = [
@@ -73,12 +74,19 @@ async function main() {
   });
   if (removed.count > 0) console.log(`기존 더미 사용자 ${removed.count}명 삭제`);
 
+  // 속성(층)은 관심사 풀에서 뺀다. 층은 사람마다 하나씩 따로 붙인다(D-72).
   const interests = await prisma.interest.findMany({
+    where: { category: { kind: 'INTEREST' } },
     select: { id: true, name: true },
   });
   if (interests.length === 0) {
     throw new Error('관심사가 없습니다. 먼저 npm run prisma:seed 를 실행하세요.');
   }
+  const floors = await prisma.interest.findMany({
+    where: { name: { in: FLOOR_OPTIONS } },
+    select: { id: true, name: true },
+    orderBy: { sortOrder: 'asc' },
+  });
 
   const pool = interests.map((interest) => ({
     id: interest.id,
@@ -94,9 +102,9 @@ async function main() {
   // 이것이 없으면 M5에서 게이트 판정(docs/10 §4)을 시험해 볼 수 없다.
   const clusters: { size: number; interests: string[] }[] = [
     { size: 5, interests: ['클라이밍', '러닝', '캠핑', '등산', '사진'] },
-    { size: 4, interests: ['보드게임', 'PC 게임', '애니메이션', '웹툰', '인디 게임'] },
-    { size: 6, interests: ['백엔드', 'DevOps', '클라우드', '보안', 'OSS'] },
-    { size: 4, interests: ['요리', '베이킹', '카페', '맛집', '커피'] },
+    { size: 4, interests: ['보드게임', 'PC 게임', '애니메이션', '웹툰', '콘솔 게임'] },
+    { size: 6, interests: ['백엔드', 'DevOps', '클라우드·인프라', '보안', '오픈소스 기여'] },
+    { size: 4, interests: ['요리', '카페·맛집', '자취', '술·맥주', '여행'] },
   ];
 
   const clusterAssignment = new Map<number, string[]>();
@@ -116,7 +124,11 @@ async function main() {
 
   for (let index = 0; index < USER_COUNT; index += 1) {
     const realName = `${pick(SURNAMES)}${pick(GIVEN)}`;
-    const classNo = `${1 + Math.floor(random() * 20)}반`;
+    const classNo = `${1 + Math.floor(random() * CLASS_COUNT)}반`;
+    // 층은 반과 느슨하게 묶는다. 같은 반은 대체로 같은 층에 있지만 예외를 둔다.
+    const floor = floors.length
+      ? floors[Math.min(floors.length - 1, Math.floor(((Number(classNo.replace('반', '')) - 1) / CLASS_COUNT) * floors.length + (random() < 0.2 ? 1 : 0)))]
+      : null;
 
     // 표시명 종류별 수락률을 나눠 봐야 하므로(R-13) 두 종류를 섞는다.
     const useRealName = random() < 0.35;
@@ -137,7 +149,7 @@ async function main() {
       pool.filter((item) => !seeded.includes(item.id)),
       Math.max(0, target - seeded.length),
     );
-    const interestIds = [...seeded, ...rest];
+    const interestIds = [...seeded, ...rest, ...(floor ? [floor.id] : [])];
 
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -169,7 +181,7 @@ async function main() {
       });
     });
 
-    totalInterests += interestIds.length;
+    totalInterests += interestIds.length - (floor ? 1 : 0);
   }
 
   await seedAroundRealUser(pool);
@@ -191,11 +203,14 @@ async function main() {
   `);
 
   const top = await prisma.interest.findMany({
+    where: { category: { kind: 'INTEREST' } },
     orderBy: { holderCount: 'desc' },
     take: 6,
     select: { name: true, holderCount: true },
   });
-  const empty = await prisma.interest.count({ where: { holderCount: 0 } });
+  const empty = await prisma.interest.count({
+    where: { holderCount: 0, category: { kind: 'INTEREST' } },
+  });
   const activeUsers = await prisma.user.count({ where: { status: 'ACTIVE' } });
 
   console.log(`더미 사용자 ${USER_COUNT}명 생성`);
@@ -237,7 +252,7 @@ async function seedAroundRealUser(pool: { id: string; weight: number }[]) {
           googleSub: `dev-seed-near-${index}`,
           email: `dev-seed-near-${index}@example.com`,
           realName: `${pick(SURNAMES)}${pick(GIVEN)}`,
-          classNo: `${1 + Math.floor(random() * 20)}반`,
+          classNo: `${1 + Math.floor(random() * CLASS_COUNT)}반`,
           displayNameType: index % 2 === 0 ? 'REAL' : 'NICKNAME',
           nickname: index % 2 === 0 ? null : `이웃토끼${10 + index}`,
           status: 'ACTIVE',

@@ -400,7 +400,8 @@ export class JobsService {
       let sent = 0;
       for (const user of users) {
         const myInterests = await this.prisma.userInterest.findMany({
-          where: { userId: user.id },
+          // 속성(층)은 공통 관심사로 세지 않는다(D-72).
+          where: { userId: user.id, interest: { category: { kind: 'INTEREST' } } },
           select: { interestId: true },
         });
         const ids = myInterests.map((row) => row.interestId);

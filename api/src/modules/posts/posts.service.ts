@@ -35,8 +35,17 @@ export class PostsService {
       where: {
         userId_interestId: { userId: me.id, interestId: input.interestId },
       },
+      include: { interest: { include: { category: true } } },
     });
     if (!owns) throw new AppError('POST_INTEREST_NOT_OWNED');
+    // 층 같은 속성에 글을 허용하면 층별 게시판이 된다. 글은 이야깃거리에만 붙는다(D-72).
+    if (owns.interest.category.kind !== 'INTEREST') {
+      throw new AppError(
+        'INTEREST_CATEGORY_INVALID',
+        undefined,
+        '층에는 글을 남길 수 없습니다.',
+      );
+    }
 
     const since = this.startOfDay();
     const [perInterest, total] = await Promise.all([

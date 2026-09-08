@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CLASS_COUNT } from './campus';
 
 /**
  * 요청 본문 검증 규칙. 서버(파이프)와 프론트(폼)가 같은 스키마를 쓴다.
@@ -6,9 +7,19 @@ import { z } from 'zod';
  * 실제 상한은 서버가 DB의 파라미터로 다시 확인한다(design/20 §9).
  */
 
+/** "18반" 형식. 반은 1~[CLASS_COUNT] 중에서 고른다(D-73). */
+export const classNoSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,2}반$/, '반을 골라주세요.')
+  .refine((value) => {
+    const n = Number(value.replace('반', ''));
+    return n >= 1 && n <= CLASS_COUNT;
+  }, `반은 1반부터 ${CLASS_COUNT}반까지 있습니다.`);
+
 export const identitySchema = z.object({
   realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20),
-  classNo: z.string().trim().min(1, '반을 입력해주세요.').max(10),
+  classNo: classNoSchema,
 });
 export type IdentityInput = z.infer<typeof identitySchema>;
 
@@ -28,7 +39,7 @@ export const mattermostSendSchema = z.object({
     .max(64)
     .regex(/^@?[A-Za-z0-9._-]+$/, '아이디 형식이 아닙니다.'),
   realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20),
-  classNo: z.string().trim().min(1, '반을 입력해주세요.').max(10),
+  classNo: classNoSchema,
 });
 export type MattermostSendInput = z.infer<typeof mattermostSendSchema>;
 
@@ -85,10 +96,24 @@ export const postSchema = z.object({
 });
 export type PostInput = z.infer<typeof postSchema>;
 
-export const suggestionSchema = z.object({
-  name: z.string().trim().min(1).max(30),
+export const INTEREST_NAME_MAX = 20;
+
+/**
+ * 사용자가 관심사를 직접 추가한다 (D-74).
+ * confirmSimilar는 "비슷한 것이 있다"는 안내를 보고도 추가하겠다는 확인이다.
+ * 같은 뜻(EXACT)이면 확인해도 만들 수 없다.
+ */
+export const createInterestSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, '관심사 이름을 입력해주세요.')
+    .max(INTEREST_NAME_MAX, `관심사 이름은 ${INTEREST_NAME_MAX}자까지 쓸 수 있습니다.`)
+    .regex(/^[가-힣a-zA-Z0-9 .+#·/&-]+$/, '한글, 영문, 숫자와 몇 가지 기호만 쓸 수 있습니다.'),
+  categoryId: z.string().uuid(),
+  confirmSimilar: z.boolean().optional(),
 });
-export type SuggestionInput = z.infer<typeof suggestionSchema>;
+export type CreateInterestInput = z.infer<typeof createInterestSchema>;
 
 export const reportSchema = z.object({
   targetType: z.enum(['USER', 'CONNECTION_REQUEST', 'POST']),

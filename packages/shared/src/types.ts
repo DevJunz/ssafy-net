@@ -85,22 +85,49 @@ export interface OnboardingState {
 export interface InterestListItem {
   id: string;
   name: string;
+  /** 검색이 별칭에도 걸리게 한다("리액트" → React). */
+  aliases: string[];
   holderCount: number;
   mine: boolean;
   status: 'ACTIVE' | 'HIDDEN' | 'MERGED';
 }
 
+/** ATTRIBUTE는 분류당 하나만 고르고 개수·공통 계산에서 빠진다(D-72). */
+export type CategoryKind = 'INTEREST' | 'ATTRIBUTE';
+
 export interface InterestCategory {
   id: string;
   name: string;
+  kind: CategoryKind;
   interests: InterestListItem[];
 }
 
 export interface InterestCatalog {
   categories: InterestCategory[];
+  /** INTEREST 분류만 센다. 속성은 포함하지 않는다. */
   selectedCount: number;
   min: number;
   max: number;
+}
+
+/** 관심사 추가 전 중복 검사 결과 한 건 (D-74). */
+export interface SimilarInterest {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  holderCount: number;
+  /** EXACT면 같은 뜻으로 보고 추가를 막는다. SIMILAR면 확인을 받는다. */
+  match: 'EXACT' | 'SIMILAR';
+}
+
+/** POST /interests 응답. 만든 사람의 선택에는 아직 들어가지 않는다 — 화면이 고른 뒤 저장한다. */
+export interface CreatedInterest {
+  id: string;
+  name: string;
+  categoryId: string;
+  aliases: string[];
+  holderCount: number;
 }
 
 export interface ApiError {

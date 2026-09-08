@@ -15,6 +15,11 @@ export const ERROR_MESSAGES = {
   REQUEST_SUSPENDED: '요청 권한이 정지되어 있습니다.',
   INTEREST_COUNT_MIN: '관심사를 더 골라주세요.',
   INTEREST_COUNT_MAX: '고를 수 있는 관심사 개수를 넘었습니다.',
+  INTEREST_ATTRIBUTE_SINGLE: '이 항목은 하나만 고를 수 있습니다.',
+  INTEREST_EXISTS: '같은 관심사가 이미 있습니다. 목록에서 골라주세요.',
+  INTEREST_SIMILAR: '비슷한 관심사가 이미 있습니다.',
+  INTEREST_CREATE_LIMIT: '오늘 추가할 수 있는 관심사를 모두 만들었습니다.',
+  INTEREST_CATEGORY_INVALID: '이 분류에는 관심사를 추가할 수 없습니다.',
   NICKNAME_TAKEN: '이미 사용 중인 닉네임입니다.',
   NICKNAME_LOOKS_LIKE_REAL_NAME:
     '다른 구성원의 실명과 비슷한 닉네임은 쓸 수 없습니다.',

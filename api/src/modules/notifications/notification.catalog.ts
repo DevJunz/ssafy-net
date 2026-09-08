@@ -170,12 +170,6 @@ export const NOTIFICATION_RULES: Record<NotificationType, Rule> = {
     render: (p) => `관심사 ${p.reason ?? ''}가 목록에서 내려갔습니다.`,
   },
 
-  SUGGESTION_RESOLVED: {
-    category: 'IMMEDIATE',
-    actionRequired: false,
-    render: (p) => `제안하신 관심사에 대한 답변입니다. ${p.reason ?? ''}`,
-  },
-
   DIGEST: {
     category: 'DIGEST',
     actionRequired: false,

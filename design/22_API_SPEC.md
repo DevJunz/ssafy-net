@@ -166,8 +166,11 @@ DELETE /api/me/interests/:id                 하나 제거
 ```json
 {
   "categories": [
-    { "id": "c_dev", "name": "개발", "interests": [
-      { "id": "i_be", "name": "백엔드", "holderCount": 312, "mine": true, "status": "ACTIVE" }
+    { "id": "c_dev", "name": "개발 분야", "kind": "INTEREST", "interests": [
+      { "id": "i_be", "name": "백엔드", "aliases": ["백앤드", "backend"], "holderCount": 312, "mine": true, "status": "ACTIVE" }
+    ]},
+    { "id": "c_floor", "name": "층", "kind": "ATTRIBUTE", "interests": [
+      { "id": "i_f12", "name": "12층", "aliases": [], "holderCount": 48, "mine": true, "status": "ACTIVE" }
     ]}
   ],
   "selectedCount": 7, "min": 5, "max": 15
@@ -175,6 +178,8 @@ DELETE /api/me/interests/:id                 하나 제거
 ```
 
 - `holderCount`를 보여주는 것은 "여기 고르면 누가 있을지"의 힌트다(06 §3.1.4).
+- `kind=ATTRIBUTE`인 분류(층, D-72)는 분류당 하나만 고른다(`INTEREST_ATTRIBUTE_SINGLE`). `selectedCount`와 `[P-01]`/`[P-02]` 판정은 `INTEREST` 분류만 센다.
+- `aliases`는 검색이 별칭에도 걸리게 하는 용도다("리액트" → React).
 - `status=HIDDEN`인 관심사는 **이미 가진 사람에게만** 목록에 나오고 "숨겨진 관심사"로 표시된다(08 §5).
 - 관심사 목록에는 사람 이름이 없다. 검색은 관심사 이름 대상이며 **사람 이름 검색은 없다**(L3).
 
@@ -501,15 +506,29 @@ DELETE /api/me                               탈퇴
 
 ---
 
-## 13. 제안과 신고
+## 13. 관심사 직접 추가 (D-74) — 제안(S4)과 신고(S5)를 대체
 
 ```
-GET  /api/interest-suggestions/similar?q=클라이밍       비슷한 기존 관심사 (08 §4)
-POST /api/interest-suggestions                          { "name": "볼더링" }
-POST /api/reports                                       { "targetType": "POST", "targetId": "...", "reason": "...", "detail": "..." }
+GET  /api/interests/similar?q=리엑트     비슷한 기존 관심사. 온보딩 중에도 호출 가능
+POST /api/interests                      { "name": "러스트", "categoryId": "c_lang", "confirmSimilar": false }
 ```
 
-신고 응답은 `{ "accepted": true }`뿐이다. **결과를 통보하지 않는다**(09 §9). 차단 엔드포인트는 없다(D-48).
+`GET /api/interests/similar` 응답: `[{ "id", "name", "categoryId", "categoryName", "holderCount", "match": "EXACT" | "SIMILAR" }]` 최대 5개.
+판정은 정규화(공백·기호·대소문자 무시) 완전 일치 → 포함 관계 → 자모 단위 bigram Dice / 편집 거리 순이다. 이름과 별칭 모두를 본다.
+
+`POST /api/interests`:
+
+| 상황 | 응답 |
+|---|---|
+| 같은 뜻이 이미 있음 (EXACT) | `409 INTEREST_EXISTS` + `details.interest`. 확인해도 만들 수 없다 |
+| 비슷한 것이 있음, `confirmSimilar` 없음 | `409 INTEREST_SIMILAR` + `details.similar[]`. 화면이 보여주고 확인을 받아 다시 보낸다 |
+| 오늘 3개 넘게 만듦 | `429 INTEREST_CREATE_LIMIT` |
+| 속성 분류(층)에 추가 | `400 INTEREST_CATEGORY_INVALID` |
+| 성공 | `201 { "id", "name", "categoryId", "aliases": [], "holderCount": 0 }`. **만든 사람의 선택에는 넣지 않는다** — 화면이 고른 뒤 `PUT /me/interests`로 저장한다 |
+
+만들어지면 운영자 채널에 한 줄 남는다(비슷한 기존 관심사 포함). 병합·숨김은 §15의 운영자 작업이다.
+
+신고 엔드포인트는 없다(D-69). 차단 엔드포인트도 없다(D-48).
 
 ---
 
@@ -533,7 +552,7 @@ POST /api/events
 | Network | (서버) `network.candidates_computed` `network.exposed` `network.joined` `network.declined` `network.activated` `network.expired` / (프론트) `network.card_view` |
 | 글 | `post.created` `post.impression` `post.author_click` |
 | 알림 | (서버) `notification.sent` `notification.clicked` / (프론트) `notification.settings_changed` |
-| 관심사 | `interest.changed` `interest.suggested` |
+| 관심사 | `interest.changed` `interest.created` |
 | 신고 | (서버) `report.created` `report.resolved` |
 
 ---
@@ -548,8 +567,6 @@ GET  /api/admin/metrics/funnel?from=&to=     14 §2 요약
 GET  /api/admin/reports?status=OPEN
 POST /api/admin/reports/:id/resolve          { "action": "DELETE_POST" | "SUSPEND_REQUEST" | "DISMISS", "note": "" }
 POST /api/admin/users/:id/suspend            { "suspended": true, "reason": "" }
-GET  /api/admin/interest-suggestions?status=PENDING
-POST /api/admin/interest-suggestions/:id/resolve
 POST /api/admin/interests                    추가
 PATCH /api/admin/interests/:id               이름 변경 / 숨김 / 병합 (08 §5)
 PUT  /api/admin/parameters/:key              { "value": 2, "reason": "추천 0명 비율 34%" }
@@ -585,7 +602,7 @@ PUT  /api/admin/feature-flags/:key           { "enabled": true }
 | Overlay Network 성립 | `GET /api/networks/:id` → `mark-invited` |
 | Overlay 후속 확인 | `GET /api/follow-ups/pending` → `respond` |
 | Overlay 글 작성 | `POST /api/posts` |
-| Overlay 관심사 제안 | `GET /api/interest-suggestions/similar` → `POST` |
+| 관심사 선택 화면의 직접 추가 | `GET /api/interests/similar` → `POST /api/interests` (D-74) |
 | Overlay 신고 | `POST /api/reports` |
 
 Must 화면 전부가 위에 있다. **여기 없는 엔드포인트는 만들지 않는다.**

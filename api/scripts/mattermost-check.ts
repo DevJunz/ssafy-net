@@ -11,10 +11,12 @@
  * 실행: npm run mm:check --workspace=api
  */
 import { config } from 'dotenv';
+import { SERVICE_NAME } from '@ssafy-net/shared';
 
 config();
 
 const WEBHOOK = process.env.MATTERMOST_WEBHOOK_URL ?? '';
+const OPERATOR = process.env.MATTERMOST_OPERATOR_USERNAME ?? 'devjunsday';
 
 interface Payload {
   text: string;
@@ -46,7 +48,7 @@ async function main() {
   // 1. 기본 채널로. 웹훅 자체가 살아 있는지 본다.
   await send('기본 채널로 발송 (목적지 미지정)', {
     text: [
-      '**Interest Network — 웹훅 연결 확인**',
+      `**${SERVICE_NAME} — 웹훅 연결 확인**`,
       '',
       '이 메시지가 보이면 웹훅이 살아 있습니다.',
       '이 채널은 목적지를 지정하지 않았을 때만 쓰입니다.',
@@ -57,10 +59,10 @@ async function main() {
 
   // 2. 본인에게 DM. 문서상 "웹훅은 생성자에게 DM할 수 없다"인데 실제로 확인한다.
   //    여기서 되면 운영자 예외 경로가 필요 없어진다.
-  await send('@devjunsday 에게 DM (웹훅 생성자 본인)', {
-    channel: '@devjunsday',
+  await send(`@${OPERATOR} 에게 DM (웹훅 생성자 본인)`, {
+    channel: `@${OPERATOR}`,
     text: [
-      '**Interest Network 인증 코드**',
+      `**${SERVICE_NAME} 인증 코드**`,
       '',
       '최준환_서울_18반님, 인증 코드는 `482913` 입니다.',
       '10분 안에 입력해주세요.',

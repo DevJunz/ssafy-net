@@ -1,4 +1,4 @@
-# Interest Network (ssafy-net)
+# SSAFY Connection (ssafy-net)
 
 관심사 그래프로 아직 모르는 사람을 발견하고, 서로 대화할 의사를 확인한 뒤, 실제 대화는 사내 메신저에서 실명으로 시작하는 네트워킹 서비스. 단일 캠퍼스 약 1,000명 대상.
 
@@ -32,7 +32,7 @@ cp api/.env.example api/.env                  # 값 채우기 (아래 참조)
 
 npm run db:up                                 # postgres 16 (Docker)
 npm run prisma:migrate                        # 스키마 적용
-npm run prisma:seed                           # 관심사 100개 · 파라미터 · 초대 코드
+npm run prisma:seed                           # 관심사 100개 + 층 20개 · 파라미터 · 초대 코드
 ```
 
 시드가 초대 코드를 출력한다. 가입 링크는 `http://localhost:5173/invite/<코드>`다.
@@ -92,7 +92,8 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 - 나 중심 그래프 + 사이드 패널 4종, 관심사 레일, Similar People
 - 연결 요청·수락·거절·만료·취소, 연결 성립 화면(@아이디 + 대화창 링크), 후속 확인
 - Mattermost 알림 + 앱 내 알림함 + 딥링크, 배치 10종
-- Network 추천(후보 생성·노출·참여·성립), Interest Post, 관심사 제안, 묶음 알림
+- Network 추천(후보 생성·노출·참여·성립), Interest Post, 묶음 알림
+- 관심사 100개 확정본(`api/prisma/seed/interests.ts`) + 사용자 직접 추가(추가 전 중복·유사 검사), 활동하는 층 선택, 반 1~22 선택
 
 ## 진행 상황
 
@@ -102,14 +103,15 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 | M2 발견 | 그래프, Interest/Person 패널, Similar People | **완료** |
 | M3 연결 | 요청·수락·거절·만료, Connections, 성립 화면, 후속 확인 | **완료** |
 | M4 알림 | 알림함·배지·Mattermost 발송·배치 10종 | **완료** |
-| M5 Should | Network 추천, Interest Post, 관심사 제안, 묶음 알림 | **완료** (신고는 만들지 않음, D-69) |
+| M5 Should | Network 추천, Interest Post, 묶음 알림, 관심사 직접 추가 | **완료** (신고는 만들지 않음 D-69, 제안은 직접 추가로 대체 D-74) |
 
 M3까지가 MVP의 최소선이다(design/20 §14).
 
-## 구현 시작 전 남은 것
+## 공개 전 남은 것
 
-| ID | 항목 | 담당 |
-|---|---|---|
-| B-1 | 초기 관심사 100개 확정 | 사용자. 현재는 임시 목록(`api/prisma/seed/interests.ts`) |
-| B-3 | 이메일 발송 가능 여부 | M4에서 테스트 |
-| B-4 | Discord 등 외부 채널 발송 가능 여부 | M4에서 테스트 |
+| 항목 | 담당 |
+|---|---|
+| 디자인 | 화면이 다 나온 상태 |
+| 배포 | design/20 §13 단일 VM + Docker Compose 기본안 |
+
+B-3(이메일)·B-4(외부 채널)는 Mattermost 도입(D-66~D-68)으로 더 이상 확인할 필요가 없다.

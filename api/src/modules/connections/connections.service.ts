@@ -575,9 +575,10 @@ export class ConnectionsService {
 
   // ─────────────────────────────────────────────────────────
 
+  /** 요청에 남는 "요청 당시 공통 관심사". 속성(층)은 넣지 않는다(D-72). */
   private async commonInterestIds(a: string, b: string): Promise<string[]> {
     const rows = await this.prisma.userInterest.findMany({
-      where: { userId: { in: [a, b] } },
+      where: { userId: { in: [a, b] }, interest: { category: { kind: 'INTEREST' } } },
       select: { userId: true, interestId: true },
     });
     const mine = new Set(

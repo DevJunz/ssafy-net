@@ -1,17 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MattermostModule } from '../../infra/mattermost/mattermost.module';
 import { ConnectionsModule } from '../connections/connections.module';
-import { NotificationsModule } from '../notifications/notifications.module';
 import { PostsModule } from '../posts/posts.module';
 import { CommonInterestsModule } from '../recommendation/common-interests.module';
 import { InterestsController } from './interests.controller';
 import { InterestsService } from './interests.service';
-import { SuggestionsAdminController } from './suggestions.admin.controller';
-import { SuggestionsService } from './suggestions.service';
 
 @Module({
-  imports: [CommonInterestsModule, ConnectionsModule, PostsModule, NotificationsModule],
-  controllers: [InterestsController, SuggestionsAdminController],
-  providers: [InterestsService, SuggestionsService],
+  imports: [CommonInterestsModule, ConnectionsModule, PostsModule, MattermostModule],
+  controllers: [InterestsController],
+  providers: [InterestsService],
   exports: [InterestsService],
 })
 export class InterestsModule {}

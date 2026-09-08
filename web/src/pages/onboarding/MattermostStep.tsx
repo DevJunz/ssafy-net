@@ -1,3 +1,4 @@
+import { CAMPUS, CLASS_OPTIONS } from '@ssafy-net/shared';
 import { useState } from 'react';
 import { api, RequestFailed } from '../../api/client';
 
@@ -31,7 +32,7 @@ export function MattermostStep({
   const [error, setError] = useState<string | null>(null);
 
   const preview =
-    realName && classNo ? `${realName}_서울_${classNo}` : '이름_서울_반';
+    realName && classNo ? `${realName}_${CAMPUS}_${classNo}` : `이름_${CAMPUS}_반`;
 
   const send = async () => {
     setBusy(true);
@@ -137,12 +138,15 @@ export function MattermostStep({
 
       <label>
         반
-        <input
-          type="text"
-          value={classNo}
-          onChange={(event) => setClassNo(event.target.value)}
-          placeholder="18반"
-        />
+        {/* 자유 입력이면 "18", "18반", "십팔반"이 섞인다. 실명 표기의 일부라 고르게 한다(D-73). */}
+        <select value={classNo} onChange={(event) => setClassNo(event.target.value)}>
+          <option value="">반을 골라주세요</option>
+          {CLASS_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
       </label>
 
       <div className="card">

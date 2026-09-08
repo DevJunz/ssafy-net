@@ -70,7 +70,7 @@ model User {
 
   interests            UserInterest[]
   interestChanges      UserInterestChange[]
-  suggestions          InterestSuggestion[]
+  createdInterests     Interest[]             @relation("InterestsCreated")
   sentRequests         ConnectionRequest[]    @relation("RequestsSent")
   receivedRequests     ConnectionRequest[]    @relation("RequestsReceived")
   connectionsAsA       Connection[]           @relation("ConnectionUserA")
@@ -140,20 +140,21 @@ enum InterestChangeAction {
   REMOVE
 }
 
-enum SuggestionStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  DUPLICATE
-}
-
 model Category {
   id        String     @id @default(uuid())
   name      String     @unique
   sortOrder Int        @map("sort_order")
+  // INTEREST: 이야기할 거리(기본). ATTRIBUTE: "활동하는 층"처럼 분류당 하나만 고르는 속성 (D-72).
+  // 속성은 최소·최대 개수와 공통 관심사 계산에서 제외되고, 그래프에는 노드로 남는다.
+  kind      CategoryKind @default(INTEREST)
   interests Interest[]
 
   @@map("category")
+}
+
+enum CategoryKind {
+  INTEREST
+  ATTRIBUTE
 }
 
 model Interest {
@@ -162,6 +163,12 @@ model Interest {
   category   Category @relation(fields: [categoryId], references: [id])
 
   name String @unique
+  // 같은 뜻의 다른 표기("리액트", "reactjs"). 사용자가 관심사를 추가하기 전 중복 검사에 쓴다(D-74).
+  aliases String[] @default([])
+
+  // 사용자가 직접 추가한 관심사면 누가 만들었는지. 운영자가 병합·숨김 판단에 쓴다(D-74).
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation("InterestsCreated", fields: [createdById], references: [id], onDelete: SetNull)
 
   status InterestStatus @default(ACTIVE)
   // 병합 시 대상 (docs/08 §5). 삭제 대신 숨김/병합만 한다(D-37).
@@ -210,22 +217,6 @@ model UserInterestChange {
 
   @@index([userId, changedAt])
   @@map("user_interest_change")
-}
-
-model InterestSuggestion {
-  id                 String           @id @default(uuid())
-  userId             String           @map("user_id")
-  name               String
-  status             SuggestionStatus @default(PENDING)
-  resolvedInterestId String?          @map("resolved_interest_id")
-  operatorNote       String?          @map("operator_note")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  resolvedAt         DateTime?        @map("resolved_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([status, createdAt])
-  @@map("interest_suggestion")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -457,7 +448,6 @@ enum NotificationType {
   NETWORK_ENABLED
   INTEREST_MERGED
   INTEREST_HIDDEN
-  SUGGESTION_RESOLVED
   DIGEST
 }
 

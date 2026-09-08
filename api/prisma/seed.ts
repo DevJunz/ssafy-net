@@ -5,7 +5,7 @@ import {
   PARAMETER_DEFS,
   PARAMETER_KEYS,
 } from '@ssafy-net/shared';
-import { INTEREST_SEED } from './seed/interests';
+import { INTEREST_SEED, seedItemAliases, seedItemName } from './seed/interests';
 
 const prisma = new PrismaClient();
 
@@ -37,28 +37,35 @@ async function seedInterests() {
   let categoryOrder = 0;
   let total = 0;
 
+  let attributes = 0;
+
   for (const group of INTEREST_SEED) {
+    const kind = group.kind ?? 'INTEREST';
     const category = await prisma.category.upsert({
       where: { name: group.category },
-      update: { sortOrder: categoryOrder },
-      create: { name: group.category, sortOrder: categoryOrder },
+      update: { sortOrder: categoryOrder, kind },
+      create: { name: group.category, sortOrder: categoryOrder, kind },
     });
     categoryOrder += 1;
 
     let interestOrder = 0;
-    for (const name of group.interests) {
+    for (const item of group.interests) {
+      const name = seedItemName(item);
+      const aliases = seedItemAliases(item);
       await prisma.interest.upsert({
         where: { name },
-        update: { categoryId: category.id, sortOrder: interestOrder },
-        create: { name, categoryId: category.id, sortOrder: interestOrder },
+        // 이름·별칭·분류는 시드가 원본이다. holderCount와 status는 운영 중 값이라 건드리지 않는다.
+        update: { categoryId: category.id, sortOrder: interestOrder, aliases },
+        create: { name, categoryId: category.id, sortOrder: interestOrder, aliases },
       });
       interestOrder += 1;
-      total += 1;
+      if (kind === 'ATTRIBUTE') attributes += 1;
+      else total += 1;
     }
   }
 
   console.log(
-    `관심사 ${total}개 / Category ${INTEREST_SEED.length}개 확인 (임시본, B-1로 교체 예정)`,
+    `관심사 ${total}개 / 분류 ${INTEREST_SEED.filter((g) => (g.kind ?? 'INTEREST') === 'INTEREST').length}개, 속성 ${attributes}개 확인 (D-71)`,
   );
 }
 

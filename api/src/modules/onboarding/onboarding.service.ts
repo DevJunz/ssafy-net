@@ -96,6 +96,17 @@ export class OnboardingService {
    * 들어간다(FR-1.6).
    */
   async complete(user: User) {
+    // Mattermost 인증이 SSAFY 소속 검증을 겸한다(D-66). 화면은 순서를 지키지만
+    // 이 엔드포인트는 직접 호출할 수 있으므로, ACTIVE가 되는 자리에서 다시 확인한다.
+    // 여기를 통과하면 그래프와 다른 사람의 추천에 실려 나간다(FR-1.6).
+    if (!user.mattermostVerifiedAt) {
+      throw new AppError(
+        'FORBIDDEN',
+        undefined,
+        'Mattermost 계정 인증을 먼저 마쳐야 합니다.',
+      );
+    }
+
     const min = await this.parameters.get('P-01');
     const count = await this.prisma.userInterest.count({
       where: { userId: user.id },

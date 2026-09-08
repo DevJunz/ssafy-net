@@ -64,8 +64,12 @@ export class CandidateService {
     });
     if (users.length < minSize) return [];
 
+    // 속성(층)은 공통 관심사가 아니다(D-72). 같은 층 사람끼리 묶이는 것은 추천의 목적이 아니다.
     const interestRows = await this.prisma.userInterest.findMany({
-      where: { userId: { in: users.map((u) => u.id) } },
+      where: {
+        userId: { in: users.map((u) => u.id) },
+        interest: { category: { kind: 'INTEREST' } },
+      },
       select: { userId: true, interestId: true },
     });
 
@@ -126,6 +130,8 @@ export class CandidateService {
       FROM user_interest a
       JOIN user_interest b
         ON a.interest_id = b.interest_id AND a.user_id < b.user_id
+      JOIN interest i  ON i.id = a.interest_id
+      JOIN category c  ON c.id = i.category_id AND c.kind = 'INTEREST'
       WHERE a.user_id IN (${Prisma.join(userIds)})
         AND b.user_id IN (${Prisma.join(userIds)})
       GROUP BY 1, 2

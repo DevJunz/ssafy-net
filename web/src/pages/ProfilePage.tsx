@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { InterestPicker } from '../features/interests/InterestPicker';
-import { SuggestInterest } from '../features/interests/SuggestInterest';
 import { MyPosts } from '../features/posts/MyPosts';
 import { useSession } from '../session';
 
@@ -63,14 +62,6 @@ export function ProfilePage() {
               void reload();
             }}
           />
-        </div>
-
-        <div className="section">
-          <h2 style={{ fontSize: 17 }}>원하는 관심사가 없나요?</h2>
-          <p className="muted">
-            운영자가 확인하고 목록에 추가할지 알려드립니다.
-          </p>
-          <SuggestInterest />
         </div>
 
         <div className="section">

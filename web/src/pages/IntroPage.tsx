@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { SERVICE_NAME } from '@ssafy-net/shared';
 import { api } from '../api/client';
 
 /**
@@ -28,7 +29,7 @@ export function IntroPage() {
 
   return (
     <main className="page">
-      <h1>Interest Network</h1>
+      <h1>{SERVICE_NAME}</h1>
 
       <div className="stack">
         <p>관심사를 등록하면 나와 겹치는 사람이 그래프에 보입니다.</p>

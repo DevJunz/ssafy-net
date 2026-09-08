@@ -42,6 +42,11 @@ export class CommonInterestsService {
    * 나와 공통 관심사가 1개 이상인 모든 사용자.
    * 임계값([P-03]) 적용과 상한 자르기는 호출하는 쪽이 한다.
    * 여기서 자르면 그래프의 "관심사당 최소 2명" 보정을 할 수 없다.
+   *
+   * 속성(층, D-72)은 commonCount와 rarity에 세지 않는다 — 같은 층은 이야깃거리가 아니라
+   * 만나기 쉬운 조건이다. 다만 commonInterestIds에는 남겨서 그래프가 층 노드를 그리고
+   * "노드당 최소 2명" 보정이 같은 층 사람을 데려올 수 있게 한다.
+   * 그래서 속성만 겹치는 사람은 commonCount 0으로 돌아온다.
    */
   async findOverlapping(
     meId: string,
@@ -61,14 +66,16 @@ export class CommonInterestsService {
     >(Prisma.sql`
       SELECT
         ui.user_id                                        AS "userId",
-        count(*)::int                                     AS "commonCount",
-        sum(ln(1 + ${activeUsers}::float
-                 / GREATEST(i.holder_count, 1)))::float   AS "rarity",
+        count(*) FILTER (WHERE c.kind = 'INTEREST')::int  AS "commonCount",
+        COALESCE(sum(ln(1 + ${activeUsers}::float
+                 / GREATEST(i.holder_count, 1)))
+                 FILTER (WHERE c.kind = 'INTEREST'), 0)::float AS "rarity",
         array_agg(ui.interest_id)                         AS "commonInterestIds",
         u.created_at                                      AS "createdAt"
       FROM user_interest ui
-      JOIN interest i ON i.id = ui.interest_id
-      JOIN "user" u   ON u.id = ui.user_id
+      JOIN interest i  ON i.id = ui.interest_id
+      JOIN category c  ON c.id = i.category_id
+      JOIN "user" u    ON u.id = ui.user_id
       WHERE ui.interest_id IN (${Prisma.join(myInterestIds)})
         AND ui.user_id <> ${meId}
         AND u.status = 'ACTIVE'

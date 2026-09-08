@@ -48,7 +48,7 @@
 
   운영/측정 계열 (도메인과 분리):
   AppParameter · AppParameterChange · FeatureFlag · JobRun · AnalyticsEvent
-  Report · InterestSuggestion · UserInterestChange
+  Report · UserInterestChange
   NotificationSetting · PushSubscription · ExternalChannel
 ```
 
@@ -133,17 +133,22 @@ MVP에서는 링크 하나면 충분하다(FR-0.2). 테이블로 둔 이유는 �
 
 ```prisma
 model Category {
-  id        String     @id @default(uuid())
-  name      String     @unique
+  id        String       @id @default(uuid())
+  name      String       @unique
   sortOrder Int
+  kind      CategoryKind @default(INTEREST)  // ATTRIBUTE = 층처럼 분류당 하나만 고르는 속성 (D-72)
   interests Interest[]
   @@map("category")
 }
+
+enum CategoryKind { INTEREST ATTRIBUTE }
 
 model Interest {
   id           String         @id @default(uuid())
   categoryId   String
   name         String         @unique      // 한 관심사에 하나의 이름 (08 §1)
+  aliases      String[]       @default([]) // 같은 뜻의 다른 표기. 추가 전 중복 검사 재료 (D-74)
+  createdById  String?                     // 사용자가 직접 만든 관심사의 작성자 (D-74)
   status       InterestStatus @default(ACTIVE)
   mergedIntoId String?                     // 병합 시 대상 (08 §5)
   holderCount  Int            @default(0)  // 비정규화. §3.2 참조
@@ -173,6 +178,9 @@ model UserInterest {
 | 삭제 대신 `HIDDEN` / `MERGED` | D-37. 이미 가진 사람의 데이터를 지우지 않는다 |
 | `holderCount` 비정규화 | 온보딩 화면이 관심사 100개마다 사람 수를 보여줘야 하고(06 §3.1.4), 희소성 가중이 매 추천마다 이 값을 쓴다(13 §3.2). `UserInterest` 변경 시 같은 트랜잭션에서 갱신한다 |
 | 2단계 고정 (Category > Interest) | 08 §1. 3단계는 두지 않는다 |
+| `Category.kind = ATTRIBUTE` | D-72. 층은 관심사와 같은 테이블에 두어 그래프·선택 화면을 재사용하되, 개수와 공통 계산에서는 `kind`로 걸러낸다. 별도 컬럼(`User.floor`)이면 그래프에 노드로 그릴 수 없다 |
+| `Interest.aliases` | D-74. 사용자 직접 추가 전 검사에서 "리액트"가 React에 걸리게 한다. 별칭은 이름이 아니므로 유니크 제약을 두지 않는다 |
+| `Interest.createdById` | D-74. 사용자가 만든 관심사를 운영자가 병합·숨김할 때 누가 만들었는지 본다. 탈퇴하면 null |
 
 ### 3.2 UserInterestChange (변경 이력)
 
@@ -193,25 +201,9 @@ enum InterestChangeAction { ADD REMOVE }
 
 08 §3이 "변경 빈도 제한은 없고 이력만 관찰한다"고 정했다. R-05(Interest Inflation)의 관찰 지표(1인 주 3회 이상 변경, 14 §3)가 이 테이블에서 나온다.
 
-### 3.3 InterestSuggestion (S4)
+### 3.3 ~~InterestSuggestion (S4)~~ — 없앰 (D-74)
 
-```prisma
-model InterestSuggestion {
-  id                String           @id @default(uuid())
-  userId            String
-  name              String
-  status            SuggestionStatus @default(PENDING)
-  resolvedInterestId String?                        // 채택 시 생성/연결된 관심사
-  operatorNote      String?                         // 반려 사유 한 줄 (08 §4)
-  createdAt         DateTime         @default(now())
-  resolvedAt        DateTime?
-
-  @@index([status, createdAt])
-  @@map("interest_suggestion")
-}
-
-enum SuggestionStatus { PENDING ACCEPTED REJECTED DUPLICATE }
-```
+제안은 사용자 직접 추가로 대체되었다. 테이블과 `SuggestionStatus`, 알림 종류 `SUGGESTION_RESOLVED`를 마이그레이션 `20260908120000`에서 지웠다. 직접 추가의 흔적은 `Interest.createdById`로 남는다.
 
 ---
 

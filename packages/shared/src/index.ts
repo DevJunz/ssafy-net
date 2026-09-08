@@ -1,3 +1,5 @@
+export * from './brand';
+export * from './campus';
 export * from './parameters';
 export * from './types';
 export * from './graph';
