@@ -39,10 +39,33 @@ npm run prisma:seed                           # 관심사 100개 · 파라미터
 
 ### Google OAuth 설정 (로그인에 필요)
 
-로그인은 Google만 지원한다(D-56). [Google Cloud Console](https://console.cloud.google.com/apis/credentials)에서 OAuth 클라이언트 ID(웹)를 만들고 아래를 `api/.env`에 넣는다.
+로그인은 Google만 지원한다(D-56). [Google Cloud Console](https://console.cloud.google.com/auth/clients)에서 OAuth 클라이언트 ID(웹)를 만들고 아래를 `api/.env`에 넣는다.
 
 - 승인된 리디렉션 URI: `http://localhost:3000/api/auth/google/callback`
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+### Mattermost 설정 (인증과 알림에 필요)
+
+온보딩 첫 단계가 Mattermost 계정 인증이고(D-66), 알림도 전부 이리로 간다(D-67).
+
+1. Mattermost에 **나만 있는 비공개 채널**을 하나 만든다 (예: `interest-network-log`)
+   목적지를 지정하지 않은 메시지가 여기로 떨어진다. **폭발 반경**이므로 공개 채널을 쓰지 않는다.
+2. **⋮ → 통합 → 들어오는 웹후크 → 추가**. 위 채널을 지정하고 **"이 채널로 잠금"은 반드시 해제**한다.
+   잠그면 `@아이디`로 DM을 보낼 수 없다.
+3. `api/.env`에 넣는다.
+
+```
+MATTERMOST_URL="https://meeting.ssafy.com"
+MATTERMOST_WEBHOOK_URL="https://.../hooks/xxxxxxxx"
+MATTERMOST_OPERATOR_USERNAME="내_아이디"   # 웹훅 생성자는 자기 자신에게 DM을 받을 수 없다
+MATTERMOST_DELIVERY_MODE="redirect"        # 공개할 때만 live
+```
+
+확인: `npm run mm:check --workspace=api`
+
+> ⚠️ **`MATTERMOST_DELIVERY_MODE`의 기본값 `redirect`가 안전장치다.**
+> 이 상태에서는 모든 DM이 운영자 채널로만 가고 다른 사람에게는 아무것도 가지 않는다.
+> 배치가 잘못 돌면 수십 명에게 한 번에 나가고 되돌릴 수 없다.
 
 ## 실행
 
@@ -62,6 +85,14 @@ npm run build                                             # shared → api → w
 docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
   < api/scripts/recount-interest-holders.sql              # holder_count 재계산
 ```
+
+## 구현된 것
+
+- 초대 링크 → Google 로그인 → **Mattermost 계정 인증** → 표시명 → 관심사 (온보딩 3단계)
+- 나 중심 그래프 + 사이드 패널 4종, 관심사 레일, Similar People
+- 연결 요청·수락·거절·만료·취소, 연결 성립 화면(@아이디 + 대화창 링크), 후속 확인
+- Mattermost 알림 + 앱 내 알림함 + 딥링크, 배치 10종
+- Network 추천(후보 생성·노출·참여·성립), Interest Post, 관심사 제안, 묶음 알림
 
 ## 진행 상황
 
