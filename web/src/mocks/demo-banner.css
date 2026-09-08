@@ -1,0 +1,65 @@
+/* 데모 빌드 전용. 실제 서비스 번들에는 이 화면이 없다. */
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: #1c2b3a;
+  color: #e9f1f8;
+  font-size: 13px;
+}
+
+.demo-banner .demo-tag {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0b429;
+  color: #23303d;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.demo-banner .demo-text {
+  flex: 1 1 240px;
+  min-width: 0;
+  opacity: 0.85;
+}
+
+.demo-banner .demo-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.demo-banner button {
+  padding: 4px 10px;
+  border: 1px solid rgba(233, 241, 248, 0.35);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.demo-banner button:hover {
+  background: rgba(233, 241, 248, 0.12);
+}
+
+.demo-banner button.on {
+  background: #e9f1f8;
+  border-color: #e9f1f8;
+  color: #1c2b3a;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .demo-banner .demo-text {
+    display: none;
+  }
+}

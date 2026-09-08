@@ -107,6 +107,33 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 
 M3까지가 MVP의 최소선이다(design/20 §14).
 
+## 디자인 피드백용 데모 배포
+
+서버도 DB도 로그인도 없이 **URL만 열면 바로 앱이 보이는** 정적 번들을 만든다.
+디자이너는 SSAFY Mattermost 계정이 없어 온보딩을 통과할 수 없으므로, 실제 서비스를
+그대로 보여줄 수 없다. 그래서 화면만 떼어 낸다.
+
+```bash
+npm run build:demo --workspace=web    # web/dist 에 정적 번들
+npm run preview:demo --workspace=web  # localhost:4173 에서 확인
+```
+
+Vercel에 올릴 때는 저장소를 연결하고 **Root Directory를 저장소 루트로 둔다.**
+`vercel.json`이 빌드와 SPA 라우팅을 지정한다.
+
+데이터는 지어낸 것이 아니라 **실제 API 응답을 캡처한 것**이다. 그래프 밀도, 공통 관심사
+개수, 정렬 순서가 실제와 같다. 서버를 띄운 상태에서 다시 뜨면 갱신된다.
+
+```bash
+node web/scripts/capture-fixtures.cjs   # api·db 가 떠 있어야 한다
+```
+
+- 캡처하는 동안 **실제 계정을 비활성으로 빼서** 목 데이터에 실명이 들어가지 않게 한다.
+  스크립트가 끝에서 흔적이 남았는지 검사한다.
+- 데모 번들에는 상단에 **데모 띠**가 뜬다. 앱 둘러보기 / 가입 화면부터 / 처음으로.
+- 수락·거절·저장 같은 동작은 화면 안에서만 반영된다. 새로고침하면 처음으로 돌아간다.
+- `npm run build`(모드 없음)로 만든 실 서비스 번들에는 이 목 데이터가 **들어가지 않는다.**
+
 ## 공개 전 남은 것
 
 | 항목 | 담당 |

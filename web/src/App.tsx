@@ -8,6 +8,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { api } from './api/client';
 import { Shell } from './components/Shell';
 import { FollowUpOverlay } from './features/connections/Overlays';
+import { DEMO_MODE } from './mocks';
+import { DemoBanner } from './mocks/DemoBanner';
 import { ConnectionsPage } from './pages/ConnectionsPage';
 import { GraphPage } from './pages/GraphPage';
 import { IntroPage } from './pages/IntroPage';
@@ -116,6 +118,7 @@ function Routing() {
 export function App() {
   return (
     <SessionProvider>
+      {DEMO_MODE && <DemoBanner />}
       <Routing />
     </SessionProvider>
   );

@@ -1,4 +1,5 @@
 import type { ApiError } from '@ssafy-net/shared';
+import { DEMO_MODE, MockError, mockRequest } from '../mocks';
 
 export class RequestFailed extends Error {
   constructor(
@@ -14,6 +15,22 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  // 데모 빌드는 서버가 없다. 캡처해 둔 응답으로 답한다(web/src/mocks).
+  if (DEMO_MODE) {
+    try {
+      return await mockRequest<T>(
+        init.method ?? 'GET',
+        path,
+        init.body ? JSON.parse(init.body as string) : undefined,
+      );
+    } catch (error) {
+      if (error instanceof MockError) {
+        throw new RequestFailed(error.code, error.message, error.details);
+      }
+      throw error;
+    }
+  }
+
   const response = await fetch(`/api${path}`, {
     ...init,
     // 세션은 httpOnly 쿠키다. 모든 요청에 실어 보낸다.

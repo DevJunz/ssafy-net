@@ -28,6 +28,8 @@ export function MattermostStep({
   const [classNo, setClassNo] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(codeAlreadySent);
+  // 데모 빌드에서는 DM이 갈 곳이 없으므로 코드를 화면에 알려준다.
+  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,10 +40,15 @@ export function MattermostStep({
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<{ operatorBypass: boolean }>(
-        '/onboarding/mattermost/send',
-        { username: username.trim(), realName, classNo },
-      );
+      const result = await api.post<{
+        operatorBypass: boolean;
+        demoCode?: string;
+      }>('/onboarding/mattermost/send', {
+        username: username.trim(),
+        realName,
+        classNo,
+      });
+      setDemoCode(result.demoCode ?? null);
       // 운영자(웹훅 생성자)는 자기 자신에게 DM을 받을 수 없어 코드 없이 통과한다.
       if (result.operatorBypass) {
         onDone();
@@ -76,6 +83,12 @@ export function MattermostStep({
           <strong>@{username.replace(/^@/, '')}</strong> 님에게 6자리 코드를
           보냈습니다. Mattermost를 확인해주세요.
         </p>
+
+        {demoCode && (
+          <div className="notice">
+            데모라 메신저로 보내지 않았습니다. <strong>{demoCode}</strong> 을 입력해주세요.
+          </div>
+        )}
 
         <input
           type="text"
@@ -117,12 +130,12 @@ export function MattermostStep({
           type="text"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
-          placeholder="devjunsday"
+          placeholder="mattermost_id"
           autoComplete="off"
         />
       </label>
       <p className="muted" style={{ marginTop: -8, fontSize: 12 }}>
-        표시명(최준환[서울_18반])이 아니라 <strong>@아이디</strong>입니다.
+        표시명(홍길동[서울_1반])이 아니라 <strong>@아이디</strong>입니다.
         Mattermost에서 본인 프로필을 누르면 보입니다.
       </p>
 
@@ -132,7 +145,7 @@ export function MattermostStep({
           type="text"
           value={realName}
           onChange={(event) => setRealName(event.target.value)}
-          placeholder="최준환"
+          placeholder="홍길동"
         />
       </label>
 

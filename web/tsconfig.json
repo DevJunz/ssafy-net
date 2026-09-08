@@ -15,7 +15,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    // 데모 빌드가 캡처한 API 응답(web/src/mocks/fixtures.json)을 가져다 쓴다.
+    "resolveJsonModule": true
   },
   "include": ["src"]
 }
