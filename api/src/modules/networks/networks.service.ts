@@ -8,6 +8,7 @@ import type {
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ParametersService } from '../parameters/parameters.service';
 import { UserPresenter } from '../users/user.presenter';
 
@@ -25,6 +26,7 @@ export class NetworksService {
     private readonly prisma: PrismaService,
     private readonly parameters: ParametersService,
     private readonly presenter: UserPresenter,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async assertEnabled(): Promise<void> {
@@ -149,6 +151,8 @@ export class NetworksService {
   async join(me: User, id: string): Promise<NetworkDetail> {
     await this.assertEnabled();
 
+    let activated = false;
+
     await this.prisma.$transaction(async (tx) => {
       const row = await tx.networkRecommendation.findUnique({
         where: { id },
@@ -192,12 +196,54 @@ export class NetworksService {
           where: { id },
           data: { status: 'ACTIVATED', activatedAt: new Date() },
         });
-        // TODO(M4): 참여자 전원에게 NETWORK_ACTIVATED 알림 + 성립 화면 직행.
+        activated = true;
         this.logger.log(`네트워크 성립 ${id} (${nowJoined}명)`);
       }
     });
 
+    // 트랜잭션 밖에서 보낸다. 알림은 자기 행을 쓰고 메신저로 나가므로
+    // 안에서 부르면 커밋 전 상태를 읽거나 트랜잭션을 길게 잡는다.
+    if (activated) await this.notifyActivated(id);
+
     return this.detail(me, id);
+  }
+
+  /**
+   * 성립 알림 (docs/10 §5). 참여자 전원에게 보낸다 — 방금 참여를 누른 사람도
+   * 포함한다. 그 사람에게는 화면이 이미 성립을 보여주지만, 나중에 다시 찾아올
+   * 링크가 알림함에 남아야 한다.
+   *
+   * **여기서만 실명이 나간다.** 성립된 Network의 참여 멤버는 서로의 실명을 볼 수
+   * 있다(design/20 §11). 받는 사람 자신은 목록에서 뺀다.
+   */
+  private async notifyActivated(id: string): Promise<void> {
+    const row = await this.prisma.networkRecommendation.findUnique({
+      where: { id },
+      include: { members: { include: { user: true } } },
+    });
+    if (!row) return;
+
+    const joined = row.members.filter((member) => member.decision === 'JOINED');
+    const interests = await this.prisma.interest.findMany({
+      where: { id: { in: row.commonInterestIds } },
+      select: { name: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    for (const member of joined) {
+      await this.notifications.notify({
+        userId: member.userId,
+        type: 'NETWORK_ACTIVATED',
+        dedupeKey: `network-activated:${id}`,
+        payload: {
+          memberNames: joined
+            .filter((other) => other.userId !== member.userId)
+            .map((other) => this.presenter.fullRealName(other.user) ?? '이름 없음'),
+          commonInterests: interests.map((interest) => interest.name),
+        },
+        targetPath: `/networks?tab=activated&open=${id}`,
+      });
+    }
   }
 
   /** 참여 철회. 첫 참여자가 빠지면 다음 참여자가 시작자가 된다(docs/10 §5). */

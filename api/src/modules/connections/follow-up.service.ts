@@ -3,6 +3,7 @@ import type { User } from '@prisma/client';
 import type { FollowUpItem, FollowUpResponseInput } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UserPresenter } from '../users/user.presenter';
 
 /**
@@ -16,6 +17,7 @@ export class FollowUpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly presenter: UserPresenter,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async pending(me: User): Promise<FollowUpItem[]> {
@@ -88,8 +90,42 @@ export class FollowUpService {
       },
     });
 
-    // TODO(M4): askCounterpart이면 상대에게 CONNECTION_ASK_COUNTERPART 알림.
+    if (askCounterpart && check.subjectType === 'CONNECTION') {
+      await this.askCounterpartToReachOut(me, check.subjectId, check.id);
+    }
+
     return { ok: true };
+  }
+
+  /**
+   * "메신저에서 못 찾았다"에 동의하면 상대에게 먼저 연락해달라고 알린다(docs/09 §10).
+   *
+   * 여기서 실명을 보내는 것은 **연결된 상대에게만** 가는 알림이기 때문이다.
+   * 상대는 이미 내 실명을 볼 수 있는 상태다(design/20 §11).
+   */
+  private async askCounterpartToReachOut(
+    me: User,
+    connectionId: string,
+    checkId: string,
+  ): Promise<void> {
+    const connection = await this.prisma.connection.findUnique({
+      where: { id: connectionId },
+      include: { userA: true, userB: true },
+    });
+    if (!connection) return;
+
+    const counterpart =
+      connection.userAId === me.id ? connection.userB : connection.userA;
+    if (counterpart.status !== 'ACTIVE') return;
+
+    await this.notifications.notify({
+      userId: counterpart.id,
+      type: 'CONNECTION_ASK_COUNTERPART',
+      // 한 번만 묻는 확인이라 중복이 나올 수 없지만, 배치가 다시 돌아도 안전하게 둔다.
+      dedupeKey: `follow-up-ask:${checkId}`,
+      payload: { realName: this.presenter.fullRealName(me) ?? '상대' },
+      targetPath: `/connections?connection=${connection.id}`,
+    });
   }
 
   /**
