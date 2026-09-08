@@ -541,7 +541,9 @@ POST /api/events
 ## 15. 운영자 (UI 없음, L6)
 
 ```
-GET  /api/admin/metrics/gate                 1인당 후보 수 (P-04=5/4 각각), 게이트 판정 (10 §4)
+GET  /api/admin/networks/gate                1인당 후보 수와 게이트 판정 (10 §4)
+POST /api/admin/networks/recompute           후보 풀 전체 재계산
+POST /api/admin/networks/expose              빈 슬롯에 우선순위 순 노출
 GET  /api/admin/metrics/funnel?from=&to=     14 §2 요약
 GET  /api/admin/reports?status=OPEN
 POST /api/admin/reports/:id/resolve          { "action": "DELETE_POST" | "SUSPEND_REQUEST" | "DISMISS", "note": "" }

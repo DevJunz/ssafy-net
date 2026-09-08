@@ -56,6 +56,7 @@ npm run dev:web    # http://localhost:5173
 ## 자주 쓰는 명령
 
 ```bash
+npm run seed:dev                                          # 개발용 더미 120명 + 내 주변 클러스터
 npm run prisma:studio                                     # 데이터 확인
 npm run build                                             # shared → api → web
 docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
@@ -67,10 +68,10 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 | 마일스톤 | 범위 | 상태 |
 |---|---|---|
 | M1 기반 | 저장소 구성, 스키마, 시드, 인증·초대, 온보딩 | **완료** |
-| M2 발견 | 그래프, Interest/Person 패널, Similar People | 다음 |
-| M3 연결 | 요청·수락·거절·만료, Connections, 성립 화면, 후속 확인 | |
-| M4 알림 | 알림함·배지·이메일·브라우저 알림·배치 | |
-| M5 Should | Interest Post, Network 추천, 신고, 관심사 제안 | |
+| M2 발견 | 그래프, Interest/Person 패널, Similar People | **완료** |
+| M3 연결 | 요청·수락·거절·만료, Connections, 성립 화면, 후속 확인 | **완료** |
+| M4 알림 | 알림함·배지·이메일·브라우저 알림·배치 | 다음 |
+| M5 Should | Network 추천 **완료**. Interest Post, 신고, 관심사 제안 남음 | 진행 중 |
 
 M3까지가 MVP의 최소선이다(design/20 §14).
 

@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ConnectionsModule } from './modules/connections/connections.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { InterestsModule } from './modules/interests/interests.module';
+import { NetworksModule } from './modules/networks/networks.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { ParametersModule } from './modules/parameters/parameters.module';
 import { CommonInterestsModule } from './modules/recommendation/common-interests.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './modules/users/users.module';
     OnboardingModule,
     GraphModule,
     RecommendationModule,
+    NetworksModule,
   ],
 })
 export class AppModule implements NestModule {

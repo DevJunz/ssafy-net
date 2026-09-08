@@ -172,6 +172,24 @@ async function main() {
     totalInterests += interestIds.length;
   }
 
+  await seedAroundRealUser(pool);
+
+  // 사용자를 지우면 user_interest는 CASCADE로 사라지지만 holder_count는 그대로다.
+  // 비정규화 값이므로 시드 끝에서 실제 행 수로 맞춘다(api/scripts/recount-interest-holders.sql과 같은 계산).
+  await prisma.$executeRawUnsafe(`
+    UPDATE interest i
+    SET holder_count = COALESCE(c.n, 0)
+    FROM (
+      SELECT id, (
+        SELECT count(*) FROM user_interest ui
+        JOIN "user" u ON u.id = ui.user_id
+        WHERE ui.interest_id = interest.id AND u.status = 'ACTIVE'
+      ) AS n
+      FROM interest
+    ) AS c
+    WHERE i.id = c.id AND i.holder_count IS DISTINCT FROM COALESCE(c.n, 0)
+  `);
+
   const top = await prisma.interest.findMany({
     orderBy: { holderCount: 'desc' },
     take: 6,
@@ -188,6 +206,55 @@ async function main() {
       .join(', ')}`,
   );
   console.log(`아무도 고르지 않은 관심사: ${empty}개`);
+}
+
+/**
+ * 실제로 로그인한 사람(더미가 아닌 사용자) 주변에 클러스터를 만든다.
+ *
+ * 로컬에서 화면을 확인하려면 본인이 Similar People과 Network 추천에 걸려야 한다.
+ * 가중치 기반 더미만으로는 비인기 관심사를 고른 사람과 겹치는 사람이 거의 없다
+ * — 이것 자체가 R-04의 결과이고, 그래서 이 보정이 필요하다.
+ */
+async function seedAroundRealUser(pool: { id: string; weight: number }[]) {
+  const real = await prisma.user.findFirst({
+    where: { googleSub: { not: { startsWith: 'dev-seed-' } }, status: 'ACTIVE' },
+    include: { interests: true },
+  });
+  if (!real || real.interests.length === 0) return;
+
+  const mine = real.interests.map((row) => row.interestId);
+  const others = pool.filter((item) => !mine.includes(item.id));
+
+  for (let index = 0; index < 5; index += 1) {
+    // 내 관심사를 대부분 공유하되 한 명씩 조금씩 다르게 한다.
+    const shared = mine.slice(0, mine.length - (index % 2));
+    const extra = weightedSample(others, 2 + (index % 3));
+    const interestIds = [...new Set([...shared, ...extra])];
+
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          googleSub: `dev-seed-near-${index}`,
+          email: `dev-seed-near-${index}@example.com`,
+          realName: `${pick(SURNAMES)}${pick(GIVEN)}`,
+          classNo: `${1 + Math.floor(random() * 20)}반`,
+          displayNameType: index % 2 === 0 ? 'REAL' : 'NICKNAME',
+          nickname: index % 2 === 0 ? null : `이웃토끼${10 + index}`,
+          status: 'ACTIVE',
+          onboardedAt: new Date(),
+        },
+      });
+      await tx.userInterest.createMany({
+        data: interestIds.map((interestId) => ({ userId: user.id, interestId })),
+      });
+      await tx.interest.updateMany({
+        where: { id: { in: interestIds } },
+        data: { holderCount: { increment: 1 } },
+      });
+    });
+  }
+
+  console.log(`${real.email} 주변 클러스터 5명 추가 (관심사 ${mine.length}개 공유)`);
 }
 
 main()

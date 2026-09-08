@@ -1,4 +1,9 @@
-import type { FollowUpItem, ReceivedRequestSummary } from '@ssafy-net/shared';
+import type {
+  FeatureFlagMap,
+  FollowUpItem,
+  ParameterMap,
+  ReceivedRequestSummary,
+} from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { api } from './api/client';
@@ -7,6 +12,7 @@ import { FollowUpOverlay } from './features/connections/Overlays';
 import { ConnectionsPage } from './pages/ConnectionsPage';
 import { GraphPage } from './pages/GraphPage';
 import { IntroPage } from './pages/IntroPage';
+import { NetworksPage } from './pages/NetworksPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SessionProvider, useSession } from './session';
@@ -14,6 +20,7 @@ import { SessionProvider, useSession } from './session';
 function AuthenticatedApp() {
   const [received, setReceived] = useState<ReceivedRequestSummary[]>([]);
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
+  const [features, setFeatures] = useState<FeatureFlagMap | null>(null);
 
   /**
    * 배지는 **처리가 필요한 것의 수**다(D-31). 미읽음 수가 아니다.
@@ -34,14 +41,30 @@ function AuthenticatedApp() {
     void refreshBadge();
   }, [refreshBadge]);
 
+  useEffect(() => {
+    api
+      .get<{ parameters: ParameterMap; features: FeatureFlagMap }>('/parameters')
+      .then((result) => setFeatures(result.features))
+      .catch(() => {});
+  }, []);
+
   return (
-    <Shell badge={received.length + followUps.length}>
+    <Shell
+      badge={received.length + followUps.length}
+      networkEnabled={features?.network_enabled}
+    >
       <Routes>
         <Route path="/" element={<GraphPage />} />
         <Route
           path="/connections"
           element={<ConnectionsPage onChanged={refreshBadge} />}
         />
+        {features?.network_enabled && (
+          <Route
+            path="/networks"
+            element={<NetworksPage onChanged={refreshBadge} />}
+          />
+        )}
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
