@@ -1,0 +1,77 @@
+import { Injectable } from '@nestjs/common';
+import {
+  DEFAULT_PARAMETERS,
+  type FeatureFlagKey,
+  type FeatureFlagMap,
+  type ParameterKey,
+  type ParameterMap,
+} from '@ssafy-net/shared';
+import { PrismaService } from '../../infra/prisma/prisma.service';
+
+const CACHE_MS = 30_000;
+
+/**
+ * Product Parameter는 DB에 있다(design/20 §9).
+ * 공개 3일째 P-03을 낮추는 판단(docs/13 §3.3)과 Network 게이트에 따른 P-04 조정
+ * (docs/10 §4)이 이미 예정되어 있어 배포 없이 바꿀 수 있어야 한다.
+ *
+ * 30초 캐시를 두는 이유는 값이 거의 안 바뀌면서 거의 모든 요청이 읽기 때문이다.
+ * 운영자가 값을 바꾸면 늦어도 30초 뒤에 반영된다.
+ */
+@Injectable()
+export class ParametersService {
+  private parameters: ParameterMap = { ...DEFAULT_PARAMETERS };
+  private flags: FeatureFlagMap = { network_enabled: false };
+  private loadedAt = 0;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  private async refresh(): Promise<void> {
+    if (Date.now() - this.loadedAt < CACHE_MS) return;
+
+    const [rows, flags] = await Promise.all([
+      this.prisma.appParameter.findMany(),
+      this.prisma.featureFlag.findMany(),
+    ]);
+
+    const next = { ...DEFAULT_PARAMETERS };
+    for (const row of rows) {
+      if (row.key in next) next[row.key as ParameterKey] = row.value;
+    }
+
+    const nextFlags = { network_enabled: false } as FeatureFlagMap;
+    for (const flag of flags) {
+      if (flag.key in nextFlags) {
+        nextFlags[flag.key as FeatureFlagKey] = flag.enabled;
+      }
+    }
+
+    this.parameters = next;
+    this.flags = nextFlags;
+    this.loadedAt = Date.now();
+  }
+
+  async get(key: ParameterKey): Promise<number> {
+    await this.refresh();
+    return this.parameters[key];
+  }
+
+  async all(): Promise<ParameterMap> {
+    await this.refresh();
+    return { ...this.parameters };
+  }
+
+  async flag(key: FeatureFlagKey): Promise<boolean> {
+    await this.refresh();
+    return this.flags[key];
+  }
+
+  async allFlags(): Promise<FeatureFlagMap> {
+    await this.refresh();
+    return { ...this.flags };
+  }
+
+  invalidate(): void {
+    this.loadedAt = 0;
+  }
+}

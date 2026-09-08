@@ -2,17 +2,23 @@
 
 관심사 그래프 기반 네트워킹 서비스. 단일 캠퍼스 약 1,000명 대상. Discover → Understand → Connect, 대화는 사내 메신저에서 실명으로.
 
-## 현재 상태 (2026-09-07)
+## 현재 상태 (2026-09-08)
 
-- **Phase 0** 프로토타입 완료: `phase0-mvp/` (React + TypeScript + react-force-graph-2d, Mock 데이터만). 사용자 방향 승인됨.
-- **기획 단계(Step 1~7) 완료**: `docs/01`~`19` + `docs/README.md`.
-- **다음 단계**: Phase 3 — Architecture → ERD → API → Implementation. **사용자가 시작을 지시할 때만** 시작한다.
+- **Phase 0** 프로토타입 완료: `phase0-mvp/` (Mock 데이터만, 보존용). 사용자 방향 승인됨.
+- **기획(Step 1~7) 완료**: `docs/01`~`19`.
+- **Phase 3 설계 완료**: `design/20`(Architecture) `21`(ERD) `22`(API). 스택은 NestJS + PostgreSQL + Prisma, 프론트는 새 `web/`(React + Vite).
+- **구현 M1 완료**: 저장소 구성(`api` `web` `packages/shared`), 스키마 23모델 + 마이그레이션, 시드(관심사 100개 임시본·파라미터·초대 코드), 초대 링크 + Google OAuth + 세션, 온보딩 4단계.
+- **다음: M2 발견** — 그래프 API·화면, Interest/Person 패널, Similar People, Similarity Edge. 마일스톤 전체는 `design/20 §14`.
 
 ## 작업 시작 시 읽을 것
 
-1. `docs/19_PLANNING_HANDOFF_SUMMARY.md` — 개발 설계 진입점. Must/Should/Later, 정책 요약, User Flow, 남은 Blocking.
-2. `docs/16_PRODUCT_DECISION_LOG.md` — 결정의 이유. PM 의견과 다르게 결정된 3건은 재논의 대상이 아니라 측정 대상.
-3. 필요할 때 원문 `docs/01`~`18`. 요약(19)과 원문이 다르면 원문 우선.
+1. `README.md` — 실행 방법, 마일스톤 상태.
+2. `design/README.md` → `design/20 §14`(구현 순서) → `design/22 §16`(화면 ↔ API 매핑).
+3. `docs/19_PLANNING_HANDOFF_SUMMARY.md` — 제품 규칙 진입점. Must/Should/Later, 정책 요약, User Flow.
+4. `docs/16_PRODUCT_DECISION_LOG.md` — 결정의 이유. PM 의견과 다르게 결정된 3건은 재논의 대상이 아니라 측정 대상.
+5. 필요할 때 원문 `docs/01`~`18`. 요약(19)과 원문이 다르면 원문 우선.
+
+제품 규칙이 충돌하면 `docs/`가, 기술 판단이 충돌하면 `design/`이 우선한다.
 
 ## 사용자(제품 오너)가 정한 규칙
 
@@ -26,13 +32,26 @@
 - 그래프 간격·노드 크기·표시 상한 같은 세부는 문서로 확정하지 않는다. 앱을 만든 뒤 피드백으로 조정.
 - Interest Post, Network 추천은 Should Have. Network 교집합 기준은 5, 게이트 미통과 시 4까지만.
 
-## 개발 시작 전 남은 것 (docs/18 Blocking)
+## 남은 Blocking (docs/18)
 
-- B-1 초기 관심사 100개 목록 확정 (사용자, 구현 시작 전)
-- B-3 이메일 발송 가능 여부 테스트
-- B-4 Discord 등 외부 채널 발송 가능 여부 테스트
+- **B-1** 초기 관심사 100개 확정 — 현재 `api/prisma/seed/interests.ts`가 임시본이다. 공개 전에 사용자가 확정한 목록으로 교체한다.
+- **B-3** 이메일 발송 가능 여부 테스트 (M4)
+- **B-4** Discord 등 외부 채널 발송 가능 여부 테스트 (M4)
 
-## Phase 0 실행
+## 설계 승인 후 반영할 것
+
+`design/20 §15`의 D-60~D-64를 `docs/16_PRODUCT_DECISION_LOG.md`에 추가한다(docs/19 §10이 지시하는 절차).
+
+## 실행
+
+```
+npm run db:up && npm run dev:api    # http://localhost:3000/api
+npm run dev:web                     # http://localhost:5173
+```
+
+자세한 준비 과정과 Google OAuth 설정은 `README.md`.
+
+## Phase 0 프로토타입 실행 (참고용)
 
 ```
 cd phase0-mvp

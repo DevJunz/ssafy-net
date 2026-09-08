@@ -1,0 +1,633 @@
+// Interest Network — 데이터 모델
+// 원본 설계: design/21_ERD.md. 스키마를 바꾸면 그 문서도 같이 바꾼다.
+//
+// 저장하지 않기로 한 것(차단, 연결 해제, 연결 수, 좋아요/댓글, 추천 점수 등)은
+// design/21 §10에 이유와 함께 적혀 있다. 없는 것에도 이유가 있다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 사용자와 신원
+// ─────────────────────────────────────────────────────────────
+
+enum DisplayNameType {
+  NICKNAME
+  REAL
+}
+
+enum UserStatus {
+  ONBOARDING
+  ACTIVE
+  WITHDRAWN
+}
+
+model User {
+  id String @id @default(uuid())
+
+  // 로그인 계정 — 다른 구성원에게 절대 보이지 않는다 (docs/12 §1)
+  // 탈퇴 시 null로 비운다. 같은 계정으로 재가입할 수 있어야 하기 때문이다(docs/12 §10).
+  googleSub String? @unique @map("google_sub")
+  email     String? @unique
+
+  // 실명: 이름 + 반. 캠퍼스는 단일이라 고정값 (D-47, D-17)
+  // 전체 실명 "최준환_서울_18반"은 저장하지 않고 조합해 만든다(design/21 §2.1).
+  realName String? @map("real_name")
+  campus   String  @default("서울")
+  classNo  String? @map("class_no")
+
+  displayNameType   DisplayNameType @default(NICKNAME) @map("display_name_type")
+  nickname          String?         @unique
+  nicknameChangedAt DateTime?       @map("nickname_changed_at")
+
+  status      UserStatus @default(ONBOARDING)
+  onboardedAt DateTime?  @map("onboarded_at")
+  withdrawnAt DateTime?  @map("withdrawn_at")
+
+  isOperator       Boolean @default(false) @map("is_operator")
+  requestSuspended Boolean @default(false) @map("request_suspended")
+  suspendedReason  String? @map("suspended_reason")
+
+  invitedByCodeId String?     @map("invited_by_code_id")
+  invitedByCode   InviteCode? @relation(fields: [invitedByCodeId], references: [id])
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+
+  interests            UserInterest[]
+  interestChanges      UserInterestChange[]
+  suggestions          InterestSuggestion[]
+  sentRequests         ConnectionRequest[]    @relation("RequestsSent")
+  receivedRequests     ConnectionRequest[]    @relation("RequestsReceived")
+  connectionsAsA       Connection[]           @relation("ConnectionUserA")
+  connectionsAsB       Connection[]           @relation("ConnectionUserB")
+  followUps            FollowUpCheck[]
+  posts                InterestPost[]
+  networkMemberships   NetworkMember[]
+  notifications        Notification[]
+  notificationSettings NotificationSetting[]
+  pushSubscriptions    PushSubscription[]
+  externalChannels     ExternalChannel[]
+  reportsMade          Report[]               @relation("ReportsMade")
+
+  @@index([status])
+  @@map("user")
+}
+
+model InviteCode {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  label     String?
+  active    Boolean  @default(true)
+  usedCount Int      @default(0) @map("used_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("invite_code")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 관심사
+// ─────────────────────────────────────────────────────────────
+
+enum InterestStatus {
+  ACTIVE
+  HIDDEN
+  MERGED
+}
+
+enum InterestChangeAction {
+  ADD
+  REMOVE
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  DUPLICATE
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  sortOrder Int        @map("sort_order")
+  interests Interest[]
+
+  @@map("category")
+}
+
+model Interest {
+  id         String   @id @default(uuid())
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  name String @unique
+
+  status InterestStatus @default(ACTIVE)
+  // 병합 시 대상 (docs/08 §5). 삭제 대신 숨김/병합만 한다(D-37).
+  mergedIntoId String? @map("merged_into_id")
+
+  // 비정규화. 온보딩 화면이 관심사마다 사람 수를 보여주고(docs/06 §3.1.4),
+  // 희소성 가중이 매 추천마다 이 값을 쓴다(docs/13 §3.2).
+  holderCount Int @default(0) @map("holder_count")
+
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users   UserInterest[]
+  posts   InterestPost[]
+  changes UserInterestChange[]
+
+  @@index([categoryId, sortOrder])
+  @@index([status])
+  @@map("interest")
+}
+
+model UserInterest {
+  userId     String   @map("user_id")
+  interestId String   @map("interest_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([userId, interestId])
+  @@index([interestId])
+  @@map("user_interest")
+}
+
+// 변경 이력. docs/08 §3이 "빈도 제한 없이 이력만 관찰"로 정했고
+// R-05(Interest Inflation)의 관찰 지표가 여기서 나온다.
+model UserInterestChange {
+  id         BigInt               @id @default(autoincrement())
+  userId     String               @map("user_id")
+  interestId String               @map("interest_id")
+  action     InterestChangeAction
+  changedAt  DateTime             @default(now()) @map("changed_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@map("user_interest_change")
+}
+
+model InterestSuggestion {
+  id                 String           @id @default(uuid())
+  userId             String           @map("user_id")
+  name               String
+  status             SuggestionStatus @default(PENDING)
+  resolvedInterestId String?          @map("resolved_interest_id")
+  operatorNote       String?          @map("operator_note")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  resolvedAt         DateTime?        @map("resolved_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("interest_suggestion")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 연결 (1:1)
+// ─────────────────────────────────────────────────────────────
+
+enum ConnectionRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum RequestEntryPoint {
+  SIMILAR
+  INTEREST_DETAIL
+  PROFILE
+  POST
+  GRAPH
+  NETWORK_FAILED
+}
+
+model ConnectionRequest {
+  id          String                  @id @default(uuid())
+  requesterId String                  @map("requester_id")
+  targetId    String                  @map("target_id")
+  message     String
+  status      ConnectionRequestStatus @default(PENDING)
+  entryPoint  RequestEntryPoint       @map("entry_point")
+
+  // 요청 당시의 공통 관심사를 고정한다 (docs/08 §3).
+  commonInterestIds String[] @map("common_interest_ids")
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  expiresAt      DateTime  @map("expires_at")
+  readAt         DateTime? @map("read_at")
+  respondedAt    DateTime? @map("responded_at")
+  cancelledAt    DateTime? @map("cancelled_at")
+  expiredAt      DateTime? @map("expired_at")
+  rejectUndoneAt DateTime? @map("reject_undone_at")
+
+  requester User @relation("RequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  target    User @relation("RequestsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+
+  connection Connection?
+
+  // 같은 방향 PENDING은 하나 — Prisma로 표현할 수 없어 부분 유니크 인덱스를
+  // 마이그레이션 SQL로 만든다(design/21 §13).
+  // (requesterId, targetId, status) 통유니크는 쓰지 않는다.
+  // 같은 쌍에 종료된 요청이 여러 번 쌓일 수 있기 때문이다.
+  @@index([targetId, status, createdAt])
+  @@index([requesterId, status, createdAt])
+  @@index([status, expiresAt])
+  @@map("connection_request")
+}
+
+model Connection {
+  id String @id @default(uuid())
+
+  // 항상 userAId < userBId. 같은 쌍이 두 행으로 들어가는 것을 유니크 하나로 막는다.
+  // 방향은 initiatorId가 갖는다.
+  userAId String @map("user_a_id")
+  userBId String @map("user_b_id")
+
+  // 요청 삭제(탈퇴) 시 SetNull. docs/12 §10
+  requestId String? @unique @map("request_id")
+
+  // 1:1 시작자 = 요청 보낸 사람 (D-15)
+  initiatorId String @map("initiator_id")
+
+  establishedAt       DateTime  @default(now()) @map("established_at")
+  initiatorMarkedAt   DateTime? @map("initiator_marked_at")
+  counterpartMarkedAt DateTime? @map("counterpart_marked_at")
+  reminderSentAt      DateTime? @map("reminder_sent_at")
+
+  userA   User               @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB   User               @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  request ConnectionRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@unique([userAId, userBId])
+  @@index([userAId, establishedAt])
+  @@index([userBId, establishedAt])
+  @@map("connection")
+}
+
+enum FollowUpSubject {
+  CONNECTION
+  NETWORK
+}
+
+enum FollowUpReason {
+  NOT_FOUND
+  NO_TIME
+  BURDEN
+  OTHER
+}
+
+model FollowUpCheck {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  subjectType FollowUpSubject @map("subject_type")
+  subjectId   String          @map("subject_id")
+
+  askedAt          DateTime        @default(now()) @map("asked_at")
+  respondedAt      DateTime?       @map("responded_at")
+  started          Boolean?
+  reason           FollowUpReason?
+  counterpartAsked Boolean         @default(false) @map("counterpart_asked")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 한 번만 묻는다(FR-11.6)를 스키마가 보장한다. 배치가 두 번 돌아도 두 번 묻지 않는다.
+  @@unique([userId, subjectType, subjectId])
+  @@map("follow_up_check")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Network (S2)
+// ─────────────────────────────────────────────────────────────
+
+enum NetworkStatus {
+  OPEN
+  ACTIVATED
+  EXPIRED
+  DISSOLVED
+}
+
+enum NetworkDecision {
+  PENDING
+  JOINED
+  DECLINED
+}
+
+// 후보 풀 — 언제든 갈아엎힌다 (docs/10 §2a)
+model NetworkCandidate {
+  id                String   @id @default(uuid())
+  memberSetHash     String   @unique @map("member_set_hash")
+  memberIds         String[] @map("member_ids")
+  commonInterestIds String[] @map("common_interest_ids")
+  size              Int
+  commonCount       Int      @map("common_count")
+  // 정렬용. 응답에 나가지 않는다(docs/13 원칙 2).
+  rarityScore       Float    @map("rarity_score")
+  hasNewMember      Boolean  @default(false) @map("has_new_member")
+  computedAt        DateTime @default(now()) @map("computed_at")
+
+  @@index([commonCount, rarityScore])
+  @@map("network_candidate")
+}
+
+// 노출 스냅샷 — 고정된다 (docs/10 §2a, D-45)
+model NetworkRecommendation {
+  id                String        @id @default(uuid())
+  memberSetHash     String        @unique @map("member_set_hash")
+  commonInterestIds String[]      @map("common_interest_ids")
+  size              Int
+  status            NetworkStatus @default(OPEN)
+
+  exposedAt         DateTime  @default(now()) @map("exposed_at")
+  expiresAt         DateTime  @map("expires_at")
+  activatedAt       DateTime? @map("activated_at")
+  initiatorId       String?   @map("initiator_id")
+  initiatorMarkedAt DateTime? @map("initiator_marked_at")
+  reminderSentAt    DateTime? @map("reminder_sent_at")
+
+  members NetworkMember[]
+
+  @@index([status, expiresAt])
+  @@map("network_recommendation")
+}
+
+model NetworkMember {
+  recommendationId String          @map("recommendation_id")
+  userId           String          @map("user_id")
+  decision         NetworkDecision @default(PENDING)
+  decidedAt        DateTime?       @map("decided_at")
+  joinOrder        Int?            @map("join_order")
+  markedAt         DateTime?       @map("marked_at")
+
+  recommendation NetworkRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([recommendationId, userId])
+  @@index([userId, decision])
+  @@map("network_member")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 게시글 (S1)
+// ─────────────────────────────────────────────────────────────
+
+// 좋아요·댓글·조회수 테이블이 없는 것은 의도다(D-46).
+// 테이블이 없으면 "잠깐 붙여볼까"가 불가능해진다.
+model InterestPost {
+  id         String    @id @default(uuid())
+  authorId   String    @map("author_id")
+  interestId String    @map("interest_id")
+  content    String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@index([interestId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@map("interest_post")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 알림
+// ─────────────────────────────────────────────────────────────
+
+enum NotificationType {
+  CONNECTION_REQUEST_RECEIVED
+  CONNECTION_REQUEST_EXPIRING
+  CONNECTION_ACCEPTED
+  CONNECTION_INITIATOR_REMINDER
+  CONNECTION_COUNTERPART_REMINDER
+  CONNECTION_ASK_COUNTERPART
+  FOLLOW_UP_ASK
+  NETWORK_RECOMMENDED
+  NETWORK_EXPIRING
+  NETWORK_ACTIVATED
+  NETWORK_INITIATOR_REMINDER
+  NETWORK_MEMBER_REMINDER
+  NETWORK_FAILED
+  NETWORK_ENABLED
+  INTEREST_MERGED
+  INTEREST_HIDDEN
+  SUGGESTION_RESOLVED
+  DIGEST
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WEB_PUSH
+  EXTERNAL
+}
+
+enum NotificationCategory {
+  IMMEDIATE
+  DIGEST
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String           @map("user_id")
+  type   NotificationType
+  // 표시명, 공통 관심사 개수와 이름, 메시지 첫 줄 (FR-14.3).
+  // 실명은 성립 알림에만 들어간다(docs/12 §7).
+  payload Json
+
+  targetPath String @map("target_path")
+  // 배지 = 처리가 필요한 것의 수 (D-31). 미읽음 수가 아니다.
+  actionRequired Boolean @default(false) @map("action_required")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  readAt     DateTime? @map("read_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, actionRequired, resolvedAt])
+  @@map("notification")
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid())
+  notificationId String              @map("notification_id")
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(QUEUED)
+  sentAt         DateTime?           @map("sent_at")
+  clickedAt      DateTime?           @map("clicked_at")
+  attempts       Int                 @default(0)
+  error          String?
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([channel, status])
+  @@map("notification_delivery")
+}
+
+model NotificationSetting {
+  userId   String               @map("user_id")
+  channel  NotificationChannel
+  category NotificationCategory
+  enabled  Boolean              @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channel, category])
+  @@map("notification_setting")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscription")
+}
+
+// S3a — B-4(외부 채널 발송 가능 여부) 확인 후 사용한다.
+model ExternalChannel {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  kind       String
+  target     String
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@map("external_channel")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 신고 — 차단 테이블은 없다(D-48)
+// ─────────────────────────────────────────────────────────────
+
+enum ReportTargetType {
+  USER
+  CONNECTION_REQUEST
+  POST
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model Report {
+  id            String           @id @default(uuid())
+  reporterId    String           @map("reporter_id")
+  targetType    ReportTargetType @map("target_type")
+  targetId      String           @map("target_id")
+  targetOwnerId String           @map("target_owner_id")
+  reason        String
+  detail        String?
+  status        ReportStatus     @default(OPEN)
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  resolvedAt     DateTime? @map("resolved_at")
+  resolutionNote String?   @map("resolution_note")
+
+  reporter User @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([targetOwnerId, createdAt])
+  @@map("report")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 운영과 측정
+// ─────────────────────────────────────────────────────────────
+
+// 파라미터를 코드 상수로 두지 않는 이유는 design/20 §9.
+model AppParameter {
+  key       String   @id
+  value     Float
+  label     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("app_parameter")
+}
+
+// 값이 바뀐 시각의 타임라인. AnalyticsEvent.occurredAt과 조인하면
+// 그 시점의 파라미터 값을 알 수 있다(docs/14 §1).
+model AppParameterChange {
+  id        BigInt   @id @default(autoincrement())
+  key       String
+  oldValue  Float    @map("old_value")
+  newValue  Float    @map("new_value")
+  reason    String?
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  @@index([key, changedAt])
+  @@map("app_parameter_change")
+}
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(false)
+  note      String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flag")
+}
+
+// 배치 멱등성 (design/20 §7). 재실행해도 알림이 두 번 가지 않게 한다.
+model JobRun {
+  id         BigInt    @id @default(autoincrement())
+  jobName    String    @map("job_name")
+  runKey     String    @map("run_key")
+  status     String
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  detail     Json?
+
+  @@unique([jobName, runKey])
+  @@map("job_run")
+}
+
+model AnalyticsEvent {
+  id         BigInt   @id @default(autoincrement())
+  userId     String?  @map("user_id")
+  name       String
+  props      Json?
+  sessionId  String?  @map("session_id")
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([name, occurredAt])
+  @@index([userId, occurredAt])
+  @@map("analytics_event")
+}
