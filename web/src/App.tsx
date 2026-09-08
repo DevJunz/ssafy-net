@@ -2,7 +2,6 @@ import type {
   FeatureFlagMap,
   FollowUpItem,
   ParameterMap,
-  ReceivedRequestSummary,
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -13,12 +12,13 @@ import { ConnectionsPage } from './pages/ConnectionsPage';
 import { GraphPage } from './pages/GraphPage';
 import { IntroPage } from './pages/IntroPage';
 import { NetworksPage } from './pages/NetworksPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SessionProvider, useSession } from './session';
 
 function AuthenticatedApp() {
-  const [received, setReceived] = useState<ReceivedRequestSummary[]>([]);
+  const [badge, setBadge] = useState(0);
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
   const [features, setFeatures] = useState<FeatureFlagMap | null>(null);
 
@@ -27,13 +27,14 @@ function AuthenticatedApp() {
    * 0이면 할 일이 없다는 뜻이어야 한다.
    */
   const refreshBadge = useCallback(async () => {
-    const [requests, pending] = await Promise.all([
+    const [count, pending] = await Promise.all([
       api
-        .get<ReceivedRequestSummary[]>('/connection-requests?box=received')
-        .catch(() => []),
+        .get<{ count: number }>('/notifications/badge')
+        .then((result) => result.count)
+        .catch(() => 0),
       api.get<FollowUpItem[]>('/follow-ups/pending').catch(() => []),
     ]);
-    setReceived(requests);
+    setBadge(count);
     setFollowUps(pending);
   }, []);
 
@@ -49,10 +50,7 @@ function AuthenticatedApp() {
   }, []);
 
   return (
-    <Shell
-      badge={received.length + followUps.length}
-      networkEnabled={features?.network_enabled}
-    >
+    <Shell badge={badge} networkEnabled={features?.network_enabled}>
       <Routes>
         <Route path="/" element={<GraphPage />} />
         <Route
@@ -65,6 +63,10 @@ function AuthenticatedApp() {
             element={<NetworksPage onChanged={refreshBadge} />}
           />
         )}
+        <Route
+          path="/notifications"
+          element={<NotificationsPage onChanged={refreshBadge} />}
+        />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

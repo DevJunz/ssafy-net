@@ -5,6 +5,7 @@ import type {
   SentRequestSummary,
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import {
   ConnectionOverlay,
@@ -35,6 +36,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   const [openConnection, setOpenConnection] = useState<ConnectionDetail | null>(null);
   const [undo, setUndo] = useState<{ id: string; until: number } | null>(null);
+  const [params, setParams] = useSearchParams();
 
   const reload = useCallback(async () => {
     const [r, s, c] = await Promise.all([
@@ -51,6 +53,28 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  /**
+   * 알림에서 온 사람은 행동 화면에 바로 도착해야 한다(FR-14.4).
+   * 홈으로 보내고 다시 찾게 하지 않는다.
+   */
+  useEffect(() => {
+    const requestId = params.get('request');
+    const connectionId = params.get('connection');
+    if (!requestId && !connectionId) return;
+
+    if (requestId) {
+      setTab('received');
+      setOpenRequest(requestId);
+    } else if (connectionId) {
+      setTab('connected');
+      api
+        .get<ConnectionDetail>(`/connections/${connectionId}`)
+        .then(setOpenConnection)
+        .catch(() => {});
+    }
+    setParams({}, { replace: true });
+  }, [params, setParams]);
 
   // 거절 되돌리기는 5초만 열려 있다(docs/07 §3.4).
   useEffect(() => {

@@ -13,6 +13,7 @@ import type {
 import { AppError } from '../../common/app-error';
 import { MattermostService } from '../../infra/mattermost/mattermost.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ParametersService } from '../parameters/parameters.service';
 import { UserPresenter } from '../users/user.presenter';
 import { QuotaService } from './quota.service';
@@ -33,6 +34,7 @@ export class ConnectionsService {
     private readonly relations: RelationService,
     private readonly presenter: UserPresenter,
     private readonly mattermost: MattermostService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ─────────────────────────────────────────────────────────
@@ -96,8 +98,19 @@ export class ConnectionsService {
       },
     });
 
-    // TODO(M4): 받는 사람에게 즉시 알림. 표시명·공통 관심사·메시지 첫 줄 포함(FR-14.3).
-    this.logger.log(`요청 생성 ${me.id} → ${target.id}`);
+    // 받는 사람에게 즉시 알림. 앱을 열기 전에 판단할 수 있어야 한다(FR-14.3).
+    await this.notifications.notify({
+      userId: target.id,
+      type: 'CONNECTION_REQUEST_RECEIVED',
+      payload: {
+        displayName: this.presenter.displayName(me),
+        commonInterests: [...(await this.interestRefs(common)).values()].map(
+          (ref) => ref.name,
+        ),
+        messagePreview: input.message.split('\n')[0].slice(0, 60),
+      },
+      targetPath: `/connections?request=${request.id}`,
+    });
 
     return {
       requestId: request.id,
@@ -354,7 +367,30 @@ export class ConnectionsService {
       });
     });
 
-    // TODO(M4): 요청 보낸 사람에게 즉시 알림 "○○님이 수락했습니다" → 연결 성립 화면 직행.
+    // 요청 보낸 사람에게 즉시 알림. 여기서부터 실명이 들어간다(docs/12 §7).
+    const requesterId =
+      connection.userAId === me.id ? connection.userBId : connection.userAId;
+    const common = await this.commonInterestIds(me.id, requesterId);
+
+    await this.notifications.notify({
+      userId: requesterId,
+      type: 'CONNECTION_ACCEPTED',
+      payload: {
+        realName: this.presenter.fullRealName(me) ?? '',
+        mattermostUsername: me.mattermostUsername ?? undefined,
+        commonInterests: [...(await this.interestRefs(common)).values()].map(
+          (ref) => ref.name,
+        ),
+      },
+      targetPath: `/connections?connection=${connection.id}`,
+    });
+
+    // 내가 처리한 요청 알림은 배지에서 뺀다(D-31).
+    await this.notifications.resolveByPath(
+      me.id,
+      `/connections?request=${requestId}`,
+    );
+
     return this.connectionDetail(me, connection.id);
   }
 
@@ -371,6 +407,11 @@ export class ConnectionsService {
       where: { id: request.id },
       data: { status: 'REJECTED', respondedAt: now },
     });
+
+    await this.notifications.resolveByPath(
+      me.id,
+      `/connections?request=${requestId}`,
+    );
 
     return {
       undoUntil: new Date(now.getTime() + UNDO_WINDOW_MS).toISOString(),

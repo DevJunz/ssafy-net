@@ -28,13 +28,14 @@ export function Shell({
           <NavLink to="/" end>
             그래프
           </NavLink>
-          <NavLink to="/connections">
-            연결
+          <NavLink to="/connections">연결</NavLink>
+          {/* 게이트를 통과하기 전에는 메뉴 자체가 없다(docs/10 §4) */}
+          {networkEnabled && <NavLink to="/networks">네트워크</NavLink>}
+          <NavLink to="/notifications">
+            알림
             {/* 배지는 처리가 필요한 것의 수다. 0이면 할 일이 없다는 뜻이어야 한다(D-31) */}
             {badge ? <em className="badge-dot">{badge}</em> : null}
           </NavLink>
-          {/* 게이트를 통과하기 전에는 메뉴 자체가 없다(docs/10 §4) */}
-          {networkEnabled && <NavLink to="/networks">네트워크</NavLink>}
           <NavLink to="/profile">내 프로필</NavLink>
         </nav>
 

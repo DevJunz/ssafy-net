@@ -1,5 +1,6 @@
 import type { NetworkDetail, NetworkSummary } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { NetworkOverlay } from '../features/networks/NetworkOverlay';
 
@@ -21,6 +22,7 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
   const [tab, setTab] = useState<Tab>('recommended');
   const [items, setItems] = useState<NetworkSummary[]>([]);
   const [open, setOpen] = useState<NetworkDetail | null>(null);
+  const [params, setParams] = useSearchParams();
 
   const reload = useCallback(async () => {
     setItems(await api.get<NetworkSummary[]>(`/networks?tab=${tab}`));
@@ -30,6 +32,19 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  /** 알림에서 온 사람은 그 추천을 바로 열어야 한다(FR-14.4). */
+  useEffect(() => {
+    const id = params.get('open');
+    const wanted = params.get('tab');
+    if (wanted === 'recommended' || wanted === 'joined' || wanted === 'activated') {
+      setTab(wanted);
+    }
+    if (id) {
+      api.get<NetworkDetail>(`/networks/${id}`).then(setOpen).catch(() => {});
+    }
+    if (id || wanted) setParams({}, { replace: true });
+  }, [params, setParams]);
 
   const openDetail = async (id: string) => {
     setOpen(await api.get<NetworkDetail>(`/networks/${id}`));

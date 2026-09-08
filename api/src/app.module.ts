@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
+import { JobsModule } from './jobs/jobs.module';
 import { MattermostModule } from './infra/mattermost/mattermost.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -9,6 +10,7 @@ import { ConnectionsModule } from './modules/connections/connections.module';
 import { GraphModule } from './modules/graph/graph.module';
 import { InterestsModule } from './modules/interests/interests.module';
 import { NetworksModule } from './modules/networks/networks.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { ParametersModule } from './modules/parameters/parameters.module';
 import { CommonInterestsModule } from './modules/recommendation/common-interests.module';
@@ -34,6 +36,8 @@ import { UsersModule } from './modules/users/users.module';
     GraphModule,
     RecommendationModule,
     NetworksModule,
+    NotificationsModule,
+    JobsModule,
   ],
 })
 export class AppModule implements NestModule {
