@@ -47,7 +47,11 @@ export class GoogleService {
     });
 
     if (!response.ok) {
-      this.logger.warn(`토큰 교환 실패: ${response.status}`);
+      // Google이 주는 error / error_description을 그대로 남긴다.
+      // invalid_client(자격 증명), invalid_grant(code 만료·재사용),
+      // redirect_uri_mismatch를 구분하려면 본문이 있어야 한다.
+      const detail = await response.text().catch(() => '');
+      this.logger.warn(`토큰 교환 실패 ${response.status}: ${detail}`);
       return null;
     }
 
