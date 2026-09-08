@@ -113,6 +113,14 @@ export class MattermostVerificationService {
       );
     }
 
+    // redirect 모드에서는 실제 상대에게 가지 않고 운영자 채널에만 남는다.
+    // 개발 중 사고를 막는 기본값이라, 아이디 오타도 여기서는 걸러지지 않는다.
+    if (!result.delivered) {
+      this.logger.warn(
+        `redirect 모드 — @${username} 에게 실제로 보내지 않았습니다`,
+      );
+    }
+
     await this.prisma.mattermostVerification.create({
       data: {
         userId: me.id,

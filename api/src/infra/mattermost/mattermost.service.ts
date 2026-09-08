@@ -25,14 +25,44 @@ export class MattermostService {
     return Boolean(this.config.get<string>('MATTERMOST_WEBHOOK_URL'));
   }
 
+  /**
+   * 발송 모드. **기본값은 `redirect`이며, 이것이 의도한 안전장치다.**
+   *
+   *   redirect — 모든 DM이 운영자의 기본 채널로만 간다. 다른 사람에게는 아무것도
+   *              가지 않는다. 받을 사람이 누구였는지는 메시지 머리에 적힌다.
+   *   live     — 실제 상대에게 DM을 보낸다.
+   *
+   * 개발 중에 배치 잡이 잘못 돌면 수십 명에게 DM이 나갈 수 있다. 그 사고는
+   * 되돌릴 수 없으므로, 위험한 쪽을 기본값으로 두지 않는다.
+   * 공개할 때 `MATTERMOST_DELIVERY_MODE=live`로 명시적으로 바꾼다.
+   */
+  get deliveryMode(): 'redirect' | 'live' {
+    return this.config.get<string>('MATTERMOST_DELIVERY_MODE') === 'live'
+      ? 'live'
+      : 'redirect';
+  }
+
+  /**
+   * live 모드에서도 여기에 적힌 아이디에게만 보낸다. 비어 있으면 제한 없음.
+   * 실사용 전 소수 인원으로 시험할 때 쓴다.
+   */
+  private get allowList(): string[] {
+    const raw = this.config.get<string>('MATTERMOST_ALLOWED_RECIPIENTS') ?? '';
+    return raw
+      .split(',')
+      .map((value) => normalize(value))
+      .filter(Boolean);
+  }
+
   /** 이 아이디는 웹훅 제약 때문에 DM을 받을 수 없다(웹훅 생성자). */
   get operatorUsername(): string | null {
-    return this.config.get<string>('MATTERMOST_OPERATOR_USERNAME') ?? null;
+    const value = this.config.get<string>('MATTERMOST_OPERATOR_USERNAME');
+    return value ? normalize(value) : null;
   }
 
   canReceiveDirectMessage(username: string): boolean {
     const operator = this.operatorUsername;
-    return !operator || normalize(username) !== normalize(operator);
+    return !operator || normalize(username) !== operator;
   }
 
   /**
@@ -42,8 +72,33 @@ export class MattermostService {
   async sendDirectMessage(
     username: string,
     markdown: string,
-  ): Promise<{ ok: boolean; error?: string }> {
-    return this.post({ channel: `@${normalize(username)}`, text: markdown });
+  ): Promise<{ ok: boolean; delivered: boolean; error?: string }> {
+    const target = normalize(username);
+
+    if (this.deliveryMode === 'redirect') {
+      // 다른 사람에게는 보내지 않는다. 무엇이 나갔을지만 운영자에게 보여준다.
+      const result = await this.post({
+        text: [
+          `> **[전송 안 함]** \`@${target}\` 에게 갈 메시지입니다.`,
+          '> _MATTERMOST_DELIVERY_MODE=live 로 바꾸면 실제로 발송됩니다._',
+          '',
+          markdown,
+        ].join('\n'),
+      });
+      return { ...result, delivered: false };
+    }
+
+    const allowed = this.allowList;
+    if (allowed.length > 0 && !allowed.includes(target)) {
+      this.logger.warn(`허용 목록에 없어 발송하지 않음: @${target}`);
+      await this.post({
+        text: `> **[전송 안 함]** \`@${target}\` 은 허용 목록에 없습니다.`,
+      });
+      return { ok: true, delivered: false };
+    }
+
+    const result = await this.post({ channel: `@${target}`, text: markdown });
+    return { ...result, delivered: result.ok };
   }
 
   /** 기본 채널로. 운영자만 보는 로그 용도다. */
