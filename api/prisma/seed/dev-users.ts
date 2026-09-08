@@ -1,0 +1,198 @@
+/**
+ * 개발용 더미 사용자 (로컬 전용).
+ *
+ * 목적은 "사람 수를 채우는 것"이 아니라 **실제와 비슷한 관심사 분포를 만드는 것**이다.
+ * 그래야 다음 두 리스크를 앱을 만드는 중에 눈으로 볼 수 있다.
+ *   - R-04 Popular Interest Bias: "백엔드+알고리즘+취업 준비"로 수백 명이 겹치는 현상
+ *   - R-02 Hairball: 사람 30명 상한([P-13])이 실제로 필요한지
+ *
+ * 그래서 관심사를 균등하게 뽑지 않고 가중치를 준다(docs/08 §6, design/21 §12).
+ *
+ * 실행: npm run seed:dev --workspace=api
+ * 정리: 같은 스크립트가 googleSub이 'dev-seed-'로 시작하는 사용자를 먼저 지운다.
+ */
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const USER_COUNT = 120;
+
+/** 개발자 조직 전제. 이 관심사들이 절반 가까이 겹치도록 만든다(R-04 재현). */
+const VERY_POPULAR = ['백엔드', '알고리즘', '취업 준비', '프론트엔드'];
+const POPULAR = ['AI', '독서', '러닝', '헬스', '영화', '여행', '맛집', 'CS 기초'];
+
+const SURNAMES = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배'.split('');
+const GIVEN = [
+  '민준', '서연', '지훈', '수아', '도윤', '하은', '준서', '지민', '예준', '서윤',
+  '주원', '채원', '건우', '지우', '현우', '유진', '시우', '다은', '태윤', '소율',
+  '지호', '예은', '승우', '가은', '연우', '나윤', '재원', '수빈', '민서', '하준',
+];
+
+/** 결정적 난수. 시드를 고정해 매번 같은 데이터를 만든다(재현 가능한 화면). */
+function makeRandom(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+const random = makeRandom(20260908);
+
+function pick<T>(items: T[]): T {
+  return items[Math.floor(random() * items.length)];
+}
+
+/** 가중치 있는 비복원 추출. 인기 관심사가 자주, 희소 관심사가 가끔 뽑힌다. */
+function weightedSample(
+  pool: { id: string; weight: number }[],
+  count: number,
+): string[] {
+  const remaining = [...pool];
+  const chosen: string[] = [];
+
+  while (chosen.length < count && remaining.length > 0) {
+    const total = remaining.reduce((sum, item) => sum + item.weight, 0);
+    let threshold = random() * total;
+    let index = 0;
+    while (index < remaining.length - 1) {
+      threshold -= remaining[index].weight;
+      if (threshold <= 0) break;
+      index += 1;
+    }
+    chosen.push(remaining[index].id);
+    remaining.splice(index, 1);
+  }
+
+  return chosen;
+}
+
+async function main() {
+  const removed = await prisma.user.deleteMany({
+    where: { googleSub: { startsWith: 'dev-seed-' } },
+  });
+  if (removed.count > 0) console.log(`기존 더미 사용자 ${removed.count}명 삭제`);
+
+  const interests = await prisma.interest.findMany({
+    select: { id: true, name: true },
+  });
+  if (interests.length === 0) {
+    throw new Error('관심사가 없습니다. 먼저 npm run prisma:seed 를 실행하세요.');
+  }
+
+  const pool = interests.map((interest) => ({
+    id: interest.id,
+    weight: VERY_POPULAR.includes(interest.name)
+      ? 40
+      : POPULAR.includes(interest.name)
+        ? 12
+        : 1 + random() * 3, // 나머지는 1~4 사이로 흩뿌린다
+  }));
+  const byName = new Map(interests.map((i) => [i.name, i.id]));
+
+  // Network 후보([P-04] 전원 공통 5개)가 실제로 만들어지도록 심는 그룹.
+  // 이것이 없으면 M5에서 게이트 판정(docs/10 §4)을 시험해 볼 수 없다.
+  const clusters: { size: number; interests: string[] }[] = [
+    { size: 5, interests: ['클라이밍', '러닝', '캠핑', '등산', '사진'] },
+    { size: 4, interests: ['보드게임', 'PC 게임', '애니메이션', '웹툰', '인디 게임'] },
+    { size: 6, interests: ['백엔드', 'DevOps', '클라우드', '보안', 'OSS'] },
+    { size: 4, interests: ['요리', '베이킹', '카페', '맛집', '커피'] },
+  ];
+
+  const clusterAssignment = new Map<number, string[]>();
+  let cursor = 0;
+  for (const cluster of clusters) {
+    const ids = cluster.interests
+      .map((name) => byName.get(name))
+      .filter((id): id is string => Boolean(id));
+    for (let i = 0; i < cluster.size; i += 1) {
+      clusterAssignment.set(cursor, ids);
+      cursor += 1;
+    }
+  }
+
+  const usedNicknames = new Set<string>();
+  let totalInterests = 0;
+
+  for (let index = 0; index < USER_COUNT; index += 1) {
+    const realName = `${pick(SURNAMES)}${pick(GIVEN)}`;
+    const classNo = `${1 + Math.floor(random() * 20)}반`;
+
+    // 표시명 종류별 수락률을 나눠 봐야 하므로(R-13) 두 종류를 섞는다.
+    const useRealName = random() < 0.35;
+    let nickname: string | null = null;
+    if (!useRealName) {
+      let candidate = '';
+      do {
+        candidate = `${pick(['달리는', '조용한', '느긋한', '부지런한', '유쾌한', '차분한', '엉뚱한'])}${pick(['토끼', '고래', '여우', '수달', '너구리', '펭귄', '고양이', '치타'])}${Math.floor(random() * 90) + 10}`;
+      } while (usedNicknames.has(candidate));
+      usedNicknames.add(candidate);
+      nickname = candidate;
+    }
+
+    // 평균 7개를 목표로 한다(A-01의 가설값). 최소 5 최대 15.
+    const target = 5 + Math.floor(random() * 7);
+    const seeded = clusterAssignment.get(index) ?? [];
+    const rest = weightedSample(
+      pool.filter((item) => !seeded.includes(item.id)),
+      Math.max(0, target - seeded.length),
+    );
+    const interestIds = [...seeded, ...rest];
+
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          googleSub: `dev-seed-${index}`,
+          email: `dev-seed-${index}@example.com`,
+          realName,
+          classNo,
+          displayNameType: useRealName ? 'REAL' : 'NICKNAME',
+          nickname,
+          status: 'ACTIVE',
+          onboardedAt: new Date(Date.now() - Math.floor(random() * 5) * 86_400_000),
+        },
+      });
+
+      await tx.userInterest.createMany({
+        data: interestIds.map((interestId) => ({ userId: user.id, interestId })),
+      });
+      await tx.interest.updateMany({
+        where: { id: { in: interestIds } },
+        data: { holderCount: { increment: 1 } },
+      });
+      await tx.userInterestChange.createMany({
+        data: interestIds.map((interestId) => ({
+          userId: user.id,
+          interestId,
+          action: 'ADD' as const,
+        })),
+      });
+    });
+
+    totalInterests += interestIds.length;
+  }
+
+  const top = await prisma.interest.findMany({
+    orderBy: { holderCount: 'desc' },
+    take: 6,
+    select: { name: true, holderCount: true },
+  });
+  const empty = await prisma.interest.count({ where: { holderCount: 0 } });
+  const activeUsers = await prisma.user.count({ where: { status: 'ACTIVE' } });
+
+  console.log(`더미 사용자 ${USER_COUNT}명 생성`);
+  console.log(`평균 관심사 ${(totalInterests / USER_COUNT).toFixed(1)}개`);
+  console.log(
+    `상위 관심사: ${top
+      .map((i) => `${i.name} ${i.holderCount}명(${Math.round((i.holderCount / activeUsers) * 100)}%)`)
+      .join(', ')}`,
+  );
+  console.log(`아무도 고르지 않은 관심사: ${empty}개`);
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());

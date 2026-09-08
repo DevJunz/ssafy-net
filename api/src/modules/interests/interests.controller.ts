@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
@@ -16,7 +17,7 @@ import {
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import { AuthGuard } from '../auth/auth.guard';
+import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from './interests.service';
 
 @Controller()
@@ -28,6 +29,25 @@ export class InterestsController {
   @Get('interests')
   catalog(@CurrentUser() user: User) {
     return this.interests.catalog(user.id);
+  }
+
+  @Get('interests/:id')
+  @UseGuards(OnboardedGuard)
+  detail(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) interestId: string,
+  ) {
+    return this.interests.detail(user, interestId);
+  }
+
+  @Get('interests/:id/people')
+  @UseGuards(OnboardedGuard)
+  people(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) interestId: string,
+    @Query('offset') offset: string | undefined,
+  ) {
+    return this.interests.people(user, interestId, Number(offset ?? 0) || 0);
   }
 
   @Put('me/interests')

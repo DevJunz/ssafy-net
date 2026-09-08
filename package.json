@@ -15,7 +15,8 @@
     "build": "npm run build --workspace=@ssafy-net/shared && npm run build --workspace=api && npm run build --workspace=web",
     "prisma:migrate": "npm run prisma:migrate --workspace=api",
     "prisma:seed": "npm run prisma:seed --workspace=api",
-    "prisma:studio": "npm run prisma:studio --workspace=api"
+    "prisma:studio": "npm run prisma:studio --workspace=api",
+    "seed:dev": "npm run seed:dev --workspace=api"
   },
   "engines": {
     "node": ">=22"

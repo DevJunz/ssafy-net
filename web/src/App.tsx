@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { HomePage } from './pages/HomePage';
+import { GraphPage } from './pages/GraphPage';
 import { IntroPage } from './pages/IntroPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { SessionProvider, useSession } from './session';
@@ -25,7 +25,7 @@ function Routing() {
             path="/"
             element={
               me.status === 'ACTIVE' ? (
-                <HomePage />
+                <GraphPage />
               ) : (
                 <Navigate to="/onboarding" replace />
               )
