@@ -372,6 +372,96 @@ export class JobsService {
   }
 
   // ─────────────────────────────────────────────────────────
+  // 묶음 알림 (S3)
+  // ─────────────────────────────────────────────────────────
+
+  /**
+   * 묶음 알림 (P-12: 첫 2주 일 1회, 이후 주 1회).
+   *
+   * 요청이 없는 날에도 돌아올 이유를 만든다(H9). 즉시 알림과 달리
+   * "나에게 온 것"이 아니라 "새로 생긴 것"을 모아 보낸다.
+   *
+   * 보낼 것이 없으면 보내지 않는다. 빈 알림은 알림을 끄게 만든다.
+   */
+  @Cron('0 0 9 * * *', { timeZone: KST })
+  async sendDigest() {
+    return this.run('digest.send', this.slot(60), async () => {
+      const [minCommon, activeUsers] = await Promise.all([
+        this.parameters.get('P-03'),
+        this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+      ]);
+
+      const since = new Date(Date.now() - DAY_MS);
+      const users = await this.prisma.user.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true },
+      });
+
+      let sent = 0;
+      for (const user of users) {
+        const myInterests = await this.prisma.userInterest.findMany({
+          where: { userId: user.id },
+          select: { interestId: true },
+        });
+        const ids = myInterests.map((row) => row.interestId);
+        if (ids.length === 0) continue;
+
+        const [newPeople, newPosts, openNetworks] = await Promise.all([
+          // 어제 이후 온보딩을 마친 사람 중 나와 공통이 [P-03] 이상인 수
+          this.prisma.$queryRaw<{ n: bigint }[]>`
+            SELECT count(*)::bigint AS n FROM (
+              SELECT ui.user_id
+              FROM user_interest ui
+              JOIN "user" u ON u.id = ui.user_id
+              WHERE ui.interest_id = ANY(${ids})
+                AND ui.user_id <> ${user.id}
+                AND u.status = 'ACTIVE'
+                AND u.onboarded_at >= ${since}
+              GROUP BY ui.user_id
+              HAVING count(*) >= ${minCommon}
+            ) x`,
+          this.prisma.interestPost.count({
+            where: {
+              interestId: { in: ids },
+              createdAt: { gte: since },
+              deletedAt: null,
+              NOT: { authorId: user.id },
+            },
+          }),
+          this.prisma.networkMember.count({
+            where: {
+              userId: user.id,
+              decision: 'PENDING',
+              recommendation: { status: 'OPEN', expiresAt: { gt: new Date() } },
+            },
+          }),
+        ]);
+
+        const people = Number(newPeople[0]?.n ?? 0);
+        const lines: string[] = [];
+        if (people > 0) lines.push(`나와 관심사가 겹치는 사람 ${people}명이 새로 왔습니다`);
+        if (newPosts > 0) lines.push(`내 관심사에 새 글 ${newPosts}개`);
+        if (openNetworks > 0) lines.push(`아직 결정하지 않은 네트워크 추천 ${openNetworks}개`);
+
+        // 보낼 것이 없으면 보내지 않는다.
+        if (lines.length === 0) continue;
+
+        await this.notifications.notify({
+          userId: user.id,
+          type: 'DIGEST',
+          dedupeKey: `digest:${new Date().toISOString().slice(0, 10)}`,
+          payload: { reason: lines.join(' · ') },
+          targetPath: '/',
+        });
+        sent += 1;
+      }
+
+      this.logger.log(`묶음 알림 ${sent}명 (활성 ${activeUsers}명)`);
+      return { sent };
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────
 
   private async interestNames(ids: string[]): Promise<string[]> {
     if (ids.length === 0) return [];
@@ -396,6 +486,7 @@ export class JobsService {
       'network.expiry-remind': () => this.remindExpiringNetworks(),
       'network.initiator-remind': () => this.remindNetworkInitiators(),
       'gate.evaluate': () => this.evaluateGate(),
+      'digest.send': () => this.sendDigest(),
     };
 
     const job = jobs[name];

@@ -282,3 +282,41 @@
   border-radius: 9px;
   padding: 11px 13px;
 }
+
+/* ── 관심사 글 (S1) ─────────────────────────────── */
+
+.post {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 13px;
+  background: #fff;
+}
+
+.post-body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.post-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+button.link:hover {
+  background: none;
+  color: #1864ab;
+}

@@ -356,6 +356,11 @@ export function GraphPage() {
           onRecenter={() => recenter(interest.id)}
           onSelectPerson={(id) => setSelection({ kind: 'PERSON', id })}
           onAddToMine={() => void addInterestToMine(interest.id)}
+          onReload={async () => {
+            setInterest(
+              await api.get<InterestDetail>(`/interests/${interest.id}`),
+            );
+          }}
         />
       ) : similarMode && similarList ? (
         <SimilarPanel

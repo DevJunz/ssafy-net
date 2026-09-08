@@ -10,6 +10,7 @@ import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RelationService } from '../connections/relation.service';
 import { ParametersService } from '../parameters/parameters.service';
+import { PostsService } from '../posts/posts.service';
 import { CommonInterestsService } from '../recommendation/common-interests.service';
 import { UserPresenter } from '../users/user.presenter';
 
@@ -24,6 +25,7 @@ export class InterestsService {
     private readonly common: CommonInterestsService,
     private readonly relations: RelationService,
     private readonly presenter: UserPresenter,
+    private readonly posts: PostsService,
   ) {}
 
   async refsFor(userId: string): Promise<InterestRef[]> {
@@ -104,7 +106,10 @@ export class InterestsService {
       }),
     );
 
-    const { people, total } = await this.people(me, interestId, 0);
+    const [{ people, total }, posts] = await Promise.all([
+      this.people(me, interestId, 0),
+      this.posts.byInterest(interestId),
+    ]);
 
     return {
       id: interest.id,
@@ -117,6 +122,7 @@ export class InterestsService {
       canPost: mine,
       peopleTotal: total,
       people,
+      posts,
     };
   }
 

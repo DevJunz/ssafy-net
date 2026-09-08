@@ -70,8 +70,8 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 | M1 기반 | 저장소 구성, 스키마, 시드, 인증·초대, 온보딩 | **완료** |
 | M2 발견 | 그래프, Interest/Person 패널, Similar People | **완료** |
 | M3 연결 | 요청·수락·거절·만료, Connections, 성립 화면, 후속 확인 | **완료** |
-| M4 알림 | 알림함·배지·이메일·브라우저 알림·배치 | 다음 |
-| M5 Should | Network 추천 **완료**. Interest Post, 신고, 관심사 제안 남음 | 진행 중 |
+| M4 알림 | 알림함·배지·Mattermost 발송·배치 10종 | **완료** |
+| M5 Should | Network 추천, Interest Post, 관심사 제안, 묶음 알림 | **완료** (신고는 만들지 않음, D-69) |
 
 M3까지가 MVP의 최소선이다(design/20 §14).
 

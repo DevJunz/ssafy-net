@@ -36,6 +36,9 @@ export interface PostSummary {
   interestName: string;
   content: string;
   createdAt: string;
+  /** 관심사 상세의 글 목록에만 있다. 글의 유일한 출구가 작성자 프로필이다(D-46) */
+  authorId?: string;
+  authorDisplayName?: string;
 }
 
 /** 연결 전 모든 조회의 기본형. */

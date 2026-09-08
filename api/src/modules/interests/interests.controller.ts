@@ -13,22 +13,45 @@ import {
 import type { User } from '@prisma/client';
 import {
   interestSelectionSchema,
+  suggestionSchema,
   type InterestSelectionInput,
+  type SuggestionInput,
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from './interests.service';
+import { SuggestionsService } from './suggestions.service';
 
 @Controller()
 @UseGuards(AuthGuard)
 export class InterestsController {
-  constructor(private readonly interests: InterestsService) {}
+  constructor(
+    private readonly interests: InterestsService,
+    private readonly suggestions: SuggestionsService,
+  ) {}
 
   /** 온보딩과 My Profile 관심사 수정이 같은 화면·같은 응답을 쓴다(D-24). */
   @Get('interests')
   catalog(@CurrentUser() user: User) {
     return this.interests.catalog(user.id);
+  }
+
+  /**
+   * 관심사 제안 (S4). 사용자가 직접 만들지는 못한다 —
+   * 자유 입력은 같은 뜻이 흩어져 공통 관심사 계산을 망친다(docs/08 §1).
+   */
+  @Get('interest-suggestions/similar')
+  similarInterests(@Query('q') q: string | undefined) {
+    return this.suggestions.similar(q ?? '');
+  }
+
+  @Post('interest-suggestions')
+  suggest(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(suggestionSchema)) body: SuggestionInput,
+  ) {
+    return this.suggestions.create(user, body);
   }
 
   @Get('interests/:id')

@@ -6,6 +6,7 @@ import type {
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
 import { colorForCategory, ME_COLOR, PERSON_COLOR } from '../graph/encoding';
+import { PostComposer, PostList } from '../posts/PostList';
 import { PersonRow } from './PersonRow';
 
 /** 패널: 기본 (docs/05 §3.3) — 무엇을 할지 알려주고 추천 진입점을 준다. */
@@ -75,12 +76,14 @@ export function InterestPanel({
   onRecenter,
   onSelectPerson,
   onAddToMine,
+  onReload,
 }: {
   detail: InterestDetail;
   isAnchor: boolean;
   onRecenter: () => void;
   onSelectPerson: (userId: string) => void;
   onAddToMine: () => void;
+  onReload: () => void;
 }) {
   return (
     <div className="panel">
@@ -130,6 +133,25 @@ export function InterestPanel({
             {detail.peopleTotal - detail.people.length}명 더 있음
           </p>
         )}
+      </div>
+
+      {/* 글은 "이 관심사에서 누가 활동하는지"를 드러내는 장치다(docs/11 §1) */}
+      <div className="section">
+        <div className="muted" style={{ marginBottom: 8 }}>최근 글</div>
+        <PostList posts={detail.posts} onSelectAuthor={onSelectPerson} />
+        <div style={{ marginTop: 10 }}>
+          {detail.canPost ? (
+            <PostComposer
+              interestId={detail.id}
+              interestName={detail.name}
+              onPosted={onReload}
+            />
+          ) : (
+            <p className="muted" style={{ fontSize: 12 }}>
+              이 관심사를 추가하면 글을 남길 수 있습니다.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -189,6 +211,22 @@ export function PersonPanel({
           ))}
         </div>
       </div>
+
+      {person.recentPosts && person.recentPosts.length > 0 && (
+        <div className="section">
+          <div className="muted" style={{ marginBottom: 8 }}>최근 글</div>
+          <div className="list">
+            {person.recentPosts.map((post) => (
+              <div key={post.id} className="post">
+                <div className="post-body">{post.content}</div>
+                <div className="post-foot">
+                  <span>#{post.interestName}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="section">
         <PersonAction

@@ -1,6 +1,7 @@
 import type {
   DisplayNameType,
   InterestRef,
+  PostSummary,
   PublicUser,
   RelationStatus,
 } from './types';
@@ -105,4 +106,6 @@ export interface InterestDetail {
   canPost: boolean;
   peopleTotal: number;
   people: InterestPersonItem[];
+  /** 최신 5개. 전체 피드는 없다(D-46) */
+  posts: PostSummary[];
 }

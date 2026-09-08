@@ -13,6 +13,7 @@ import { NetworksModule } from './modules/networks/networks.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { ParametersModule } from './modules/parameters/parameters.module';
+import { PostsModule } from './modules/posts/posts.module';
 import { CommonInterestsModule } from './modules/recommendation/common-interests.module';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
 import { PresenterModule } from './modules/users/presenter.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     CommonInterestsModule,
     ConnectionsModule,
     UsersModule,
+    PostsModule,
     InterestsModule,
     OnboardingModule,
     GraphModule,
