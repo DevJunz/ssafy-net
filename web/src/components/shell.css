@@ -1,0 +1,298 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 52px;
+  flex: none;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.nav .brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.nav nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-decoration: none;
+  color: #5c636a;
+}
+
+.nav nav a:hover {
+  background: var(--surface);
+}
+
+.nav nav a.active {
+  background: var(--accent-soft);
+  color: #1864ab;
+  font-weight: 600;
+}
+
+.badge-dot {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav .who {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.shell-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Overlay (docs/05 §3.13) ─────────────────────── */
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.overlay {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 26px 26px 22px;
+  box-shadow: 0 12px 40px rgba(16, 24, 40, 0.18);
+}
+
+.overlay h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.overlay .section {
+  margin-top: 18px;
+}
+
+.overlay textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.overlay textarea:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.overlay .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.overlay .actions .grow {
+  flex: 1;
+}
+
+.action-box {
+  background: var(--accent-soft);
+  border: 1px solid #bcdcff;
+  border-radius: 11px;
+  padding: 16px;
+}
+
+.action-box .headline {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+  color: #14507f;
+}
+
+.copy-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.copy-row code {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #bcdcff;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.big-name {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 4px 0 2px;
+}
+
+.quote {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  color: #5c636a;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #212529;
+  color: #fff;
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  z-index: 60;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.24);
+}
+
+.toast button {
+  background: none;
+  border: 1px solid #495057;
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.toast button:hover {
+  background: #343a40;
+}
+
+/* ── Connections 화면 ────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tabs button {
+  border: none;
+  background: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #5c636a;
+}
+
+.tabs button.on {
+  color: var(--accent);
+  font-weight: 650;
+  border-bottom-color: var(--accent);
+}
+
+.tabs .count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  margin-left: 5px;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.card-row:hover {
+  border-color: #bcdcff;
+  background: var(--accent-soft);
+}
+
+.card-row .body {
+  min-width: 0;
+  flex: 1;
+}
+
+.card-row .title {
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-row .sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-row .right {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.scroll-page {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+}

@@ -1,5 +1,7 @@
 import type {
   ConnectedUser,
+  ConnectionDetail,
+  ConnectionSummary,
   GraphLink,
   GraphNode,
   GraphResponse,
@@ -10,6 +12,10 @@ import type {
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
+import {
+  ConnectionOverlay,
+  RequestComposeOverlay,
+} from '../features/connections/Overlays';
 import { GraphCanvas } from '../features/graph/GraphCanvas';
 import { InterestRail } from '../features/panels/InterestRail';
 import {
@@ -50,6 +56,9 @@ export function GraphPage() {
   const [interest, setInterest] = useState<InterestDetail | null>(null);
   const [hoveredLink, setHoveredLink] = useState<GraphLink | null>(null);
   const [catalog, setCatalog] = useState<InterestCatalog | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [openConnection, setOpenConnection] = useState<ConnectionDetail | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const areaRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -196,6 +205,25 @@ export function GraphPage() {
     return null;
   }, [merged, selection, similarMode, similarEdges, me]);
 
+  /** 요청이 어디서 시작됐는지 기록한다. 진입점 분포가 지표다(docs/14 §2.3). */
+  const entryPoint = similarMode
+    ? 'SIMILAR'
+    : selection?.kind === 'INTEREST'
+      ? 'INTEREST_DETAIL'
+      : 'PROFILE';
+
+  const reloadPerson = async (id: string) => {
+    setPerson(await api.get<PublicUser>(`/users/${id}`));
+  };
+
+  const openConnectionOf = async (userId: string) => {
+    const list = await api.get<ConnectionSummary[]>('/connections');
+    const found = list.find((item) => item.counterpart.id === userId);
+    if (found) {
+      setOpenConnection(await api.get<ConnectionDetail>(`/connections/${found.id}`));
+    }
+  };
+
   /** 카메라 자동 맞춤의 유일한 트리거(docs/07 §1). 선택은 여기에 들어가지 않는다. */
   const cameraKey = `${anchor.type}:${anchor.type === 'INTEREST' ? anchor.interestId : ''}:${similarMode}`;
 
@@ -316,6 +344,8 @@ export function GraphPage() {
         <PersonPanel
           person={person}
           onSelectInterest={(id) => setSelection({ kind: 'INTEREST', id })}
+          onRequest={() => setComposing(true)}
+          onOpenConnection={() => void openConnectionOf(person.id)}
         />
       ) : selection?.kind === 'INTEREST' && interest ? (
         <InterestPanel
@@ -339,6 +369,35 @@ export function GraphPage() {
           similarTotal={similarList?.total ?? null}
           onSimilarMode={() => setSimilarMode(true)}
         />
+      )}
+
+      {composing && person && (
+        <RequestComposeOverlay
+          target={person}
+          entryPoint={entryPoint}
+          onClose={() => setComposing(false)}
+          onSent={(warning) => {
+            setComposing(false);
+            setToast(warning ?? `${person.displayName}님에게 요청을 보냈습니다.`);
+            void reloadPerson(person.id);
+            void loadGraph();
+          }}
+        />
+      )}
+
+      {openConnection && (
+        <ConnectionOverlay
+          detail={openConnection}
+          onClose={() => setOpenConnection(null)}
+          onMarked={() => {}}
+        />
+      )}
+
+      {toast && (
+        <div className="toast">
+          {toast}
+          <button type="button" onClick={() => setToast(null)}>닫기</button>
+        </div>
       )}
     </div>
   );

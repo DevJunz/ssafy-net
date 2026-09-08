@@ -139,9 +139,13 @@ export function InterestPanel({
 export function PersonPanel({
   person,
   onSelectInterest,
+  onRequest,
+  onOpenConnection,
 }: {
   person: PublicUser | ConnectedUser;
   onSelectInterest: (interestId: string) => void;
+  onRequest: () => void;
+  onOpenConnection: () => void;
 }) {
   const common = person.interests.filter((i) => i.isCommon);
   const others = person.interests.filter((i) => !i.isCommon);
@@ -187,23 +191,47 @@ export function PersonPanel({
       </div>
 
       <div className="section">
-        <PersonAction person={person} />
+        <PersonAction
+          person={person}
+          onRequest={onRequest}
+          onOpenConnection={onOpenConnection}
+        />
       </div>
     </div>
   );
 }
 
-/** 연결 상태에 따라 가능한 행동 하나만 보여준다(docs/06 §3.4). */
-function PersonAction({ person }: { person: PublicUser }) {
+/** 연결 상태에 따라 **가능한 행동 하나만** 보여준다(docs/06 §3.4). */
+function PersonAction({
+  person,
+  onRequest,
+  onOpenConnection,
+}: {
+  person: PublicUser;
+  onRequest: () => void;
+  onOpenConnection: () => void;
+}) {
   switch (person.relation.status) {
     case 'SELF':
-      return <div className="notice">내 프로필입니다. 관심사는 내 프로필에서 수정합니다.</div>;
+      return (
+        <div className="notice">
+          내 프로필입니다. 관심사는 내 프로필에서 수정합니다.
+        </div>
+      );
     case 'CONNECTED':
-      return <button type="button" className="primary" disabled>연결됨</button>;
+      return (
+        <button type="button" className="primary" onClick={onOpenConnection}>
+          연결됨 · 성립 화면 열기
+        </button>
+      );
     case 'REQUEST_SENT':
       return <button type="button" disabled>요청 보냄 · 응답 대기</button>;
     case 'REQUEST_RECEIVED':
-      return <button type="button" className="primary" disabled>수락 / 거절 (M3)</button>;
+      return (
+        <div className="notice">
+          이 사람이 먼저 요청했습니다. 연결 화면에서 수락하거나 거절할 수 있습니다.
+        </div>
+      );
     case 'NO_RESPONSE':
       return (
         <button type="button" disabled>
@@ -214,8 +242,8 @@ function PersonAction({ person }: { person: PublicUser }) {
       );
     default:
       return (
-        <button type="button" className="primary" disabled>
-          연결 요청 (M3)
+        <button type="button" className="primary" onClick={onRequest}>
+          연결 요청
         </button>
       );
   }

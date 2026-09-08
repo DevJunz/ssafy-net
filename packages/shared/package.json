@@ -2,16 +2,22 @@
   "name": "@ssafy-net/shared",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "types": "./dist/cjs/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch"
+    "build": "tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json"
   },
   "dependencies": {
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "typescript": "^5.7.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/cjs/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
   }
 }
