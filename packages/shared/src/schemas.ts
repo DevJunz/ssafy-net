@@ -15,6 +15,28 @@ export type IdentityInput = z.infer<typeof identitySchema>;
 export const NICKNAME_MIN = 2;
 export const NICKNAME_MAX = 12;
 
+/**
+ * Mattermost 인증 (D-66).
+ * 아이디는 표시명과 다르다 — 표시명 "최준환[서울_18반]", 아이디 "devjunsday".
+ * 그래서 사용자가 직접 입력해야 하고, 코드로 본인 것임을 확인한다.
+ */
+export const mattermostSendSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, 'Mattermost 아이디를 입력해주세요.')
+    .max(64)
+    .regex(/^@?[A-Za-z0-9._-]+$/, '아이디 형식이 아닙니다.'),
+  realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20),
+  classNo: z.string().trim().min(1, '반을 입력해주세요.').max(10),
+});
+export type MattermostSendInput = z.infer<typeof mattermostSendSchema>;
+
+export const mattermostVerifySchema = z.object({
+  code: z.string().trim().regex(/^\d{6}$/, '6자리 숫자를 입력해주세요.'),
+});
+export type MattermostVerifyInput = z.infer<typeof mattermostVerifySchema>;
+
 export const displayNameSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('NICKNAME'),
@@ -32,12 +54,6 @@ export const interestSelectionSchema = z.object({
   interestIds: z.array(z.string().uuid()).max(50),
 });
 export type InterestSelectionInput = z.infer<typeof interestSelectionSchema>;
-
-export const notificationSetupSchema = z.object({
-  email: z.boolean(),
-  webPush: z.boolean(),
-});
-export type NotificationSetupInput = z.infer<typeof notificationSetupSchema>;
 
 export const REQUEST_ENTRY_POINTS = [
   'SIMILAR',

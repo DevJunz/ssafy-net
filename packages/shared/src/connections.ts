@@ -69,11 +69,20 @@ export interface ConnectionSummary {
 }
 
 export interface ConnectionAction {
-  /** "○○님, 사내 메신저에서 △△님을 찾아 첫 메시지를 보내주세요" (FR-11.3) */
+  /** "○○님, @kimjisu 님에게 첫 메시지를 보내주세요" (FR-11.3) */
   text: string;
-  /** 메신저에서 찾을 실명. 복사 버튼에 쓴다 */
+  /** 복사 버튼에 쓴다. 아이디를 알면 아이디, 없으면 실명 */
   copyText: string;
   buttonLabel: string;
+  /**
+   * 상대의 Mattermost 아이디와 대화창 링크 (D-66).
+   *
+   * 실명(이름_캠퍼스_반)은 표시용이고, **메신저에서 찾는 수단은 아이디다**.
+   * 실제 Mattermost 표시명은 "최준환[서울_18반]" 형식이라 실명으로 검색하면
+   * 찾지 못한다 — R-14가 여기서 사라진다.
+   */
+  mattermostUsername: string | null;
+  mattermostLink: string | null;
 }
 
 export interface ConnectionDetail extends ConnectionSummary {

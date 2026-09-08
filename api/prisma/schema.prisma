@@ -42,6 +42,14 @@ model User {
   campus   String  @default("서울")
   classNo  String? @map("class_no")
 
+  // 사내 메신저(Mattermost) 계정. 온보딩에서 DM 인증 코드로 확인한다.
+  //
+  // 이것이 SSAFY 소속 검증을 겸한다(D-20 개정). 계정을 가진 사람만 가입할 수 있다.
+  // 실명(이름_캠퍼스_반)은 표시용이고, **메신저에서 사람을 찾는 수단은 이 아이디다**.
+  // 아이디는 표시명과 다르다(예: 표시명 "최준환[서울_18반]", 아이디 "devjunsday").
+  mattermostUsername   String?   @unique @map("mattermost_username")
+  mattermostVerifiedAt DateTime? @map("mattermost_verified_at")
+
   displayNameType   DisplayNameType @default(NICKNAME) @map("display_name_type")
   nickname          String?         @unique
   nicknameChangedAt DateTime?       @map("nickname_changed_at")
@@ -75,9 +83,33 @@ model User {
   pushSubscriptions    PushSubscription[]
   externalChannels     ExternalChannel[]
   reportsMade          Report[]               @relation("ReportsMade")
+  mattermostVerifications MattermostVerification[]
 
   @@index([status])
   @@map("user")
+}
+
+/**
+ * Mattermost DM으로 보낸 인증 코드.
+ *
+ * 웹훅은 단방향이라 응답을 받을 수 없다. 코드는 앱에서 다시 입력받는다.
+ * 남의 아이디를 넣어 코드를 뿌리지 못하도록 계정과 대상 모두에 횟수를 센다.
+ */
+model MattermostVerification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  username  String
+  code      String
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([username, createdAt])
+  @@map("mattermost_verification")
 }
 
 model InviteCode {
@@ -431,6 +463,8 @@ enum NotificationType {
 
 enum NotificationChannel {
   IN_APP
+  // 사내 메신저. 구성원이 상주하는 곳이라 도달률이 가장 높다(D-66).
+  MATTERMOST
   EMAIL
   WEB_PUSH
   EXTERNAL

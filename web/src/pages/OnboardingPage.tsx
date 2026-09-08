@@ -5,14 +5,12 @@ import { api } from '../api/client';
 import { InterestPicker } from '../features/interests/InterestPicker';
 import { useSession } from '../session';
 import { DisplayNameStep } from './onboarding/DisplayNameStep';
-import { IdentityStep } from './onboarding/IdentityStep';
-import { NotificationStep } from './onboarding/NotificationStep';
+import { MattermostStep } from './onboarding/MattermostStep';
 
 const ORDER: OnboardingState['step'][] = [
-  'IDENTITY',
+  'MATTERMOST',
   'DISPLAY_NAME',
   'INTERESTS',
-  'NOTIFICATIONS',
 ];
 
 /**
@@ -51,8 +49,12 @@ export function OnboardingPage() {
         ))}
       </div>
 
-      {state.step === 'IDENTITY' && (
-        <IdentityStep onDone={() => void refresh()} />
+      {state.step === 'MATTERMOST' && (
+        <MattermostStep
+          initialUsername={state.mattermostUsername}
+          codeAlreadySent={state.codeSent}
+          onDone={() => void refresh()}
+        />
       )}
 
       {state.step === 'DISPLAY_NAME' && (
@@ -67,14 +69,18 @@ export function OnboardingPage() {
           <h2>관심 있는 것을 골라주세요</h2>
           <p className="muted">
             고른 관심사는 다른 구성원에게 보입니다. 나중에 언제든 바꿀 수
-            있습니다.
+            있습니다. 저장하면 바로 시작됩니다.
           </p>
-          <InterestPicker submitLabel="다음" onSaved={() => void refresh()} />
+          <InterestPicker
+            submitLabel="시작하기"
+            onSaved={async () => {
+              // 관심사를 저장하면 온보딩이 끝난다. 알림은 Mattermost로 가고,
+              // 그 계정은 첫 단계에서 이미 확인했다(D-67).
+              await api.post('/onboarding/complete');
+              await refresh();
+            }}
+          />
         </div>
-      )}
-
-      {state.step === 'NOTIFICATIONS' && (
-        <NotificationStep onDone={() => void refresh()} />
       )}
     </main>
   );

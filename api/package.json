@@ -11,7 +11,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "seed:dev": "ts-node prisma/seed/dev-users.ts"
+    "seed:dev": "ts-node prisma/seed/dev-users.ts",
+    "mm:check": "ts-node scripts/mattermost-check.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

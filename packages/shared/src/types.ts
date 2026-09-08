@@ -64,15 +64,19 @@ export interface SelfUser extends ConnectedUser {
 }
 
 export type OnboardingStep =
-  | 'IDENTITY'
+  /** Mattermost 계정 인증. 소속 검증과 알림 채널 확보를 겸한다(D-66) */
+  | 'MATTERMOST'
   | 'DISPLAY_NAME'
   | 'INTERESTS'
-  | 'NOTIFICATIONS'
   | 'DONE';
 
 export interface OnboardingState {
   step: OnboardingStep;
   realNamePreview: string | null;
+  /** 인증된 Mattermost 아이디. 인증 전에는 null */
+  mattermostUsername: string | null;
+  /** 코드를 보냈고 입력을 기다리는 중인지 */
+  codeSent: boolean;
 }
 
 export interface InterestListItem {

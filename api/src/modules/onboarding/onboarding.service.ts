@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import type {
-  DisplayNameInput,
-  IdentityInput,
-  NotificationSetupInput,
-  OnboardingState,
-} from '@ssafy-net/shared';
+import type { DisplayNameInput, OnboardingState } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { InterestsService } from '../interests/interests.service';
@@ -26,15 +21,34 @@ export class OnboardingService {
   /**
    * 중단 후 다시 들어오면 멈춘 지점부터 이어서 한다(J0 Failure State).
    * 어디서 멈췄는지는 저장하지 않고 사용자 상태에서 계산한다.
+   *
+   * 첫 단계가 **Mattermost 인증**이다(D-66). 여기서 막히면 그 뒤는 의미가 없으므로
+   * 가장 앞에 둔다 — 소속이 확인되지 않은 사람이 관심사를 고르게 하지 않는다.
    */
   async state(user: User): Promise<OnboardingState> {
     const preview = this.presenter.fullRealName(user);
+    const base = {
+      realNamePreview: preview,
+      mattermostUsername: user.mattermostUsername,
+      codeSent: false,
+    };
 
-    if (!user.realName || !user.classNo) {
-      return { step: 'IDENTITY', realNamePreview: null };
+    if (!user.mattermostVerifiedAt) {
+      const pending = await this.prisma.mattermostVerification.findFirst({
+        where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+        select: { username: true },
+      });
+      return {
+        ...base,
+        step: 'MATTERMOST',
+        codeSent: Boolean(pending),
+        mattermostUsername: pending?.username ?? null,
+      };
     }
+
     if (user.displayNameType === 'NICKNAME' && !user.nickname) {
-      return { step: 'DISPLAY_NAME', realNamePreview: preview };
+      return { ...base, step: 'DISPLAY_NAME' };
     }
 
     const min = await this.parameters.get('P-01');
@@ -42,29 +56,10 @@ export class OnboardingService {
       where: { userId: user.id },
     });
     if (count < min) {
-      return { step: 'INTERESTS', realNamePreview: preview };
+      return { ...base, step: 'INTERESTS' };
     }
 
-    if (user.status !== 'ACTIVE') {
-      return { step: 'NOTIFICATIONS', realNamePreview: preview };
-    }
-    return { step: 'DONE', realNamePreview: preview };
-  }
-
-  /**
-   * 실명은 이름과 반을 따로 받아 "이름_캠퍼스_반"으로 조합한다(D-47).
-   * 검증하지 않고 사용자를 신뢰한다(docs/12 §2). 허위 실명은 연결 후
-   * 메신저에서 못 찾는 결과로 드러나고 후속 확인 "찾지 못함"으로 관찰한다.
-   */
-  async setIdentity(user: User, input: IdentityInput) {
-    const updated = await this.prisma.user.update({
-      where: { id: user.id },
-      data: { realName: input.realName, classNo: input.classNo },
-    });
-    return {
-      realNamePreview: this.presenter.fullRealName(updated),
-      state: await this.state(updated),
-    };
+    return { ...base, step: 'DONE' };
   }
 
   async setDisplayName(user: User, input: DisplayNameInput) {
@@ -91,10 +86,16 @@ export class OnboardingService {
   }
 
   /**
-   * 온보딩의 마지막 단계. 여기서 status가 ACTIVE가 되고
-   * 그때부터 그래프와 다른 사람의 추천 대상에 들어간다(FR-1.6).
+   * 온보딩 완료 (관심사 저장 직후).
+   *
+   * 알림 설정 단계는 없앴다(D-67). 채널이 Mattermost 하나뿐이라 고를 것이 없고,
+   * 인증 단계에서 이미 그 계정을 확인했다. 온보딩은 3단계로 유지된다.
+   * 채널을 끄고 켜는 것은 설정 화면에서 한다.
+   *
+   * 여기서 status가 ACTIVE가 되고, 그때부터 그래프와 다른 사람의 추천 대상에
+   * 들어간다(FR-1.6).
    */
-  async setNotifications(user: User, input: NotificationSetupInput) {
+  async complete(user: User) {
     const min = await this.parameters.get('P-01');
     const count = await this.prisma.userInterest.count({
       where: { userId: user.id },
@@ -103,13 +104,12 @@ export class OnboardingService {
 
     await this.prisma.$transaction(async (tx) => {
       const rows = [
-        // 앱 내 알림함은 끌 수 없다. 외부 채널이 전부 실패해도 남는 통로다(design/20 §8).
+        // 앱 내 알림함은 끌 수 없다. 채널이 하나뿐이라 이것이 유일한 대비책이다.
         { channel: 'IN_APP' as const, category: 'IMMEDIATE' as const, enabled: true },
         { channel: 'IN_APP' as const, category: 'DIGEST' as const, enabled: true },
-        { channel: 'EMAIL' as const, category: 'IMMEDIATE' as const, enabled: input.email },
-        { channel: 'EMAIL' as const, category: 'DIGEST' as const, enabled: input.email },
-        { channel: 'WEB_PUSH' as const, category: 'IMMEDIATE' as const, enabled: input.webPush },
-        { channel: 'WEB_PUSH' as const, category: 'DIGEST' as const, enabled: false },
+        // 사내 메신저가 유일한 외부 채널이다(D-66, D-67).
+        { channel: 'MATTERMOST' as const, category: 'IMMEDIATE' as const, enabled: true },
+        { channel: 'MATTERMOST' as const, category: 'DIGEST' as const, enabled: true },
       ];
 
       for (const row of rows) {

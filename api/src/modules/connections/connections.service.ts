@@ -11,6 +11,7 @@ import type {
   SentRequestSummary,
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
+import { MattermostService } from '../../infra/mattermost/mattermost.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { ParametersService } from '../parameters/parameters.service';
 import { UserPresenter } from '../users/user.presenter';
@@ -31,6 +32,7 @@ export class ConnectionsService {
     private readonly quota: QuotaService,
     private readonly relations: RelationService,
     private readonly presenter: UserPresenter,
+    private readonly mattermost: MattermostService,
   ) {}
 
   // ─────────────────────────────────────────────────────────
@@ -439,22 +441,34 @@ export class ConnectionsService {
     }
 
     const summary = await this.toSummary(me, connection);
+    const counterpart =
+      connection.userAId === me.id ? connection.userB : connection.userA;
     const counterpartName = summary.counterpart.realName;
     const myName = this.presenter.fullRealName(me) ?? '';
+
+    // 메신저에서 찾는 수단은 실명이 아니라 아이디다(D-66).
+    // 실제 Mattermost 표시명은 "최준환[서울_18반]" 형식이라 실명으로는 검색되지 않는다.
+    const username = counterpart.mattermostUsername;
+    const link = username ? this.mattermost.directMessageLink(username) : null;
+    const target = username ? `@${username}` : `${counterpartName}님`;
 
     // "누가, 누구에게, 무엇을"을 서버가 완성해서 준다(FR-11.3, NFR-3a).
     // 화면마다 문구가 달라지면 안 된다.
     const action =
       summary.myRole === 'INITIATOR'
         ? {
-            text: `${myName.split('_')[0]}님, 사내 메신저에서 ${counterpartName}님을 찾아 첫 메시지를 보내주세요.`,
-            copyText: counterpartName,
+            text: `${myName.split('_')[0]}님, 사내 메신저에서 ${target}에게 첫 메시지를 보내주세요.`,
+            copyText: username ? `@${username}` : counterpartName,
             buttonLabel: '메신저에서 메시지를 보냈어요',
+            mattermostUsername: username,
+            mattermostLink: link,
           }
         : {
             text: `${counterpartName.split('_')[0]}님이 먼저 연락할 예정입니다. 먼저 연락하셔도 좋습니다.`,
-            copyText: counterpartName,
+            copyText: username ? `@${username}` : counterpartName,
             buttonLabel: '연락을 받았어요',
+            mattermostUsername: username,
+            mattermostLink: link,
           };
 
     return {

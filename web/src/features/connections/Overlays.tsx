@@ -324,6 +324,19 @@ export function ConnectionOverlay({
             {copied ? '복사됨' : '복사'}
           </button>
         </div>
+        {/* 아이디를 알면 대화창을 바로 연다. 찾는 단계 자체가 사라진다(D-66). */}
+        {detail.action.mattermostLink && (
+          <a
+            href={detail.action.mattermostLink}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'block', marginTop: 10 }}
+          >
+            <button type="button" className="primary" style={{ width: '100%' }}>
+              Mattermost에서 대화 열기
+            </button>
+          </a>
+        )}
       </div>
 
       {detail.commonInterests.length > 0 && (
