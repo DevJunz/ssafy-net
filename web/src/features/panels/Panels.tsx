@@ -5,7 +5,7 @@ import type {
   PublicUser,
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
-import { colorForCategory, ME_COLOR, PERSON_COLOR } from '../graph/encoding';
+import { categoryVar, INTEREST_VAR, ME_VAR, PERSON_VAR } from '../graph/encoding';
 import { PostComposer, PostList } from '../posts/PostList';
 import { PersonRow } from './PersonRow';
 
@@ -38,10 +38,10 @@ export function BasePanel({
 
       <div className="section">
         <div className="legend">
-          <span><i style={{ background: ME_COLOR }} /> 나</span>
-          <span><i style={{ background: PERSON_COLOR }} /> 사람</span>
-          <span><i style={{ background: '#1c7ed6' }} /> 관심사</span>
-          <span><i style={{ background: '#fff', border: '1.5px dashed #868e96' }} /> 인접 관심사</span>
+          <span><i style={{ background: ME_VAR }} /> 나</span>
+          <span><i style={{ background: PERSON_VAR }} /> 사람</span>
+          <span><i style={{ background: INTEREST_VAR }} /> 관심사</span>
+          <span><i className="hollow" /> 인접 관심사</span>
         </div>
       </div>
 
@@ -50,7 +50,7 @@ export function BasePanel({
           <div className="legend">
             {[...categories.keys()].map((id) => (
               <span key={id}>
-                <i style={{ background: colorForCategory(id) }} />
+                <i style={{ background: categoryVar(id) }} />
                 {/* Category 이름은 관심사 노드에서 알 수 없으므로 색만 보여준다 */}
               </span>
             ))}

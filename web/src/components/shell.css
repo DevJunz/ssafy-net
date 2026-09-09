@@ -16,7 +16,7 @@
   flex: none;
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  background: rgb(255 255 255 / 0.88);
+  background: var(--nav-bg);
   backdrop-filter: blur(8px);
 }
 
@@ -73,7 +73,7 @@
   font-size: 11px;
   font-weight: 700;
   background: var(--danger);
-  color: #fff;
+  color: var(--on-danger);
   border-radius: 999px;
   min-width: 17px;
   height: 17px;
@@ -104,7 +104,7 @@
 .overlay-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(16 24 40 / 0.45);
+  background: var(--backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -114,7 +114,7 @@
 }
 
 .overlay {
-  background: #fff;
+  background: var(--surface-raised);
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 520px;
@@ -202,7 +202,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: #fff;
+  background: var(--surface-raised);
   border: 1px solid var(--accent-border);
   border-radius: var(--radius);
   padding: 8px 11px;
@@ -236,8 +236,8 @@
   left: 50%;
   transform: translateX(-50%);
   max-width: min(520px, calc(100vw - 32px));
-  background: var(--text);
-  color: #fff;
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
   padding: 11px 18px;
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -245,22 +245,22 @@
   display: flex;
   gap: 14px;
   align-items: center;
-  box-shadow: 0 10px 28px rgb(16 24 40 / 0.28);
+  box-shadow: var(--shadow-lg);
   animation: toast-in 240ms var(--ease);
 }
 
 .toast button {
   flex: none;
   background: none;
-  border: 1px solid rgb(255 255 255 / 0.32);
-  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--inverse-text) 32%, transparent);
+  color: var(--inverse-text);
   padding: 4px 10px;
   font-size: 13px;
 }
 
 .toast button:hover:not(:disabled) {
-  background: rgb(255 255 255 / 0.12);
-  border-color: rgb(255 255 255 / 0.5);
+  background: color-mix(in srgb, var(--inverse-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--inverse-text) 50%, transparent);
 }
 
 @keyframes toast-in {
@@ -328,7 +328,7 @@
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 11px;
-  background: #fff;
+  background: var(--surface-raised);
   margin-bottom: 8px;
   font-weight: 400;
   box-shadow: var(--shadow-sm);
@@ -336,7 +336,7 @@
 
 button.card-row:hover:not(:disabled) {
   border-color: var(--accent-border);
-  background: #fff;
+  background: var(--surface-raised);
   box-shadow: var(--shadow-md);
 }
 

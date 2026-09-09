@@ -3,30 +3,74 @@
  *
  * 색은 여기 토큰만 쓴다. 회색은 한 계열(약간 차가운 남색 기운)로 통일하고,
  * 강조색은 파랑 하나다. 빨강은 위험·배지·그래프의 "나"에만 쓴다(docs/06 §2).
- * 그래프 캔버스는 CSS 변수를 읽지 못하므로 features/graph/encoding.ts 에 같은 값이 따로 있다.
+ *
+ * 그래프 캔버스도 이 토큰을 읽는다(features/graph/encoding.ts 의 readGraphPalette).
+ * 캔버스가 읽는 투명색은 `rgba(r, g, b, a)` 쉼표 표기로 둔다 — 그 문자열을 그대로 파싱한다.
  */
 :root {
   --bg: #fcfcfd;
   --surface: #f5f6f8;
   --surface-2: #eceef2;
+  /* 카드·패널·입력처럼 바닥보다 한 단 떠 있는 면 */
+  --surface-raised: #ffffff;
   --border: #e1e4e9;
   --border-strong: #c9cfd6;
   --text: #1b1f24;
   --text-2: #4b545e;
   --muted: #7a838d;
 
+  /* 글자·선·테두리에 쓰는 강조색 */
   --accent: #1c7ed6;
   --accent-hover: #1971c2;
   --accent-strong: #1864ab;
   --accent-deep: #14507f;
+  /* 채운 버튼의 강조색. 글자용과 갈라 두어 따로 조정할 수 있다 */
+  --accent-fill: #1c7ed6;
+  --accent-fill-hover: #1971c2;
+  --on-accent: #ffffff;
   --accent-soft: #e7f3fd;
   --accent-soft-2: #d3e8fb;
   --accent-border: #bcdcff;
+  --accent-glow: rgb(28 126 214 / 0.1);
+  --accent-glow-2: rgb(28 126 214 / 0.06);
 
   --danger: #e03131;
   --danger-soft: #fff0f0;
+  --on-danger: #ffffff;
 
+  /* 반전 면(토스트, 건너뛰기 링크)과 반투명 면 */
+  --inverse-bg: #1b1f24;
+  --inverse-text: #ffffff;
+  --nav-bg: rgb(255 255 255 / 0.88);
+  --glass: rgb(255 255 255 / 0.7);
+  --glass-strong: rgb(255 255 255 / 0.92);
+  --backdrop: rgb(16 24 40 / 0.45);
+
+  /* 그래프 캔버스(docs/06 §2). 사람은 회색 점, 나는 빨강, 관심사는 Category 색 */
   --graph-bg: #fbfcfd;
+  --graph-edge: #dee2e6;
+  --graph-similar: #e03131;
+  --graph-label: #212529;
+  --graph-label-2: #495057;
+  --graph-mark: #1c7ed6;
+  --graph-real: #adb5bd;
+  --graph-person: #495057;
+  --graph-me: #e03131;
+  --graph-hub: #f08c00;
+  --graph-halo: rgba(28, 126, 214, 0.14);
+  --graph-glow: rgba(28, 126, 214, 0.22);
+  --graph-me-glow: rgba(224, 49, 49, 0.18);
+  --cat-1: #1c7ed6; /* 개발 */
+  --cat-2: #7048e8; /* 커리어 */
+  --cat-3: #0ca678; /* 학습 */
+  --cat-4: #2f9e44; /* 스포츠 */
+  --cat-5: #e8590c; /* 문화 */
+  --cat-6: #6741d9; /* 게임 */
+  --cat-7: #c2255c; /* 라이프 */
+  --cat-8: #495057; /* 기타 */
+
+  /* select 의 화살표. data URI 라 색이 안에 박혀 있다(--muted 와 같은 값) */
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237a838d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
 
   /* 그림자는 배경 색조(남색)를 띤다. 강조색 위에서는 강조색 그림자를 쓴다. */
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
@@ -170,8 +214,8 @@ code {
   z-index: calc(var(--z-toast) + 1);
   padding: 8px 12px;
   border-radius: var(--radius);
-  background: var(--text);
-  color: #fff;
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
   font-size: 13px;
   text-decoration: none;
   transform: translateY(-200%);
@@ -180,7 +224,7 @@ code {
 
 .skip-link:focus-visible {
   transform: none;
-  outline-color: #fff;
+  outline-color: var(--inverse-text);
 }
 
 /* ── 버튼 ───────────────────────────────────────── */
@@ -197,7 +241,7 @@ button,
   cursor: pointer;
   border-radius: var(--radius);
   border: 1px solid var(--border-strong);
-  background: #fff;
+  background: var(--surface-raised);
   color: var(--text);
   padding: 9px 16px;
   text-decoration: none;
@@ -231,16 +275,16 @@ button:disabled {
 
 button.primary,
 .button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
   box-shadow: 0 1px 2px rgb(28 126 214 / 0.24);
 }
 
 button.primary:hover:not(:disabled),
 .button.primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
   box-shadow: var(--shadow-accent);
 }
 
@@ -294,7 +338,7 @@ select,
 textarea {
   font: inherit;
   color: var(--text);
-  background: #fff;
+  background: var(--surface-raised);
   padding: 10px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -321,7 +365,7 @@ textarea:focus {
 select {
   appearance: none;
   padding-right: 36px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237a838d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-image: var(--chevron);
   background-repeat: no-repeat;
   background-position: right 12px center;
 }
@@ -370,7 +414,7 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 22px 24px;
-  background: #fff;
+  background: var(--surface-raised);
 }
 
 /* 프로필의 "연결 전 / 연결 후" 두 장. 좁으면 세로로 쌓인다. */
@@ -430,7 +474,7 @@ select {
   font-size: 13.5px;
   font-weight: 450;
   line-height: 1.4;
-  background: #fff;
+  background: var(--surface-raised);
   color: var(--text);
 }
 
@@ -476,7 +520,7 @@ button.chip.selected:hover:not(:disabled) {
   border-radius: 4px;
   padding: 1px 6px;
   color: var(--muted);
-  background: #fff;
+  background: var(--surface-raised);
   vertical-align: middle;
 }
 
@@ -525,7 +569,7 @@ button.chip.selected:hover:not(:disabled) {
 }
 
 .choice:hover:not(:disabled) {
-  background: #fff;
+  background: var(--surface-raised);
   border-color: var(--border-strong);
   box-shadow: var(--shadow-sm);
 }
@@ -580,7 +624,7 @@ input.code-input {
 
 .skeleton-row {
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   padding: 15px 16px;
   display: flex;
@@ -635,12 +679,12 @@ input.code-input {
   background:
     radial-gradient(
       60% 50% at 80% 0%,
-      rgb(28 126 214 / 0.1),
+      var(--accent-glow),
       transparent 70%
     ),
     radial-gradient(
       50% 40% at 0% 100%,
-      rgb(28 126 214 / 0.06),
+      var(--accent-glow-2),
       transparent 70%
     ),
     var(--bg);
@@ -729,7 +773,7 @@ input.code-input {
   margin-top: 36px;
   padding: 16px 18px;
   border-radius: var(--radius-lg);
-  background: rgb(255 255 255 / 0.7);
+  background: var(--glass);
   border: 1px solid var(--border);
   backdrop-filter: blur(6px);
 }

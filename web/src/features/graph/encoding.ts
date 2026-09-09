@@ -8,38 +8,89 @@ import type { GraphInterestNode, GraphNode } from '@ssafy-net/shared';
  *   강조 / 흐림 / 선택 · 내 관심사 / 인접 관심사 · 선 3종
  *
  * 세부 값(간격, 크기)은 문서로 확정하지 않고 써 보고 조정한다(D-34).
+ *
+ * 색 값의 출처는 index.css 의 토큰 하나뿐이다. 범례·레일 같은 DOM은 `var(--…)`를
+ * 그대로 쓰고, 캔버스는 처음 그릴 때 readGraphPalette()로 계산된 값을 읽는다.
  */
 
-/** Category별 색 계열. 같은 Category는 같은 계열로 묶는다. */
-const CATEGORY_PALETTE = [
-  '#1c7ed6', // 개발
-  '#7048e8', // 커리어
-  '#0ca678', // 학습
-  '#2f9e44', // 스포츠
-  '#e8590c', // 문화
-  '#6741d9', // 게임
-  '#c2255c', // 라이프
-  '#495057', // 기타
-];
+const CATEGORY_SLOTS = 8;
+const categorySlots = new Map<string, number>();
 
-const categoryColors = new Map<string, string>();
-
-export function colorForCategory(categoryId: string): string {
-  if (!categoryColors.has(categoryId)) {
-    categoryColors.set(
-      categoryId,
-      CATEGORY_PALETTE[categoryColors.size % CATEGORY_PALETTE.length],
-    );
+/** Category마다 색 자리(1~8)를 준다. 처음 본 순서대로 배정하고, 넘치면 돌려 쓴다. */
+export function categorySlot(categoryId: string): number {
+  let slot = categorySlots.get(categoryId);
+  if (slot === undefined) {
+    slot = (categorySlots.size % CATEGORY_SLOTS) + 1;
+    categorySlots.set(categoryId, slot);
   }
-  return categoryColors.get(categoryId)!;
+  return slot;
 }
 
 export function registerCategories(ids: string[]): void {
-  for (const id of ids) colorForCategory(id);
+  for (const id of ids) categorySlot(id);
 }
 
-export const ME_COLOR = '#e03131';
-export const PERSON_COLOR = '#495057';
+/** DOM에서 쓰는 Category 색. 토큰을 가리킨다. */
+export function categoryVar(categoryId: string): string {
+  return `var(--cat-${categorySlot(categoryId)})`;
+}
+
+export const ME_VAR = 'var(--graph-me)';
+export const PERSON_VAR = 'var(--graph-person)';
+export const INTEREST_VAR = 'var(--cat-1)';
+
+/** 캔버스가 쓰는 색 한 벌. 토큰에서 읽은 계산값이다. */
+export interface GraphPalette {
+  bg: string;
+  edge: string;
+  similar: string;
+  onAccent: string;
+  label: string;
+  label2: string;
+  mark: string;
+  real: string;
+  person: string;
+  me: string;
+  hub: string;
+  halo: string;
+  glow: string;
+  meGlow: string;
+  categories: string[];
+}
+
+export function readGraphPalette(): GraphPalette {
+  const style = getComputedStyle(document.documentElement);
+  const token = (name: string) => style.getPropertyValue(name).trim();
+  return {
+    bg: token('--graph-bg'),
+    edge: token('--graph-edge'),
+    similar: token('--graph-similar'),
+    onAccent: token('--on-accent'),
+    label: token('--graph-label'),
+    label2: token('--graph-label-2'),
+    mark: token('--graph-mark'),
+    real: token('--graph-real'),
+    person: token('--graph-person'),
+    me: token('--graph-me'),
+    hub: token('--graph-hub'),
+    halo: token('--graph-halo'),
+    glow: token('--graph-glow'),
+    meGlow: token('--graph-me-glow'),
+    categories: Array.from({ length: CATEGORY_SLOTS }, (_, index) =>
+      token(`--cat-${index + 1}`),
+    ),
+  };
+}
+
+/**
+ * 같은 색의 완전 투명 버전. 빛무리 그라데이션의 바깥 끝에 쓴다.
+ * 검정 투명으로 끝내면 가장자리가 탁해진다. 토큰은 `rgba(r, g, b, a)` 쉼표 표기다.
+ */
+export function transparentOf(color: string): string {
+  const match = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/.exec(color);
+  if (!match) return 'rgba(0, 0, 0, 0)';
+  return `rgba(${match[1]}, ${match[2]}, ${match[3]}, 0)`;
+}
 
 /** 관심사는 사람보다 크고 이름이 항상 보인다(FR-2.2). */
 export function radiusOf(node: GraphNode): number {
@@ -49,11 +100,13 @@ export function radiusOf(node: GraphNode): number {
   return 8 + Math.min(6, Math.sqrt((node as GraphInterestNode).holderCount) / 2);
 }
 
-export function colorOf(node: GraphNode): string {
-  if (node.kind === 'ME') return ME_COLOR;
-  if (node.kind === 'PERSON') return PERSON_COLOR;
-  if (node.kind === 'NETWORK_HUB') return '#f08c00';
-  return colorForCategory((node as GraphInterestNode).categoryId);
+export function colorOf(node: GraphNode, palette: GraphPalette): string {
+  if (node.kind === 'ME') return palette.me;
+  if (node.kind === 'PERSON') return palette.person;
+  if (node.kind === 'NETWORK_HUB') return palette.hub;
+  return palette.categories[
+    categorySlot((node as GraphInterestNode).categoryId) - 1
+  ];
 }
 
 export function labelOf(node: GraphNode): string {

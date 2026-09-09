@@ -1,6 +1,6 @@
 import type { GraphResponse, InterestCatalog } from '@ssafy-net/shared';
 import { useMemo, useState } from 'react';
-import { colorForCategory } from '../graph/encoding';
+import { categoryVar } from '../graph/encoding';
 
 /**
  * 왼쪽 관심사 레일.
@@ -74,7 +74,7 @@ export function InterestRail({
       className={`rail-row ${selectedId === id ? 'selected' : ''}`}
       onClick={onClick}
     >
-      <i style={{ background: colorForCategory(categoryId) }} />
+      <i style={{ background: categoryVar(categoryId) }} />
       <span className="rail-name">{name}</span>
       {suffix && <span className="rail-suffix">{suffix}</span>}
     </button>
