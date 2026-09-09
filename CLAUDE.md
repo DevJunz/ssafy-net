@@ -40,6 +40,13 @@
 
 ### 다음 세션에서 이어서 할 것
 
+**2026-09-10 새벽 진행** (대화록 `history/2026-09-10-shadcn-gcp-deploy-session.txt`. 그 앞 세션은 실수로 닫혀 `history/2026-09-09-gcp-decision-deploy-bundle-session.txt` 에 본문만 복원해 두었다). 두 갈래를 동시에 했다.
+
+- **배포는 VM 에 SSH 로 들어가기 직전까지 왔다.** 실제 값은 `deploy/README.md` 머리의 표에 있다. 끝난 것: GCP 프로젝트 `ssanecting`, VM `ssafy-net`(서울 e2-medium, Ubuntu 24.04, 40GB, HTTP/HTTPS), 고정 IP `35.216.40.235`, 도메인 **`ssafy-networking.store`** 구매와 A 레코드(01:30 KST 부터 풀린다), Google OAuth 리디렉션 URI 추가, **Secret Manager** 에 `ssafy-net-env` 보안 비밀(로컬 `deploy/.env` 내용 그대로)과 VM 서비스 계정 권한, VM 액세스 범위를 "모든 Cloud API" 로 변경. **남은 것**은 README §5 의 SSH 이후 — Docker 설치 → clone → `./deploy/fetch-env.sh` → compose up → 시드 → 운영자 플래그 → UptimeRobot → 백업 cron·복원 시험. OAuth 동의 화면이 "프로덕션" 인지는 아직 확인하지 않았다.
+- **GCP 콘솔 작업은 사용자가 직접 한다.** 브라우저를 대신 조작하다가 세션이 닫혀 어디까지 했는지 잃은 적이 있어, 한 단계씩 알려 주고 확인받는 방식으로 바꿨다.
+- **환경 변수의 원본은 Secret Manager 다.** VM 의 `deploy/.env` 는 `fetch-env.sh` 로 내려받은 사본이다. 값을 바꿀 때는 콘솔에서 새 버전을 올리고 스크립트를 다시 돌린다(README §5-1).
+- **shadcn/ui 전면 교체는 끝났지만 커밋하지 않았다.** Tailwind v4 + shadcn 컴포넌트 20개로 화면 전부를 다시 짰고 `tsc`·`vite build`·`build:demo` 모두 통과. 사용자가 아직 눈으로 보지 않았다(`npm run preview:demo --workspace=web` → :4173). 잃지 않도록 같은 내용을 **`wip/shadcn-ui` 브랜치**에 스냅샷으로 올려 두었다(작업 트리와 동일). 확인 뒤 main 에 커밋하고 VM 에서 `git pull` + 재빌드하면 새 UI 가 나간다. 그 전까지 VM 은 옛 UI 로 뜬다. 옛 워크트리 `.claude/worktrees/agent-a37627bf50a32b6a8`(브랜치 `feat/shadcn-ui`, 설치까지만 한 중복본)는 지워도 된다: `git worktree remove --force .claude/worktrees/agent-a37627bf50a32b6a8 && git branch -D feat/shadcn-ui`.
+
 **배포부터 한다. 그 다음 모니터링 포인트를 이야기한다**(2026-09-09에 정한 순서. 위 표의 1·2번보다 앞선다).
 
 배포는 design/20 §13(단일 VM + Docker Compose + Caddy)을 따른다. design/23의 "공개 전에 닫을 것" 가운데 헬스체크와 웹훅 타임아웃은 배포에 같이 넣는 편이 낫다 — 없으면 배포 뒤에 서버가 죽어도 알 길이 없다.

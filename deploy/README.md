@@ -4,6 +4,17 @@ design/20 §13 기본안(단일 VM + Docker Compose + Caddy)을 GCP 에 올린�
 Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 $300 · 90일 크레딧이 있어
 준비 → 공개 2주 → 정리까지 비용이 들지 않는다.
 
+**이 배포의 실제 값 (2026-09-10)**
+
+| 항목 | 값 |
+|---|---|
+| GCP 프로젝트 | `ssanecting` |
+| VM | `ssafy-net`, asia-northeast3, e2-medium, Ubuntu 24.04 x86-64, 40GB, 액세스 범위 "모든 Cloud API" |
+| 고정 IP | `35.216.40.235` (`ssafy-net-ip`) |
+| 도메인 | `ssafy-networking.store` → A 레코드 `35.216.40.235` |
+| 환경 변수 | Secret Manager `ssafy-net-env` (§5-1). 로컬 `deploy/.env` 와 같은 내용 |
+| OAuth 리디렉션 URI | `https://ssafy-networking.store/api/auth/google/callback` (추가됨) |
+
 이 폴더에 있는 것:
 
 | 파일 | 역할 |
