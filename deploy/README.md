@@ -13,6 +13,7 @@ Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 
 | `.env.example` | 채워야 할 값. 복사해서 `.env` 로 |
 | `Caddyfile` | TLS 자동 발급, `/api`·`/n` 은 api 로, 나머지는 정적 파일 |
 | `api-entrypoint.sh` | 컨테이너 시작 때 `prisma migrate deploy` |
+| `fetch-env.sh` | Secret Manager 의 `ssafy-net-env` 를 `deploy/.env` 로 내려받는다 (§5-1) |
 | `backup.sh` | 하루 1회 `pg_dump`. cron 에 건다 |
 
 ## 0. 계정 문제 — Google OAuth 와 GCP 계정은 달라도 된다
@@ -42,7 +43,7 @@ Compute Engine → VM 인스턴스 → 만들기.
 | 머신 | **e2-medium** (2 vCPU, 4GB) | design/20 §13 권장 사양. 월 약 $30, 크레딧으로 충당 |
 | 부팅 디스크 | **Ubuntu 24.04 LTS x86/64**, 균형 영구 디스크 **40GB** | ARM 이 아니다. 이미지가 x86-64 |
 | 방화벽 | **HTTP 트래픽 허용, HTTPS 트래픽 허용** 체크 | 80·443. Let's Encrypt 발급에 80 이 필요하다 |
-| 액세스 범위 | 백업을 GCS 에 올리려면 "모든 Cloud API 에 대한 전체 액세스 허용" 또는 Storage 읽기/쓰기 | `backup.sh` 의 `gcloud storage cp` |
+| 액세스 범위 | **"모든 Cloud API 에 대한 전체 액세스 허용"** | §5-1 Secret Manager 와 `backup.sh` 의 `gcloud storage cp` 가 이 범위를 요구한다. 기본 액세스로 만들었으면 중지 → 수정 → 변경 |
 
 만든 뒤 **외부 IP 를 고정**한다: VPC 네트워크 → IP 주소 → 임시 IP 옆 "고정 IP 로 승격". 안 하면 재시작 때 IP 가 바뀌어 DNS 가 끊긴다.
 
@@ -76,11 +77,28 @@ sudo usermod -aG docker $USER && newgrp docker
 
 # 코드
 git clone https://github.com/DevJunz/ssafy-net.git && cd ssafy-net
-cp deploy/.env.example deploy/.env
-nano deploy/.env        # 아래 표대로 채운다
+
+# 환경 변수 — 둘 중 하나
+./deploy/fetch-env.sh   # (a) Secret Manager 에서 내려받는다. §5-1 을 먼저 해 둔다
+# cp deploy/.env.example deploy/.env && nano deploy/.env   # (b) 손으로 채운다
 ```
 
-`deploy/.env` 에 채울 것:
+### 5-1. 환경 변수를 Secret Manager 에서 관리 (2026-09-10 채택)
+
+값의 원본을 VM 이 아니라 GCP 에 둔다. VM 을 다시 만들어도 `fetch-env.sh` 한 줄로 복구되고, 값을 바꿀 때 콘솔에서 새 버전만 올리면 된다. 무료 한도(활성 버전 6개, 접근 1만 회/월) 안이다.
+
+1. **API 켜기**: API 및 서비스 → 라이브러리 → **Secret Manager API** 사용 설정.
+2. **보안 비밀 만들기**: 보안 → Secret Manager → 보안 비밀 만들기.
+   - 이름 `ssafy-net-env`
+   - 보안 비밀 값: 로컬에서 채운 `deploy/.env` 파일 내용을 **통째로** 붙여 넣거나 파일 업로드. 위 표의 키가 전부 들어 있어야 한다.
+   - 리전은 자동, 나머지 기본값.
+3. **VM 서비스 계정에 권한**: 만든 보안 비밀 → 권한 탭 → 주 구성원 추가 → `<프로젝트 번호>-compute@developer.gserviceaccount.com` (IAM 화면에 "Compute Engine 기본 서비스 계정" 으로 보인다) → 역할 **Secret Manager 보안 비밀 접근자**.
+4. **VM 액세스 범위**: VM 상세 → "API 및 ID 관리" → Cloud API 액세스 범위가 **"모든 Cloud API 에 대한 전체 액세스 허용"** 이어야 한다. "기본 액세스" 면 VM 을 **중지 → 수정 → 범위 변경 → 시작**. (범위는 켜진 VM 에서 못 바꾼다.)
+5. VM 에서 `./deploy/fetch-env.sh`. `deploy/.env` 가 생기고(권한 600) 이후는 (b) 와 같다.
+
+값을 바꿀 때: 보안 비밀 → 새 버전 → 전체 내용을 다시 붙여 넣기 → VM 에서 `./deploy/fetch-env.sh && docker compose -f deploy/docker-compose.prod.yml up -d api`. 공개일 스위치(§9)도 이 절차다.
+
+`deploy/.env` 에 들어갈 것 (손으로 채우든 보안 비밀에 넣든 같다):
 
 | 키 | 값 |
 |---|---|
@@ -147,7 +165,7 @@ api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마
 
 ## 9. 공개하는 날
 
-1. `deploy/.env` 에서 `MATTERMOST_DELIVERY_MODE=live`. 소수로 먼저 시험하려면 `MATTERMOST_ALLOWED_RECIPIENTS` 에 아이디 몇 개.
+1. `MATTERMOST_DELIVERY_MODE=live`. 소수로 먼저 시험하려면 `MATTERMOST_ALLOWED_RECIPIENTS` 에 아이디 몇 개. Secret Manager 를 쓰면 새 버전을 올리고 `./deploy/fetch-env.sh`, 아니면 `deploy/.env` 직접 수정.
 2. `docker compose -f deploy/docker-compose.prod.yml up -d api` (api 만 재시작).
 3. 운영자 채널에 온 인증 코드가 더는 안 오고 본인 DM 으로 오는지 확인.
 
