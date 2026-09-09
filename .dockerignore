@@ -1,0 +1,18 @@
+# Docker 빌드 컨텍스트에서 뺀다. 이미지 안에서 다시 만드는 것과 이미지에 들어가면 안 되는 것.
+node_modules
+**/node_modules
+**/dist
+.git
+.vercel
+.vite
+history
+docs
+design
+phase0-mvp
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/backups

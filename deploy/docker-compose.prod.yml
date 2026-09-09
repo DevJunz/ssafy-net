@@ -1,0 +1,80 @@
+# 운영 구성 — VM 한 대에 db + api + web(Caddy). design/20 §13, design/23 §3.
+#
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+#
+# 환경 변수는 이 파일 옆의 deploy/.env 에서 읽는다(deploy/.env.example 참조).
+# 반드시 저장소 루트에서 위 명령 그대로 실행한다. --project-directory 를 바꾸면 .env 를 못 찾는다.
+#
+# API 인스턴스는 하나여야 한다. 배치가 인프로세스 cron 이라 둘이면 같은 알림이 두 번 나간다(design/20 §7).
+
+name: ssafy-net
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ssafynet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?deploy/.env 에 POSTGRES_PASSWORD 를 넣는다}
+      POSTGRES_DB: ssafynet
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # 포트를 밖으로 열지 않는다. 접근은 `docker compose -f deploy/docker-compose.prod.yml exec db psql -U ssafynet -d ssafynet`.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ssafynet -d ssafynet"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  api:
+    build:
+      context: ..
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TZ: Asia/Seoul
+      # Prisma 기본 풀은 코어×2+1 이라 2 vCPU 에서 5개뿐이다. 명시한다(design/23 §1).
+      DATABASE_URL: postgresql://ssafynet:${POSTGRES_PASSWORD}@db:5432/ssafynet?schema=public&connection_limit=20
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging: *logging
+
+  web:
+    build:
+      context: ..
+      target: web
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?deploy/.env 에 SITE_ADDRESS 를 넣는다}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      # 인증서와 Caddy 상태. 지우면 Let's Encrypt 를 다시 받는다(발급 횟수 제한이 있다).
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    logging: *logging
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

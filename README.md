@@ -149,11 +149,27 @@ node web/scripts/capture-fixtures.cjs   # api·db 가 떠 있어야 한다
 - 수락·거절·저장 같은 동작은 화면 안에서만 반영된다. 새로고침하면 처음으로 돌아간다.
 - `npm run build`(모드 없음)로 만든 실 서비스 번들에는 이 목 데이터가 **들어가지 않는다.**
 
+## 운영 배포
+
+**Google Cloud VM 한 대**(서울, e2-medium)에 Docker Compose 로 올린다. 절차는 [`deploy/README.md`](deploy/README.md)에
+처음부터 끝까지 있다 — GCP 계정·VM·도메인·OAuth 리디렉션·첫 배포·모니터·백업·공개일 스위치·2주 뒤 정리.
+
+```bash
+cp deploy/.env.example deploy/.env                          # 값 채우기
+docker compose -f deploy/docker-compose.prod.yml up -d --build
+docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed
+curl https://<도메인>/api/health
+```
+
+`Dockerfile` 하나가 `api`(NestJS + Prisma, 시작할 때 migrate deploy)와 `web`(Caddy + 정적 번들, TLS 자동) 두 이미지를 만든다.
+API 인스턴스는 하나여야 한다(배치가 인프로세스 cron).
+
 ## 공개 전 남은 것
 
-| 항목 | 담당 |
+| 항목 | 상태 |
 |---|---|
 | 디자인 | 화면이 다 나온 상태 |
-| 배포 | design/20 §13 단일 VM + Docker Compose 기본안 |
+| 배포 묶음 | 만들어짐 (`deploy/`). VM 을 만들고 올리는 일이 남았다 |
+| 알림 발송 동시성·재시도, 운영자 레버 | design/23 "공개 전에 닫을 것" |
 
 B-3(이메일)·B-4(외부 채널)는 Mattermost 도입(D-66~D-68)으로 더 이상 확인할 필요가 없다.

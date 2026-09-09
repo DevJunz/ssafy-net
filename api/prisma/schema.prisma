@@ -5,7 +5,10 @@
 // design/21 §10에 이유와 함께 적혀 있다. 없는 것에도 이유가 있다.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native: 개발 컴퓨터. debian-openssl-3.0.x: 운영 이미지(node:22-bookworm-slim).
+  // 빌드 단계에 openssl 이 없으면 Prisma 가 1.1.x 로 잘못 추정해 런타임에서 엔진을 못 찾는다.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

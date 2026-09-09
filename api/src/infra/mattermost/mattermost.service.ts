@@ -15,6 +15,12 @@ import { ConfigService } from '@nestjs/config';
  * 목적지를 지정하지 않으면 웹훅의 기본 채널로 간다. 그 채널은 운영자만 있는
  * 비공개 채널이어야 한다 — 코드에서 목적지를 빠뜨렸을 때의 폭발 반경이기 때문이다.
  */
+/** 웹훅 응답 대기 상한. 평소 수백 ms 이내라 5초면 넉넉하다(design/23 §6). */
+const WEBHOOK_TIMEOUT_MS = 5_000;
+
+/** 아이디가 없을 때 Mattermost 가 주는 상태. 이것만 사용자 입력 오류다. */
+export const MATTERMOST_UNKNOWN_USER = '400';
+
 @Injectable()
 export class MattermostService {
   private readonly logger = new Logger(MattermostService.name);
@@ -106,6 +112,16 @@ export class MattermostService {
     await this.post({ text: markdown });
   }
 
+  /**
+   * 웹훅 호출 한 번.
+   *
+   * `error` 는 세 부류다(design/23 §6). 호출하는 쪽이 이것으로 문구와 재시도를 가른다.
+   *   - `'400'`            : 없는 아이디. 사용자 입력 오류라 재시도해도 소용없다.
+   *   - 그 밖의 상태 코드  : Mattermost 쪽 문제(429, 5xx). 재시도 대상.
+   *   - `'timeout'`·`'network'` : 응답이 없거나 연결이 안 됨. 재시도 대상.
+   *
+   * 타임아웃이 없으면 Mattermost 가 느려질 때 요청이 매달리고 온보딩 전체가 선다.
+   */
   private async post(payload: {
     text: string;
     channel?: string;
@@ -118,6 +134,7 @@ export class MattermostService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
       });
 
       if (response.ok) return { ok: true };
@@ -128,8 +145,13 @@ export class MattermostService {
       );
       return { ok: false, error: `${response.status}` };
     } catch (error) {
-      this.logger.error(`발송 오류: ${String(error)}`);
-      return { ok: false, error: 'network' };
+      const timedOut =
+        error instanceof Error &&
+        (error.name === 'TimeoutError' || error.name === 'AbortError');
+      this.logger.error(
+        `발송 오류(${timedOut ? 'timeout' : 'network'}): ${String(error)}`,
+      );
+      return { ok: false, error: timedOut ? 'timeout' : 'network' };
     }
   }
 

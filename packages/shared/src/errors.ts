@@ -47,6 +47,8 @@ export const ERROR_MESSAGES = {
     '받은 요청 알림은 최소 한 곳에서는 켜져 있어야 합니다. 요청을 놓칠 수 있습니다.',
 
   VALIDATION_FAILED: '입력을 다시 확인해주세요.',
+  // Mattermost 웹훅이 타임아웃·5xx·네트워크 오류로 실패했을 때. 아이디 오류(400)와 구분한다(design/23 §6).
+  MATTERMOST_UNAVAILABLE: '메신저 서버가 응답하지 않습니다. 잠시 후 다시 시도해주세요.',
   INTERNAL: '문제가 생겼습니다. 잠시 후 다시 시도해주세요.',
 } as const;
 

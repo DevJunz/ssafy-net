@@ -1,0 +1,4 @@
+# 컨테이너 안에서 실행되는 파일은 Windows 체크아웃에서도 LF 여야 한다.
+*.sh text eol=lf
+deploy/Caddyfile text eol=lf
+Dockerfile text eol=lf

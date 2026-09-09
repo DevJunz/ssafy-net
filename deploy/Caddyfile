@@ -1,0 +1,35 @@
+# SSAFY Connection — 리버스 프록시 (design/20 §13, design/23 §3·§4)
+#
+# SITE_ADDRESS 는 deploy/.env 에서 온다.
+#   connect.example.com  → Let's Encrypt 인증서 자동 발급·갱신. 80·443 이 열려 있어야 한다.
+#   :80                  → 도메인 없이 잠깐 확인할 때. TLS 없음.
+#
+# Node 의 accept 대기열(511)이 넘쳐 나던 연결 거부는 Caddy 가 앞에서 받으면 사라진다(design/23 §4).
+
+{$SITE_ADDRESS}
+
+encode zstd gzip
+
+header {
+	X-Content-Type-Options nosniff
+	Referrer-Policy strict-origin-when-cross-origin
+	-Server
+}
+
+# API 와 알림 딥링크(/n/:deliveryId, design/20 §5.3)는 api 컨테이너로.
+# 같은 출처에서 세션 쿠키를 주고받는 구조라 프론트와 API 를 나누지 않는다(design/23 §3).
+@backend path /api/* /n/*
+handle @backend {
+	reverse_proxy api:3000
+}
+
+# 나머지는 정적 번들. SPA 라 모르는 경로는 index.html 로.
+handle {
+	root * /srv
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@entry path / /index.html
+	header @entry Cache-Control "no-cache"
+	try_files {path} /index.html
+	file_server
+}

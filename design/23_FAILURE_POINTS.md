@@ -44,7 +44,9 @@ design/20 §13 기본안 그대로. VM 하나에 Docker Compose로 `api` + `post
 - **Supabase는 얻는 것이 자동 백업 하나다.** pgbouncer 뒤에서 `$transaction`을 쓰려면 플래그가 더 필요하다.
 - **인스턴스는 하나여야 한다.** 배치가 인프로세스 cron이다(20 §7).
 
-어디에: AWS 서울 EC2 t4g.small 이상 또는 Lightsail 4GB(월 고정 $24, 스냅샷 원클릭). Oracle 무료 ARM은 확보가 복불복이고 유휴 회수가 있다. 이미 확보한 것이 있을 때만.
+어디에: ~~AWS 서울 EC2 t4g.small 이상 또는 Lightsail 4GB(월 고정 $24, 스냅샷 원클릭). Oracle 무료 ARM은 확보가 복불복이고 유휴 회수가 있다. 이미 확보한 것이 있을 때만.~~
+
+**→ Google Cloud 서울 e2-medium 으로 확정(2026-09-10).** Oracle 은 가입 화면의 홈 영역 목록에서 국내 리전이 빠져 있어(무료 여유가 없는 리전은 그 순간 숨긴다) 접었다. GCP 는 신규 계정 $300 · 90일 크레딧이 기간 전체를 덮는다. 구성은 `deploy/`(20 §13).
 
 ## 4. 로드밸런싱은 필요 없다
 
@@ -56,10 +58,10 @@ design/20 §13 기본안 그대로. VM 하나에 Docker Compose로 `api` + `post
 
 | 항목 | 현재 | 할 것 |
 |---|---|---|
-| 헬스체크 엔드포인트 | 없음 | `GET /api/health` — DB `SELECT 1` |
-| 종료 훅 | 없음 | `app.enableShutdownHooks()`. 컨테이너 재시작 때 배치가 끊기고 Prisma 연결이 안 정리된다 |
-| 외부 모니터 | 없음 | UptimeRobot 무료(5분 간격) → 죽으면 알 수 있다 |
-| 컨테이너 재시작 | db만 | api·caddy에도 `restart: unless-stopped` |
+| 헬스체크 엔드포인트 | **있음(2026-09-10)** `GET /api/health` — DB `SELECT 1`, 실패 503 | compose healthcheck 가 30초마다 부른다 |
+| 종료 훅 | **있음(2026-09-10)** `app.enableShutdownHooks()` | |
+| 외부 모니터 | 없음 | UptimeRobot 무료(5분 간격) → `/api/health`. `deploy/README.md` §6 |
+| 컨테이너 재시작 | **전부(2026-09-10)** `deploy/docker-compose.prod.yml` | |
 
 ## 5. 반복 요청 · 남용
 
@@ -80,8 +82,8 @@ design/20 §13 기본안 그대로. VM 하나에 Docker Compose로 `api` + `post
 
 | 문제 | 처방 |
 |---|---|
-| `fetch`에 타임아웃이 없다. 느려지면 요청이 매달린다 | `AbortSignal.timeout(5000)` |
-| 5xx·네트워크·타임아웃도 "아이디를 다시 확인"으로 나간다 | 400만 아이디 오류. 나머지는 "메신저 서버가 응답하지 않습니다" + 재시도 |
+| ~~`fetch`에 타임아웃이 없다. 느려지면 요청이 매달린다~~ | **닫음(2026-09-10)** `AbortSignal.timeout(5000)` |
+| ~~5xx·네트워크·타임아웃도 "아이디를 다시 확인"으로 나간다~~ | **닫음(2026-09-10)** 400만 아이디 오류(`VALIDATION_FAILED`). 나머지는 `MATTERMOST_UNAVAILABLE` 503 "메신저 서버가 응답하지 않습니다". 재시도 잡은 아직 |
 | 웹훅 성공 뒤에 verification 행을 만든다. insert 실패 시 코드는 갔는데 검증 불가 | 행을 먼저 만들고(SENDING) 발송 뒤 갱신. 프론트 상태 표시·재발송 잡의 기반 |
 | 웹훅이 죽으면 온보딩 전체가 선다. 알림 채널이 그 웹훅이라 감지 수단이 없다 | 서버 로그 + 외부 모니터. 우회로로 **운영자 수동 인증 엔드포인트**(운영자가 직접 DM으로 코드를 주고 verified 처리) |
 | SSAFY Mattermost의 rate limit 설정을 모른다 | redirect 모드에서 기본 채널로 50건/5초 쏴서 429가 나오는지 잰다 |
@@ -110,5 +112,6 @@ docs/14 결정: North Star = 신규 성립 연결 수, 가드레일 = "대화 �
 
 - **백업.** `pg_dump` 일 1회를 인스턴스 밖(S3)에. 복원을 한 번 실제로 해본다.
 - **운영 환경 변수.** `NODE_ENV=production`이 빠지면 쿠키 `secure`가 안 켜진다. Google OAuth 리디렉션 URI를 운영 도메인으로 등록. 파라미터는 30초 캐시.
-- **로그에 OAuth 코드가 남는다.** `RequestLoggerMiddleware`가 `originalUrl`을 그대로 찍어 콜백의 `code=`·`state=`가 들어간다. 운영에서는 쿼리스트링을 지운다.
+- ~~**로그에 OAuth 코드가 남는다.** `RequestLoggerMiddleware`가 `originalUrl`을 그대로 찍어 콜백의 `code=`·`state=`가 들어간다.~~ **닫음(2026-09-10)** `NODE_ENV=production` 이면 쿼리스트링을 지운다.
+- **백업 스크립트는 있다**(`deploy/backup.sh`, 2026-09-10). cron 에 거는 것과 복원 리허설이 남았다.
 - **운영자 레버가 없어 정지·병합이 SQL 직접 실행이다.**

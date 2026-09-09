@@ -4,6 +4,7 @@ import { randomInt } from 'node:crypto';
 import { SERVICE_NAME } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import {
+  MATTERMOST_UNKNOWN_USER,
   MattermostService,
   normalize,
 } from '../../infra/mattermost/mattermost.service';
@@ -107,11 +108,16 @@ export class MattermostVerificationService {
     );
 
     if (!result.ok) {
-      throw new AppError(
-        'VALIDATION_FAILED',
-        undefined,
-        '그 아이디로 메시지를 보내지 못했습니다. 아이디를 다시 확인해주세요.',
-      );
+      // 400 만 아이디 오류다. 타임아웃·5xx·네트워크는 사용자 잘못이 아니므로
+      // "다시 확인" 대신 "잠시 후 다시" 로 안내한다(design/23 §6).
+      if (result.error === MATTERMOST_UNKNOWN_USER) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          undefined,
+          '그 아이디로 메시지를 보내지 못했습니다. 아이디를 다시 확인해주세요.',
+        );
+      }
+      throw new AppError('MATTERMOST_UNAVAILABLE', { reason: result.error });
     }
 
     // redirect 모드에서는 실제 상대에게 가지 않고 운영자 채널에만 남는다.

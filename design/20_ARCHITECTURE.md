@@ -396,9 +396,11 @@ api:  npm run dev  (3000)
 web:  npm run dev  (5173, /api → 3000 프록시)
 ```
 
-### 운영 (기본안, 미확정)
+### 운영 (확정 2026-09-10 — Google Cloud VM 한 대)
 
-**단일 VM + Docker Compose**를 기본안으로 둔다. 확정은 구현 후반으로 미룬다. 1,000명·2주 규모에서 관리형 서비스를 조합하는 비용이 얻는 것보다 크고, 배포 대상이 하나면 배치 중복 실행 문제도 없다.
+**단일 VM + Docker Compose**를 기본안으로 둔다. 1,000명·2주 규모에서 관리형 서비스를 조합하는 비용이 얻는 것보다 크고, 배포 대상이 하나면 배치 중복 실행 문제도 없다.
+
+**어디에.** Google Cloud `asia-northeast3`(서울) **e2-medium**(2 vCPU · 4GB) + 균형 디스크 40GB, Ubuntu 24.04 x86-64. 신규 계정 $300 · 90일 크레딧으로 준비 → 공개 2주 → 정리까지 비용이 0이다. Oracle Cloud Always Free 를 먼저 시도했으나 가입 단계에서 홈 영역 선택이 막혀 접었다(23 §3). **무엇으로.** 루트 `Dockerfile`(`api`·`web` 두 타깃) + `deploy/docker-compose.prod.yml` + `deploy/Caddyfile`. 절차는 `deploy/README.md`.
 
 | 항목 | 기본안 |
 |---|---|

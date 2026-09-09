@@ -26,7 +26,7 @@
 |---|---|---|
 | 1 | **알림 발송의 동시성 상한 + 재시도** | 묶음 알림이 1,000명에게 나가면 웹훅 호출 1,000건이 동시에 튄다. 실패는 재시도되지 않는다(design/20 §13) |
 | 2 | **운영자 레버** — 사용자 정지, 관심사 병합·숨김 | 신고를 없애(D-69) 정지가 유일한 안전장치인데 엔드포인트가 없다. 직접 추가(D-74) 때문에 병합은 상시 작업이 됐다 |
-| 3 | **배포** | design/20 §13. 단일 VM + Docker Compose + Caddy |
+| 3 | **배포** | 묶음은 `deploy/` 에 있다. GCP VM 을 만들고 올리는 일이 남았다(`deploy/README.md`) |
 
 측정(analytics)은 통째로 미구현이다. `POST /api/events`도 이벤트 기록도 없다. 공개 후에 붙이면 초반 데이터를 잃으므로 2번과 3번 사이에 넣을지 정해야 한다.
 
@@ -43,6 +43,12 @@
 **배포부터 한다. 그 다음 모니터링 포인트를 이야기한다**(2026-09-09에 정한 순서. 위 표의 1·2번보다 앞선다).
 
 배포는 design/20 §13(단일 VM + Docker Compose + Caddy)을 따른다. design/23의 "공개 전에 닫을 것" 가운데 헬스체크와 웹훅 타임아웃은 배포에 같이 넣는 편이 낫다 — 없으면 배포 뒤에 서버가 죽어도 알 길이 없다.
+
+**서버는 Google Cloud VM 한 대다**(2026-09-10 확정, 서울 e2-medium, 신규 계정 $300 · 90일 크레딧으로 비용 0). Oracle Cloud 무료 티어를 먼저 시도했으나 가입이 막혀 접었다 — 오라클 가입 화면의 홈 영역 목록은 그 순간 무료 여유가 있는 리전만 보여 주고 국내 리전은 자주 빠진다.
+
+**배포 묶음은 만들어져 있다(`deploy/`, 2026-09-10).** 루트 `Dockerfile` 이 `api`·`web` 두 이미지를 만들고, `deploy/docker-compose.prod.yml` 이 db + api + web(Caddy, TLS 자동)을 띄운다. 같이 넣은 것: `GET /api/health`(DB SELECT 1), 종료 훅, 웹훅 5초 타임아웃과 오류 구분(400만 아이디 오류, 나머지는 `MATTERMOST_UNAVAILABLE` 503), 운영 로그의 쿼리스트링 제거, `connection_limit=20`, `backup.sh`. **GCP 에서 할 일은 `deploy/README.md` 에 순서대로 있다** — 계정·VM·도메인·OAuth 리디렉션·첫 배포·UptimeRobot·백업·공개일 스위치·2주 뒤 정리. 로컬에서는 `SITE_ADDRESS=:80` 으로 TLS 없이 띄워 볼 수 있다(쿠키가 secure 라 로그인은 안 된다).
+
+Google OAuth 클라이언트가 있는 Google 계정과 VM 을 띄우는 GCP 계정은 **달라도 된다.** 서로 모른다. 리디렉션 URI 추가와 동의 화면 "프로덕션" 게시만 OAuth 쪽 계정에서 한다.
 
 모니터링 이야기의 재료는 둘이다.
 
@@ -137,6 +143,9 @@ SEED_USERS=1000 npm run seed:dev
 - **정규식을 셸을 거쳐 파일에 쓰지 않는다.** heredoc과 템플릿 문자열을 겹치면 `\d`의 백슬래시가 사라져 `/^d{1,2}반$/` 같은 것이 만들어진다. 타입 검사도 통과하고 조용히 전부 거부한다. 편집 도구로 직접 쓴다.
 - **`psql -tAc`는 `RETURNING` 값 뒤에 명령 태그까지 출력한다.** `INSERT ... RETURNING id`의 결과에 `INSERT 0 1`이 붙어 온다. id는 따로 `SELECT`로 읽는다.
 - **파라미터·기능 플래그는 30초 캐시된다.** DB에서 값을 바꿔도 서버에 바로 반영되지 않는다(`ParametersService`).
+- **Docker 빌드에서 `prisma generate`는 openssl이 있어야 한다.** 없으면 엔진을 `debian-openssl-1.1.x`로 잘못 골라 컨테이너가 "Query Engine을 찾을 수 없다"며 재시작을 반복한다. `schema.prisma`의 `binaryTargets`에 `debian-openssl-3.0.x`를 명시해 두었고 Dockerfile의 deps 단계에도 openssl을 넣었다. 베이스 이미지를 바꾸면 둘 다 다시 본다.
+- **운영 compose는 저장소 루트에서 `-f deploy/docker-compose.prod.yml`로 실행한다.** `deploy/.env`를 compose 파일 옆에서 찾는다. `--project-directory`를 바꾸면 못 찾는다.
+- **커밋을 당겨온 뒤 `npm install`을 먼저.** 다른 컴퓨터에서 의존성이 추가된 커밋(예: Swagger)을 받으면 API가 "모듈을 찾을 수 없다"로 컴파일에 실패한다.
 
 ## Phase 0 프로토타입 (참고용, 빌드 대상 아님)
 
