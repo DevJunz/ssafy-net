@@ -1,4 +1,6 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
 /**
@@ -9,7 +11,13 @@ import { defineConfig } from 'vite';
  * 플래그를 .env 파일이 아니라 여기서 넣는 이유는 `.env.*`가 git에서 제외되기 때문이다.
  */
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      // shadcn/ui 컴포넌트가 `@/components/ui/...`, `@/lib/utils` 로 서로를 가리킨다.
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   define: {
     'import.meta.env.VITE_DEMO': JSON.stringify(mode === 'demo' ? '1' : ''),
   },

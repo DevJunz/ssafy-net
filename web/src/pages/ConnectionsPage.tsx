@@ -6,7 +6,23 @@ import type {
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '../api/client';
+import {
+  CardRow,
+  CardRowBody,
+  CardRowButton,
+  CardRowRight,
+  CardRowSub,
+  CardRowTitle,
+  Notice,
+  Page,
+  PageTitle,
+  ScrollPage,
+  Tag,
+} from '../components/primitives';
 import { SkeletonRows } from '../components/Skeleton';
 import {
   ConnectionOverlay,
@@ -38,7 +54,6 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
 
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   const [openConnection, setOpenConnection] = useState<ConnectionDetail | null>(null);
-  const [undo, setUndo] = useState<{ id: string; until: number } | null>(null);
   const [params, setParams] = useSearchParams();
 
   const reload = useCallback(async () => {
@@ -80,12 +95,21 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
     setParams({}, { replace: true });
   }, [params, setParams]);
 
-  // 거절 되돌리기는 5초만 열려 있다(docs/07 §3.4).
-  useEffect(() => {
-    if (!undo) return;
-    const timer = setTimeout(() => setUndo(null), undo.until - Date.now());
-    return () => clearTimeout(timer);
-  }, [undo]);
+  /** 거절 되돌리기는 서버가 준 시각까지만 열려 있다(docs/07 §3.4, 5초). 토스트가 그만큼만 떠 있다. */
+  const offerUndo = (id: string, until: string) => {
+    toast('요청을 거절했습니다. 상대에게는 알려지지 않습니다.', {
+      duration: Math.max(1000, new Date(until).getTime() - Date.now()),
+      action: {
+        label: '되돌리기',
+        onClick: () => {
+          void (async () => {
+            await api.post(`/connection-requests/${id}/reject/undo`);
+            await reload();
+          })();
+        },
+      },
+    });
+  };
 
   const openConnectionDetail = async (id: string) => {
     setOpenConnection(await api.get<ConnectionDetail>(`/connections/${id}`));
@@ -97,131 +121,126 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
   };
 
   return (
-    <div className="scroll-page">
-      <main className="page">
-        <h1 className="page-title">연결</h1>
+    <ScrollPage>
+      <Page>
+        <PageTitle>연결</PageTitle>
 
-        <div className="tabs">
-          <button
-            type="button"
-            className={tab === 'received' ? 'on' : ''}
-            onClick={() => setTab('received')}
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as Tab)}
+          className="mt-[18px] mb-5"
+        >
+          <TabsList
+            variant="line"
+            className="w-full justify-start border-b max-sm:overflow-x-auto max-sm:[scrollbar-width:none]"
           >
-            받은 요청
-            {received.length > 0 && <span className="count">{received.length}</span>}
-          </button>
-          <button
-            type="button"
-            className={tab === 'sent' ? 'on' : ''}
-            onClick={() => setTab('sent')}
-          >
-            보낸 요청
-          </button>
-          <button
-            type="button"
-            className={tab === 'connected' ? 'on' : ''}
-            onClick={() => setTab('connected')}
-          >
-            연결됨
-          </button>
-        </div>
+            <TabsTrigger value="received" className="flex-none px-3.5 py-2.5">
+              받은 요청
+              {received.length > 0 && (
+                <span className="ml-0.5 text-[11px] font-bold text-destructive">
+                  {received.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="flex-none px-3.5 py-2.5">
+              보낸 요청
+            </TabsTrigger>
+            <TabsTrigger value="connected" className="flex-none px-3.5 py-2.5">
+              연결됨
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {loading && <SkeletonRows />}
 
         {!loading &&
           tab === 'received' &&
           (received.length === 0 ? (
-            <div className="notice">
+            <Notice>
               아직 받은 요청이 없습니다. 관심사를 늘리면 발견될 가능성이 높아집니다.
-            </div>
+            </Notice>
           ) : (
             received.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="card-row"
-                onClick={() => setOpenRequest(item.id)}
-              >
-                <div className="body">
-                  <div className="title">
+              <CardRowButton key={item.id} onClick={() => setOpenRequest(item.id)}>
+                <CardRowBody>
+                  <CardRowTitle>
                     {item.from.displayName}
-                    {item.from.displayNameType === 'REAL' && (
-                      <span className="badge real">실명</span>
-                    )}
-                    <span className="badge">공통 {item.commonCount}개</span>
-                  </div>
-                  <div className="sub">{item.messagePreview}</div>
-                </div>
-                <div className="right">{item.daysLeft}일 남음</div>
-              </button>
+                    {item.from.displayNameType === 'REAL' && <Tag tone="real">실명</Tag>}
+                    <Tag>공통 {item.commonCount}개</Tag>
+                  </CardRowTitle>
+                  <CardRowSub>{item.messagePreview}</CardRowSub>
+                </CardRowBody>
+                <CardRowRight>{item.daysLeft}일 남음</CardRowRight>
+              </CardRowButton>
             ))
           ))}
 
         {!loading &&
           tab === 'sent' &&
           (sent.length === 0 ? (
-            <div className="notice">아직 보낸 요청이 없습니다.</div>
+            <Notice>아직 보낸 요청이 없습니다.</Notice>
           ) : (
             sent.map((item) => (
-              <div key={item.id} className="card-row">
-                <div className="body">
-                  <div className="title">{item.to.displayName}</div>
-                  <div className="sub">
+              <CardRow key={item.id}>
+                <CardRowBody>
+                  <CardRowTitle>{item.to.displayName}</CardRowTitle>
+                  <CardRowSub>
                     {new Date(item.createdAt).toLocaleDateString('ko-KR')} 보냄
                     {item.reRequestableAt &&
                       ` · ${new Date(item.reRequestableAt).toLocaleDateString('ko-KR')} 이후 다시 요청 가능`}
-                  </div>
-                </div>
-                <div className="right">
+                  </CardRowSub>
+                </CardRowBody>
+                <CardRowRight>
                   {SENT_LABEL[item.status]}
                   {item.canCancel && (
                     <>
                       <br />
-                      <button type="button" onClick={() => void cancel(item.id)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        className="mt-1"
+                        onClick={() => void cancel(item.id)}
+                      >
                         취소
-                      </button>
+                      </Button>
                     </>
                   )}
-                </div>
-              </div>
+                </CardRowRight>
+              </CardRow>
             ))
           ))}
 
         {!loading &&
           tab === 'connected' &&
           (connections.length === 0 ? (
-            <div className="notice">
+            <Notice>
               아직 연결된 사람이 없습니다. 그래프에서 나와 비슷한 사람을 찾아보세요.
-            </div>
+            </Notice>
           ) : (
             connections.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="card-row"
-                onClick={() => void openConnectionDetail(item.id)}
-              >
-                <div className="body">
-                  <div className="title">
+              <CardRowButton key={item.id} onClick={() => void openConnectionDetail(item.id)}>
+                <CardRowBody>
+                  <CardRowTitle>
                     {item.counterpart.realName}
-                    <span className="badge state">
+                    <Tag tone="state">
                       {item.myRole === 'INITIATOR' ? '내가 먼저' : '상대가 먼저'}
-                    </span>
-                  </div>
-                  <div className="sub">
+                    </Tag>
+                  </CardRowTitle>
+                  <CardRowSub>
                     {item.commonInterests.map((i) => i.name).join(' · ') ||
                       '공통 관심사 없음'}
-                  </div>
-                </div>
-                <div className="right">
+                  </CardRowSub>
+                </CardRowBody>
+                <CardRowRight>
                   {item.started ? '시작함 ✓' : '아직'}
                   <br />
                   {new Date(item.establishedAt).toLocaleDateString('ko-KR')}
-                </div>
-              </button>
+                </CardRowRight>
+              </CardRowButton>
             ))
           ))}
-      </main>
+      </Page>
 
       {openRequest && (
         <RequestDetailOverlay
@@ -234,7 +253,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
           }}
           onRejected={(id, until) => {
             setOpenRequest(null);
-            setUndo({ id, until: new Date(until).getTime() });
+            offerUndo(id, until);
             void reload();
           }}
         />
@@ -247,22 +266,6 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
           onMarked={() => void reload()}
         />
       )}
-
-      {undo && (
-        <div className="toast" role="status">
-          요청을 거절했습니다. 상대에게는 알려지지 않습니다.
-          <button
-            type="button"
-            onClick={async () => {
-              await api.post(`/connection-requests/${undo.id}/reject/undo`);
-              setUndo(null);
-              await reload();
-            }}
-          >
-            되돌리기
-          </button>
-        </div>
-      )}
-    </div>
+    </ScrollPage>
   );
 }

@@ -17,7 +17,12 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     // 데모 빌드가 캡처한 API 응답(web/src/mocks/fixtures.json)을 가져다 쓴다.
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    // shadcn/ui 컴포넌트가 쓰는 `@/` 별칭. vite.config.ts 의 resolve.alias 와 같은 곳을 가리킨다.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }

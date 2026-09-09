@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Toggle } from '@/components/ui/toggle';
 import { api, RequestFailed } from '../../api/client';
+import { ErrorText, Muted } from '../../components/primitives';
 
 const NICKNAME_ERRORS: Record<string, string> = {
   NICKNAME_TAKEN: '이미 사용 중인 닉네임입니다.',
@@ -7,6 +11,10 @@ const NICKNAME_ERRORS: Record<string, string> = {
     '다른 구성원의 실명과 비슷한 닉네임은 쓸 수 없습니다.',
   NICKNAME_INVALID: '사용할 수 없는 닉네임입니다. 2~12자로 지어주세요.',
 };
+
+/** 두 선택지가 같은 크기의 카드다. 고르면 테두리가 파랗게 된다. */
+const choiceClass =
+  'h-auto w-full flex-col items-start gap-1 rounded-xl border bg-card px-5 py-[18px] text-left font-normal whitespace-normal hover:border-input hover:bg-card hover:text-foreground hover:shadow-xs data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-foreground data-[state=on]:ring-1 data-[state=on]:ring-primary';
 
 /**
  * 표시명 선택 (docs/06 §3.1.3).
@@ -66,63 +74,65 @@ export function DisplayNameStep({
     type === 'REAL' || (type === 'NICKNAME' && check?.ok === true);
 
   return (
-    <div className="stack">
-      <h2>다른 사람에게 어떻게 보일까요?</h2>
+    <div className="flex flex-col gap-4">
+      <h2 className="text-xl">다른 사람에게 어떻게 보일까요?</h2>
 
-      <button
-        type="button"
-        className={`choice ${type === 'NICKNAME' ? 'selected' : ''}`}
+      <Toggle
+        pressed={type === 'NICKNAME'}
+        className={choiceClass}
         onClick={() => setType('NICKNAME')}
       >
-        <strong>닉네임으로 활동</strong>
-        <span className="muted">
+        <strong className="block text-[15.5px] font-semibold">닉네임으로 활동</strong>
+        <span className="text-sm text-muted-foreground">
           연결 전에는 닉네임만 보입니다. 수락하면 실명이 공개됩니다.
         </span>
-      </button>
+      </Toggle>
 
       {type === 'NICKNAME' && (
-        <div className="stack">
-          <input
+        <div className="flex flex-col gap-4">
+          <Input
             type="text"
             value={nickname}
             onChange={(event) => setNickname(event.target.value)}
             placeholder="달리기왕"
             maxLength={12}
+            className="h-11 bg-card"
           />
           {check?.ok === false && (
-            <p className="error">
+            <ErrorText>
               {NICKNAME_ERRORS[check.code ?? ''] ?? '사용할 수 없습니다.'}
-            </p>
+            </ErrorText>
           )}
-          {check?.ok === true && (
-            <p className="muted">사용할 수 있는 닉네임입니다.</p>
-          )}
+          {check?.ok === true && <Muted>사용할 수 있는 닉네임입니다.</Muted>}
         </div>
       )}
 
-      <button
-        type="button"
-        className={`choice ${type === 'REAL' ? 'selected' : ''}`}
+      <Toggle
+        pressed={type === 'REAL'}
+        className={choiceClass}
         onClick={() => setType('REAL')}
       >
-        <strong>실명으로 활동 {realNamePreview && `(${realNamePreview})`}</strong>
-        <span className="muted">
+        <strong className="block text-[15.5px] font-semibold">
+          실명으로 활동 {realNamePreview && `(${realNamePreview})`}
+        </strong>
+        <span className="text-sm text-muted-foreground">
           처음부터 실명이 보입니다. 실명 표시가 붙습니다.
         </span>
-      </button>
+      </Toggle>
 
-      <p className="muted">나중에 바꿀 수 있습니다.</p>
+      <Muted>나중에 바꿀 수 있습니다.</Muted>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorText>{error}</ErrorText>}
 
-      <button
-        className="primary"
+      <Button
         type="button"
+        size="lg"
+        className="self-start"
         disabled={!canSubmit || saving}
         onClick={() => void submit()}
       >
         다음
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,8 +1,10 @@
+import { SERVICE_NAME } from '@ssafy-net/shared';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { SERVICE_NAME } from '@ssafy-net/shared';
+import { Button } from '@/components/ui/button';
 import { api } from '../api/client';
 import { BrandMark } from '../components/BrandMark';
+import { ErrorText, Muted } from '../components/primitives';
 
 /**
  * 초대 / 소개 화면 (docs/06 §3.1.1).
@@ -36,61 +38,86 @@ export function IntroPage() {
   // 로그인 실패는 다시 시도 외에 다른 경로가 없다(docs/06 §3.1.2).
   const loginFailed = params.get('error') === 'failed';
 
+  const shellClass =
+    'relative min-h-dvh overflow-hidden bg-background bg-[radial-gradient(60%_50%_at_80%_0%,rgb(28_126_214/0.1),transparent_70%),radial-gradient(50%_40%_at_0%_100%,rgb(28_126_214/0.06),transparent_70%)]';
+  const innerClass =
+    'relative mx-auto max-w-[560px] px-6 pt-[72px] pb-24 max-sm:px-5 max-sm:pt-12 max-sm:pb-[72px]';
+
   if (code && inviteValid === null) {
     return (
-      <main className="intro">
-        <div className="intro-inner">
-          <p className="muted">초대 링크를 확인하는 중…</p>
+      <main className={shellClass}>
+        <div className={innerClass}>
+          <Muted>초대 링크를 확인하는 중…</Muted>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="intro">
+    <main className={shellClass}>
       <IntroDecor />
 
-      <div className="intro-inner">
-        <h1 className="intro-title">
-          <BrandMark size={36} />
+      <div className={innerClass}>
+        <h1 className="mt-[22px] flex flex-wrap items-center gap-3.5 text-[40px] leading-[1.12] font-extrabold tracking-[-0.035em] max-sm:text-[32px]">
+          <span className="flex-none">
+            <BrandMark size={36} />
+          </span>
           {SERVICE_NAME}
         </h1>
 
-        <ol className="intro-steps">
-          <li>관심사를 등록하면 나와 겹치는 사람이 그래프에 보입니다.</li>
-          <li>서로 대화할 의사를 확인하면 실명이 공개됩니다.</li>
-          <li>대화는 사내 메신저에서 이어서 합니다.</li>
+        <ol className="mt-[34px] flex list-none flex-col gap-3.5 p-0 [counter-reset:step]">
+          {[
+            '관심사를 등록하면 나와 겹치는 사람이 그래프에 보입니다.',
+            '서로 대화할 의사를 확인하면 실명이 공개됩니다.',
+            '대화는 사내 메신저에서 이어서 합니다.',
+          ].map((text) => (
+            <li
+              key={text}
+              className="relative pl-10 text-[17px] leading-normal [counter-increment:step] before:absolute before:top-px before:left-0 before:grid before:size-[26px] before:place-items-center before:rounded-full before:bg-accent before:text-xs before:font-bold before:text-accent-foreground before:content-[counter(step)] max-sm:text-[15.5px]"
+            >
+              {text}
+            </li>
+          ))}
         </ol>
 
-        <div className="intro-privacy">
-          <strong>무엇이 언제 보이나요?</strong>
-          <p>
+        <div className="mt-9 rounded-xl border bg-white/70 px-[18px] py-4 backdrop-blur-sm">
+          <strong className="mb-1 block text-[14.5px] font-semibold">
+            무엇이 언제 보이나요?
+          </strong>
+          <p className="m-0 text-sm text-foreground/70">
             연결 전에는 표시명과 관심사만 보입니다. 연결이 성립되면 상대에게만
             실명이 추가로 보입니다.
           </p>
         </div>
 
-        <div className="intro-cta">
+        <div className="mt-9 flex flex-col items-start gap-3">
           {loginFailed && (
-            <p className="error">로그인에 실패했습니다. 다시 시도해주세요.</p>
+            <ErrorText className="m-0 font-semibold">
+              로그인에 실패했습니다. 다시 시도해주세요.
+            </ErrorText>
           )}
 
           {inviteValid ? (
-            <a className="button primary" href={loginHref}>
-              Google로 시작하기
-            </a>
+            <Button asChild size="lg" className="h-auto px-[22px] py-3 text-[15.5px] font-semibold max-sm:w-full">
+              <a href={loginHref}>Google로 시작하기</a>
+            </Button>
           ) : (
             <>
               {/* 로그인 실패 문장이 이미 빨간색이면 이 줄은 안내로만 둔다 */}
-              <p className={loginFailed ? 'muted' : 'error'}>
-                초대 링크가 필요합니다.
-              </p>
-              <p className="muted">
-                이미 가입하셨다면 아래로 로그인할 수 있습니다.
-              </p>
-              <a className="button" href={loginHref}>
-                Google로 로그인
-              </a>
+              {loginFailed ? (
+                <Muted className="m-0">초대 링크가 필요합니다.</Muted>
+              ) : (
+                <ErrorText className="m-0">초대 링크가 필요합니다.</ErrorText>
+              )}
+              <Muted className="m-0">이미 가입하셨다면 아래로 로그인할 수 있습니다.</Muted>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="h-auto px-[22px] py-3 text-[15.5px] font-semibold max-sm:w-full"
+              >
+                <a href={loginHref}>Google로 로그인</a>
+              </Button>
             </>
           )}
         </div>
@@ -118,7 +145,11 @@ function IntroDecor() {
   ];
 
   return (
-    <svg className="intro-decor" viewBox="0 0 420 420" aria-hidden="true">
+    <svg
+      className="pointer-events-none absolute top-10 -right-[60px] h-[420px] w-[420px] text-primary opacity-[0.11] max-sm:top-5 max-sm:-right-[90px] max-sm:h-[300px] max-sm:w-[300px]"
+      viewBox="0 0 420 420"
+      aria-hidden="true"
+    >
       <g stroke="currentColor" strokeWidth="2" opacity="0.7">
         {edges.map(([a, b]) => (
           <line

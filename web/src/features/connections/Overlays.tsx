@@ -6,35 +6,84 @@ import type {
   RequestQuota,
 } from '@ssafy-net/shared';
 import { FOLLOW_UP_REASONS } from '@ssafy-net/shared';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { api, RequestFailed } from '../../api/client';
+import {
+  CardRowButton,
+  Chips,
+  ChipTag,
+  ErrorText,
+  Muted,
+  Notice,
+  Tag,
+} from '../../components/primitives';
+import {
+  OverlayActions,
+  OverlaySection,
+  ResponsiveDialog,
+} from '../../components/ResponsiveDialog';
 
-function Overlay({
-  children,
-  onClose,
+/** 성립 화면의 Action 안내. 가장 눈에 띄어야 한다(docs/06 §3.12). */
+export function ActionBox({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('rounded-[11px] border border-primary/30 bg-accent p-4', className)}
+      {...props}
+    />
+  );
+}
+
+export function ActionHeadline({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('text-[15px] leading-normal font-semibold text-accent-foreground', className)}
+      {...props}
+    />
+  );
+}
+
+/** 복사할 값은 이름·아이디라 본문 글꼴 그대로 둔다. 고정폭이면 한글이 어색하다. */
+export function CopyRow({
+  text,
+  label,
+  copiedLabel,
 }: {
-  children: ReactNode;
-  onClose: () => void;
+  text: string;
+  label: string;
+  copiedLabel: string;
 }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
-    <div className="overlay-backdrop" onClick={onClose}>
-      <div
-        className="overlay"
-        role="dialog"
-        aria-modal="true"
-        onClick={(event) => event.stopPropagation()}
-      >
-        {children}
-      </div>
+    <div className="mt-3 flex items-center gap-2">
+      <code className="min-w-0 flex-1 truncate rounded-md border border-primary/30 bg-card px-[11px] py-2 font-sans text-sm font-semibold">
+        {text}
+      </code>
+      <Button type="button" variant="outline" size="sm" onClick={() => void copy()}>
+        {copied ? copiedLabel : label}
+      </Button>
     </div>
+  );
+}
+
+export function Quote({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn(
+        'border-l-[3px] border-input pl-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground/70',
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
@@ -83,67 +132,63 @@ export function RequestComposeOverlay({
   };
 
   return (
-    <Overlay onClose={onClose}>
-      <h2>{target.displayName}님에게 연결 요청</h2>
-      <p className="muted">
-        상대가 수락하면 서로 실명이 공개됩니다.
-      </p>
-
-      <div className="section">
+    <ResponsiveDialog
+      title={`${target.displayName}님에게 연결 요청`}
+      description="상대가 수락하면 서로 실명이 공개됩니다."
+      onClose={onClose}
+    >
+      <OverlaySection>
         {common.length > 0 ? (
           <>
-            <div className="muted" style={{ marginBottom: 6 }}>
-              공통 관심사 {common.length}개
-            </div>
-            <div className="chips">
+            <Muted className="mb-1.5">공통 관심사 {common.length}개</Muted>
+            <Chips>
               {common.map((interest) => (
-                <span key={interest.id} className="chip selected">
+                <ChipTag key={interest.id} selected>
                   {interest.name}
-                </span>
+                </ChipTag>
               ))}
-            </div>
+            </Chips>
           </>
         ) : (
-          <div className="notice">
-            공통 관심사가 없습니다. 왜 이야기하고 싶은지 적어주세요.
-          </div>
+          <Notice>공통 관심사가 없습니다. 왜 이야기하고 싶은지 적어주세요.</Notice>
         )}
-      </div>
+      </OverlaySection>
 
-      <div className="section">
-        <textarea
+      <OverlaySection>
+        <Textarea
           value={message}
           maxLength={limit}
           onChange={(event) => setMessage(event.target.value)}
           placeholder="어떤 이야기를 나누고 싶은지 한두 문장이면 충분합니다."
+          className="min-h-24 resize-y rounded-[9px] px-3 py-[11px] text-sm"
         />
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="muted">
+        <div className="flex items-center justify-between gap-3">
+          <Muted>
             {quota &&
               `오늘 ${quota.dailyLimit - quota.dailyUsed}번 더 보낼 수 있습니다`}
-          </span>
-          <span className="muted">
+          </Muted>
+          <Muted>
             {message.length} / {limit}
-          </span>
+          </Muted>
         </div>
-      </div>
+      </OverlaySection>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorText className="mt-3">{error}</ErrorText>}
 
-      <div className="actions">
-        <button
+      <OverlayActions>
+        <Button
           type="button"
-          className="primary grow"
+          className="flex-1"
           disabled={!message.trim() || sending}
           onClick={() => void send()}
         >
           보내기
-        </button>
-        <button type="button" onClick={onClose}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>
           취소
-        </button>
-      </div>
-    </Overlay>
+        </Button>
+      </OverlayActions>
+    </ResponsiveDialog>
   );
 }
 
@@ -204,69 +249,68 @@ export function RequestDetailOverlay({
 
   if (error) {
     return (
-      <Overlay onClose={onClose}>
-        <h2>{error}</h2>
-        <div className="actions">
-          <button type="button" className="grow" onClick={onClose}>
+      <ResponsiveDialog title={error} onClose={onClose}>
+        <OverlayActions>
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
             닫기
-          </button>
-        </div>
-      </Overlay>
+          </Button>
+        </OverlayActions>
+      </ResponsiveDialog>
     );
   }
 
   if (!detail) {
     return (
-      <Overlay onClose={onClose}>
-        <p className="muted">불러오는 중…</p>
-      </Overlay>
+      <ResponsiveDialog
+        title={<span className="sr-only">받은 요청</span>}
+        onClose={onClose}
+      >
+        <Muted>불러오는 중…</Muted>
+      </ResponsiveDialog>
     );
   }
 
   return (
-    <Overlay onClose={onClose}>
-      <h2>
-        {detail.from.displayName}
-        {detail.from.displayNameType === 'REAL' && (
-          <span className="badge real">실명</span>
-        )}
-      </h2>
-      <p className="muted">
-        공통 관심사 {detail.commonInterests.length}개 · {detail.daysLeft}일 남음
-      </p>
+    <ResponsiveDialog
+      title={
+        <span className="inline-flex flex-wrap items-center gap-2">
+          {detail.from.displayName}
+          {detail.from.displayNameType === 'REAL' && <Tag tone="real">실명</Tag>}
+        </span>
+      }
+      description={`공통 관심사 ${detail.commonInterests.length}개 · ${detail.daysLeft}일 남음`}
+      onClose={onClose}
+    >
+      <OverlaySection>
+        <Quote>{detail.message}</Quote>
+      </OverlaySection>
 
-      <div className="section">
-        <div className="quote">{detail.message}</div>
-      </div>
-
-      <div className="section">
-        <div className="muted" style={{ marginBottom: 6 }}>
-          {detail.from.displayName}님의 관심사
-        </div>
-        <div className="chips">
+      <OverlaySection>
+        <Muted className="mb-1.5">{detail.from.displayName}님의 관심사</Muted>
+        <Chips>
           {detail.from.interests.map((interest) => (
-            <span
-              key={interest.id}
-              className={`chip ${interest.isCommon ? 'selected' : ''}`}
-            >
+            <ChipTag key={interest.id} selected={interest.isCommon}>
               {interest.name}
-            </span>
+            </ChipTag>
           ))}
-        </div>
-      </div>
+        </Chips>
+      </OverlaySection>
 
       {/* 닉네임 사용자만 확인을 거친다. 수락은 실명 공개를 동반한다(docs/07 §3.3) */}
       {confirming ? (
-        <div className="section notice">
-          수락하면 내 실명(<strong>{detail.myRealName}</strong>)이 상대에게
-          공개됩니다. 수락할까요?
-        </div>
+        <OverlaySection>
+          <Notice>
+            수락하면 내 실명(
+            <strong className="font-semibold text-foreground">{detail.myRealName}</strong>
+            )이 상대에게 공개됩니다. 수락할까요?
+          </Notice>
+        </OverlaySection>
       ) : null}
 
-      <div className="actions">
-        <button
+      <OverlayActions>
+        <Button
           type="button"
-          className="primary grow"
+          className="flex-1"
           disabled={busy}
           onClick={() =>
             detail.revealsMyRealName && !confirming
@@ -275,16 +319,14 @@ export function RequestDetailOverlay({
           }
         >
           {confirming ? '네, 수락합니다' : '수락'}
-        </button>
-        <button type="button" disabled={busy} onClick={() => void reject()}>
+        </Button>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void reject()}>
           거절
-        </button>
-      </div>
+        </Button>
+      </OverlayActions>
       {/* 거절 버튼 옆에 상시 표시한다(docs/07 §3.4) */}
-      <p className="muted" style={{ marginTop: 8, textAlign: 'right' }}>
-        거절은 상대에게 알려지지 않습니다.
-      </p>
-    </Overlay>
+      <Muted className="mt-2 text-right">거절은 상대에게 알려지지 않습니다.</Muted>
+    </ResponsiveDialog>
   );
 }
 
@@ -301,14 +343,7 @@ export function ConnectionOverlay({
   onClose: () => void;
   onMarked: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const [marked, setMarked] = useState(detail.started);
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(detail.action.copyText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
 
   const mark = async () => {
     await api.post(`/connections/${detail.id}/mark-started`);
@@ -317,69 +352,60 @@ export function ConnectionOverlay({
   };
 
   return (
-    <Overlay onClose={onClose}>
-      <h2>연결되었습니다</h2>
-      <div className="big-name">{detail.counterpart.realName}</div>
-
-      <div className="section action-box">
-        <div className="headline">{detail.action.text}</div>
-        <div className="copy-row">
-          <code>{detail.action.copyText}</code>
-          <button type="button" onClick={() => void copy()}>
-            {copied ? '복사됨' : '복사'}
-          </button>
-        </div>
-        {/* 아이디를 알면 대화창을 바로 연다. 찾는 단계 자체가 사라진다(D-66). */}
-        {detail.action.mattermostLink && (
-          <a
-            className="button primary"
-            href={detail.action.mattermostLink}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Mattermost에서 대화 열기
-          </a>
-        )}
+    <ResponsiveDialog title="연결되었습니다" onClose={onClose}>
+      <div className="mt-1.5 mb-0.5 text-[26px] leading-tight font-bold tracking-tight">
+        {detail.counterpart.realName}
       </div>
 
+      <OverlaySection>
+        <ActionBox>
+          <ActionHeadline>{detail.action.text}</ActionHeadline>
+          <CopyRow text={detail.action.copyText} label="복사" copiedLabel="복사됨" />
+          {/* 아이디를 알면 대화창을 바로 연다. 찾는 단계 자체가 사라진다(D-66). */}
+          {detail.action.mattermostLink && (
+            <Button asChild className="mt-2.5 w-full">
+              <a href={detail.action.mattermostLink} target="_blank" rel="noreferrer">
+                Mattermost에서 대화 열기
+              </a>
+            </Button>
+          )}
+        </ActionBox>
+      </OverlaySection>
+
       {detail.commonInterests.length > 0 && (
-        <div className="section">
-          <div className="muted" style={{ marginBottom: 6 }}>
-            첫 대화 소재
-          </div>
-          <div className="chips">
+        <OverlaySection>
+          <Muted className="mb-1.5">첫 대화 소재</Muted>
+          <Chips>
             {detail.commonInterests.map((interest) => (
-              <span key={interest.id} className="chip selected">
+              <ChipTag key={interest.id} selected>
                 {interest.name}
-              </span>
+              </ChipTag>
             ))}
-          </div>
-        </div>
+          </Chips>
+        </OverlaySection>
       )}
 
       {detail.requestMessage && (
-        <div className="section">
-          <div className="muted" style={{ marginBottom: 6 }}>
-            요청 메시지
-          </div>
-          <div className="quote">{detail.requestMessage}</div>
-        </div>
+        <OverlaySection>
+          <Muted className="mb-1.5">요청 메시지</Muted>
+          <Quote>{detail.requestMessage}</Quote>
+        </OverlaySection>
       )}
 
-      <div className="actions">
-        <button
+      <OverlayActions>
+        <Button
           type="button"
-          className="primary grow"
+          className="flex-1"
           disabled={marked}
           onClick={() => void mark()}
         >
           {marked ? '표시함 ✓' : detail.action.buttonLabel}
-        </button>
-        <button type="button" onClick={onClose}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>
           닫기
-        </button>
-      </div>
-    </Overlay>
+        </Button>
+      </OverlayActions>
+    </ResponsiveDialog>
   );
 }
 
@@ -403,59 +429,62 @@ export function FollowUpOverlay({
 
   if (asking) {
     return (
-      <Overlay onClose={onClose}>
-        <h2>{item.counterpartName}님에게 알릴까요?</h2>
-        <p className="muted">
-          "먼저 연락해주세요"라고 상대에게 알림을 보낼 수 있습니다.
-        </p>
-        <div className="actions">
-          <button
+      <ResponsiveDialog
+        title={`${item.counterpartName}님에게 알릴까요?`}
+        description={'"먼저 연락해주세요"라고 상대에게 알림을 보낼 수 있습니다.'}
+        onClose={onClose}
+      >
+        <OverlayActions>
+          <Button
             type="button"
-            className="primary grow"
+            className="flex-1"
             onClick={() =>
               void respond({ started: false, reason: 'NOT_FOUND', askCounterpart: true })
             }
           >
             네, 알려주세요
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() =>
               void respond({ started: false, reason: 'NOT_FOUND', askCounterpart: false })
             }
           >
             괜찮습니다
-          </button>
-        </div>
-      </Overlay>
+          </Button>
+        </OverlayActions>
+      </ResponsiveDialog>
     );
   }
 
   return (
-    <Overlay onClose={onClose}>
-      <h2>{item.question}</h2>
-
+    <ResponsiveDialog title={item.question} onClose={onClose}>
       {reason === null ? (
-        <div className="actions">
-          <button
+        <OverlayActions>
+          <Button
             type="button"
-            className="primary grow"
+            className="flex-1"
             onClick={() => void respond({ started: true })}
           >
             예
-          </button>
-          <button type="button" className="grow" onClick={() => setReason('')}>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => setReason('')}
+          >
             아니오
-          </button>
-        </div>
+          </Button>
+        </OverlayActions>
       ) : (
-        <div className="section list">
-          <p className="muted">이유를 하나만 알려주세요.</p>
+        <OverlaySection className="flex flex-col gap-1">
+          <Muted>이유를 하나만 알려주세요.</Muted>
           {FOLLOW_UP_REASONS.map((option) => (
-            <button
+            <CardRowButton
               key={option.value}
-              type="button"
-              className="card-row"
+              className="mb-0"
               onClick={() =>
                 option.value === 'NOT_FOUND'
                   ? setAsking(true)
@@ -463,10 +492,10 @@ export function FollowUpOverlay({
               }
             >
               {option.label}
-            </button>
+            </CardRowButton>
           ))}
-        </div>
+        </OverlaySection>
       )}
-    </Overlay>
+    </ResponsiveDialog>
   );
 }

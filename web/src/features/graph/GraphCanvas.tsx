@@ -1,6 +1,9 @@
 import type { GraphLink, GraphNode, GraphResponse } from '@ssafy-net/shared';
+import { MinusIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   colorOf,
   labelOf,
@@ -66,6 +69,7 @@ const escapeHtml = (text: string) =>
 /**
  * hover 툴팁(docs/07 §2.1, §2.3). 라이브러리가 HTML로 넣으므로
  * 이름은 반드시 이스케이프한다 — 표시명과 관심사 이름은 사용자 입력이다.
+ * 모양은 index.css 의 `.graph-canvas .float-tooltip-kap` 이 정한다.
  */
 function tooltipOf(node: GraphNode): string {
   if (node.kind === 'INTEREST') {
@@ -397,8 +401,11 @@ export function GraphCanvas({
     ctx.globalAlpha = 1;
   };
 
+  const cornerButton = 'bg-card shadow-xs hover:bg-card hover:shadow-md';
+
   return (
-    <div className="graph-canvas" onWheel={onWheel}>
+    // `graph-canvas` 는 index.css 의 툴팁 규칙이 잡는 이름이다. 지우지 않는다.
+    <div className="graph-canvas absolute inset-0" onWheel={onWheel}>
       <ForceGraph2D
         ref={ref}
         width={width}
@@ -438,10 +445,46 @@ export function GraphCanvas({
       />
 
       {/* 확대·축소·맞춤 버튼 (docs/06 §3.2 "구석") */}
-      <div className="graph-zoom">
-        <button type="button" onClick={() => zoomBy(1.3)} aria-label="확대">＋</button>
-        <button type="button" onClick={() => zoomBy(1 / 1.3)} aria-label="축소">－</button>
-        <button type="button" onClick={() => ref.current?.zoomToFit(500, 70)}>맞춤</button>
+      <div className="absolute right-3.5 bottom-3.5 z-[2] flex gap-1.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className={cornerButton}
+              onClick={() => zoomBy(1.3)}
+              aria-label="확대"
+            >
+              <PlusIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>확대</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className={cornerButton}
+              onClick={() => zoomBy(1 / 1.3)}
+              aria-label="축소"
+            >
+              <MinusIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>축소</TooltipContent>
+        </Tooltip>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cornerButton}
+          onClick={() => ref.current?.zoomToFit(500, 70)}
+        >
+          맞춤
+        </Button>
       </div>
     </div>
   );

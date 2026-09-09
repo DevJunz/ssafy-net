@@ -1,4 +1,6 @@
 import type { PublicUser, RelationStatus } from '@ssafy-net/shared';
+import { cn } from '@/lib/utils';
+import { Tag } from '../../components/primitives';
 
 const RELATION_LABEL: Partial<Record<RelationStatus, string>> = {
   CONNECTED: '연결됨',
@@ -29,14 +31,17 @@ export function PersonRow({
   return (
     <button
       type="button"
-      className={`person-row ${handled ? 'dimmed' : ''}`}
+      className={cn(
+        'flex w-full cursor-pointer items-baseline gap-[7px] rounded-[9px] border bg-card px-[11px] py-[9px] text-left text-[15px] outline-none transition-colors hover:border-primary/30 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        handled && 'opacity-55',
+      )}
       onClick={onClick}
     >
-      <span className="name">{user.displayName}</span>
+      <span className="font-semibold">{user.displayName}</span>
       {/* 실명 사용자는 구분 표시가 붙는다(FR-0.5) */}
-      {user.displayNameType === 'REAL' && <span className="badge real">실명</span>}
-      {state && <span className="badge state">{state}</span>}
-      <span className="meta">
+      {user.displayNameType === 'REAL' && <Tag tone="real">실명</Tag>}
+      {state && <Tag tone="state">{state}</Tag>}
+      <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground">
         공통 {commonCount ?? user.commonCount}개
       </span>
     </button>

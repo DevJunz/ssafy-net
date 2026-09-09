@@ -1,6 +1,10 @@
 import type { PostSummary } from '@ssafy-net/shared';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { api, RequestFailed } from '../../api/client';
+import { ErrorText, Muted, Notice } from '../../components/primitives';
 
 function timeAgo(iso: string): string {
   const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -8,6 +12,37 @@ function timeAgo(iso: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}시간 전`;
   return `${Math.floor(hours / 24)}일 전`;
+}
+
+/** 글 한 장. 관심사 패널·사람 패널·내 프로필이 같은 모양을 쓴다. */
+export function PostCard({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('rounded-lg border bg-card px-[13px] py-3', className)}
+      {...props}
+    />
+  );
+}
+
+export function PostBody({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('text-[13.5px] leading-relaxed whitespace-pre-wrap', className)}
+      {...props}
+    />
+  );
+}
+
+export function PostFoot({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn(
+        'mt-2 flex items-center justify-between text-xs text-muted-foreground',
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 /**
@@ -25,32 +60,32 @@ export function PostList({
 }) {
   if (posts.length === 0) {
     return (
-      <div className="notice">
-        아직 글이 없습니다. 이 관심사로 이야기하고 싶은 것을 남겨보세요.
-      </div>
+      <Notice>아직 글이 없습니다. 이 관심사로 이야기하고 싶은 것을 남겨보세요.</Notice>
     );
   }
 
   return (
-    <div className="list">
+    <div className="flex flex-col gap-1">
       {posts.map((post) => (
-        <div key={post.id} className="post">
-          <div className="post-body">{post.content}</div>
-          <div className="post-foot">
+        <PostCard key={post.id}>
+          <PostBody>{post.content}</PostBody>
+          <PostFoot>
             {post.authorId ? (
-              <button
+              <Button
                 type="button"
-                className="link"
+                variant="link"
+                size="xs"
+                className="h-auto p-0 text-xs underline underline-offset-2"
                 onClick={() => onSelectAuthor(post.authorId!)}
               >
                 작성자 보기
-              </button>
+              </Button>
             ) : (
               <span />
             )}
             <span>{timeAgo(post.createdAt)}</span>
-          </div>
-        </div>
+          </PostFoot>
+        </PostCard>
       ))}
     </div>
   );
@@ -92,38 +127,37 @@ export function PostComposer({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
         {interestName}에 글 남기기
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="stack">
-      <textarea
+    <div className="flex flex-col gap-4">
+      <Textarea
         value={content}
         maxLength={limit}
         onChange={(event) => setContent(event.target.value)}
         placeholder="이 관심사로 어떤 이야기를 나누고 싶은지 남겨보세요."
-        style={{ minHeight: 84 }}
+        className="min-h-[84px] bg-card"
       />
       {/* 용도를 매번 상기시킨다. 커뮤니티가 아니다(docs/11 §2) */}
-      <p className="muted" style={{ fontSize: 12, marginTop: -6 }}>
+      <Muted className="-mt-1.5 text-xs">
         댓글은 없고, 관심 있는 사람이 프로필로 찾아옵니다. {content.length}/{limit}
-      </p>
-      {error && <p className="error">{error}</p>}
-      <div className="row">
-        <button
+      </Muted>
+      {error && <ErrorText>{error}</ErrorText>}
+      <div className="flex items-center gap-3">
+        <Button
           type="button"
-          className="primary"
           disabled={!content.trim() || busy}
           onClick={() => void submit()}
         >
           남기기
-        </button>
-        <button type="button" onClick={() => setOpen(false)}>
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
           취소
-        </button>
+        </Button>
       </div>
     </div>
   );

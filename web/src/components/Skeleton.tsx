@@ -1,3 +1,6 @@
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+
 /**
  * 목록이 오기 전에 보여주는 자리 표시.
  *
@@ -6,11 +9,14 @@
  */
 export function SkeletonRows({ count = 3 }: { count?: number }) {
   return (
-    <div className="skeleton-list" aria-hidden="true">
+    <div className="flex flex-col gap-2" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="skeleton-row">
-          <div className={`skeleton-line ${index % 2 === 0 ? 'w60' : 'w40'}`} />
-          <div className="skeleton-line thin w80" />
+        <div
+          key={index}
+          className="flex flex-col gap-2 rounded-lg border bg-card px-4 py-[15px]"
+        >
+          <Skeleton className={cn('h-3', index % 2 === 0 ? 'w-[60%]' : 'w-[40%]')} />
+          <Skeleton className="h-[9px] w-[80%]" />
         </div>
       ))}
     </div>

@@ -11,9 +11,20 @@ import type {
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
 import { MAX_ANCHOR_INTERESTS } from '@ssafy-net/shared';
+import { XIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { api } from '../api/client';
+import {
+  Page,
+  PageLede,
+  PageTitle,
+  ScrollPage,
+} from '../components/primitives';
 import { GRAPH_MIN_WIDTH_QUERY, useMediaQuery } from '../components/useMediaQuery';
 import {
   ConnectionOverlay,
@@ -27,7 +38,6 @@ import {
   PersonPanel,
   SimilarPanel,
 } from '../features/panels/Panels';
-import '../features/panels/panels.css';
 import { useSession } from '../session';
 
 /** 앵커 관심사는 하나 이상이다. 둘 이상이면 모두 가진 사람만 보인다(D-76). */
@@ -36,6 +46,10 @@ type Selection =
   | { kind: 'PERSON'; id: string }
   | { kind: 'INTEREST'; id: string }
   | null;
+
+/** 툴바 위 반투명 작은 상자(앵커 설명, 구석 안내) */
+const glassClass =
+  'rounded-md border bg-white/90 px-2.5 py-1.5 text-[12.5px] text-muted-foreground';
 
 /**
  * 그래프가 홈이다(D-22). 그래프 + 사이드 패널이 기본 틀이고,
@@ -63,7 +77,6 @@ export function GraphPage() {
   const [catalog, setCatalog] = useState<InterestCatalog | null>(null);
   const [composing, setComposing] = useState(false);
   const [openConnection, setOpenConnection] = useState<ConnectionDetail | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   const areaRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -266,7 +279,7 @@ export function GraphPage() {
   const addToAnchor = (interestId: string) => {
     if (anchorIds.includes(interestId)) return;
     if (anchorIds.length >= MAX_ANCHOR_INTERESTS) {
-      setToast(`관심사는 ${MAX_ANCHOR_INTERESTS}개까지 함께 볼 수 있습니다.`);
+      toast(`관심사는 ${MAX_ANCHOR_INTERESTS}개까지 함께 볼 수 있습니다.`);
       return;
     }
     setSimilarMode(false);
@@ -332,28 +345,28 @@ export function GraphPage() {
   // 그래프는 PC 전용이다(docs/06 §5). 좁은 화면은 요청 처리와 성립 확인만 한다.
   if (!wideEnough) {
     return (
-      <div className="scroll-page">
-        <main className="page">
-          <h1 className="page-title">그래프는 PC에서 볼 수 있습니다</h1>
-          <p className="page-lede">
+      <ScrollPage>
+        <Page>
+          <PageTitle>그래프는 PC에서 볼 수 있습니다</PageTitle>
+          <PageLede>
             휴대폰에서는 받은 요청을 처리하고 성립된 연결을 확인할 수 있습니다.
             그래프에서 사람을 찾는 것은 넓은 화면에서 해주세요.
-          </p>
-          <div className="row wrap">
-            <Link className="button primary" to="/connections">
-              연결
-            </Link>
-            <Link className="button" to="/notifications">
-              알림
-            </Link>
+          </PageLede>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild>
+              <Link to="/connections">연결</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/notifications">알림</Link>
+            </Button>
           </div>
-        </main>
-      </div>
+        </Page>
+      </ScrollPage>
     );
   }
 
   return (
-    <div className="graph-layout">
+    <div className="grid h-full grid-cols-[208px_1fr_332px] overflow-hidden bg-secondary wide:grid-cols-[232px_1fr_372px]">
       <InterestRail
         graph={base}
         catalog={catalog}
@@ -363,31 +376,45 @@ export function GraphPage() {
         onRecenter={recenter}
       />
 
-      <div className="graph-area" ref={areaRef}>
-        <div className="graph-toolbar">
+      <div className="relative overflow-hidden bg-[var(--graph-bg)]" ref={areaRef}>
+        <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-[2] flex flex-wrap items-center gap-2 [&>*]:pointer-events-auto">
           {anchor.type === 'ME' ? (
-            <span className="anchor-label">내 그래프</span>
+            <span className="rounded-md border bg-card px-3 py-[7px] text-[13.5px] font-semibold shadow-xs">
+              내 그래프
+            </span>
           ) : (
-            <div className="anchor-chips">
+            // 앵커 관심사 칩. 둘 이상이면 "모두 가진 사람"만 보이는 상태다(D-76).
+            <div className="flex flex-wrap items-center gap-1.5">
               {anchorIds.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className="chip"
-                  aria-label={`#${interestNameOf(id)} 함께 보기에서 빼기`}
-                  title="함께 보기에서 빼기"
-                  onClick={() => removeFromAnchor(id)}
-                >
-                  #{interestNameOf(id)}
-                  <span className="x" aria-hidden="true">×</span>
-                </button>
+                <Tooltip key={id}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="group h-auto gap-0.5 rounded-full border border-primary/30 bg-accent py-[5px] pr-[9px] pl-3 text-[13px] font-medium text-accent-foreground shadow-xs hover:bg-accent/70"
+                      aria-label={`#${interestNameOf(id)} 함께 보기에서 빼기`}
+                      onClick={() => removeFromAnchor(id)}
+                    >
+                      #{interestNameOf(id)}
+                      <XIcon
+                        className="size-3.5 opacity-60 group-hover:opacity-100"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>함께 보기에서 빼기</TooltipContent>
+                </Tooltip>
               ))}
-              <span className="anchor-caption">
+              <span className={glassClass}>
                 {anchorIds.length === 1 ? (
                   '중심'
                 ) : (
                   <>
-                    모두 가진 사람 <b>{peopleShown + (base?.truncated.people ?? 0)}명</b>
+                    모두 가진 사람{' '}
+                    <b className="font-semibold text-foreground">
+                      {peopleShown + (base?.truncated.people ?? 0)}명
+                    </b>
                   </>
                 )}
               </span>
@@ -395,19 +422,27 @@ export function GraphPage() {
           )}
 
           {anchor.type === 'INTEREST' && (
-            <button type="button" onClick={backToMyGraph}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="bg-card shadow-xs hover:bg-card hover:shadow-md"
+              onClick={backToMyGraph}
+            >
               내 그래프로 돌아가기
-            </button>
+            </Button>
           )}
 
           {anchor.type === 'ME' && (
-            <button
-              type="button"
-              className={similarMode ? 'on' : ''}
-              onClick={() => setSimilarMode((on) => !on)}
+            <Toggle
+              variant="outline"
+              size="sm"
+              pressed={similarMode}
+              onPressedChange={setSimilarMode}
+              className="bg-card px-3 shadow-xs hover:bg-card hover:text-foreground hover:shadow-md data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90"
             >
               나와 비슷한 사람 보기
-            </button>
+            </Toggle>
           )}
         </div>
 
@@ -425,7 +460,7 @@ export function GraphPage() {
           />
         )}
 
-        <div className="graph-corner">
+        <div className={`absolute bottom-4 left-4 z-[2] ${glassClass} text-xs`}>
           {hoveredLink?.kind === 'SIMILARITY' ? (
             <>공통 관심사 {hoveredLink.commonCount}개 — 관심사가 겹친다는 뜻입니다</>
           ) : base && anchorIds.length > 1 && peopleShown === 0 ? (
@@ -488,7 +523,7 @@ export function GraphPage() {
           onClose={() => setComposing(false)}
           onSent={(warning) => {
             setComposing(false);
-            setToast(warning ?? `${person.displayName}님에게 요청을 보냈습니다.`);
+            toast(warning ?? `${person.displayName}님에게 요청을 보냈습니다.`);
             void reloadPerson(person.id);
             void loadGraph();
           }}
@@ -501,13 +536,6 @@ export function GraphPage() {
           onClose={() => setOpenConnection(null)}
           onMarked={() => {}}
         />
-      )}
-
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-          <button type="button" onClick={() => setToast(null)}>닫기</button>
-        </div>
       )}
     </div>
   );

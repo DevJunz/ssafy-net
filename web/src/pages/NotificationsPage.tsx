@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { api } from '../api/client';
+import {
+  CardRowBody,
+  CardRowButton,
+  CardRowRight,
+  Notice,
+  Page,
+  PageLede,
+  PageTitle,
+  ScrollPage,
+  SectionLabel,
+  Tag,
+} from '../components/primitives';
 import { SkeletonRows } from '../components/Skeleton';
 
 interface NotificationItem {
@@ -57,47 +70,45 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
   const rest = items.filter((item) => !item.actionRequired || item.resolved);
 
   const Row = ({ item }: { item: NotificationItem }) => (
-    <button
-      type="button"
-      className={`card-row ${item.readAt ? 'read' : ''}`}
+    // 읽은 알림은 흐리게 두되 목록에서 지우지 않는다
+    <CardRowButton
+      className={cn(item.readAt && 'opacity-[0.66]')}
       onClick={() => void open(item)}
     >
-      <div className="body">
-        <div className="text">
-          {/* 서버가 만든 문구를 그대로 쓴다. 판단 근거가 이미 들어 있다(FR-14.3) */}
+      <CardRowBody>
+        {/* 알림 문장. 서버가 완성한 문구를 줄바꿈 그대로 보여준다(FR-14.3) */}
+        <div className="text-sm leading-normal whitespace-pre-wrap text-foreground">
           {item.text.replace(/\*\*/g, '').replace(/^> /gm, '“').trim()}
         </div>
-      </div>
-      <div className="right">
-        {item.actionRequired && !item.resolved && (
-          <span className="badge state">처리 필요</span>
-        )}
+      </CardRowBody>
+      <CardRowRight>
+        {item.actionRequired && !item.resolved && <Tag tone="state">처리 필요</Tag>}
         <br />
         {timeAgo(item.createdAt)}
-      </div>
-    </button>
+      </CardRowRight>
+    </CardRowButton>
   );
 
   return (
-    <div className="scroll-page">
-      <main className="page">
-        <h1 className="page-title">알림</h1>
-        <p className="page-lede">
+    <ScrollPage>
+      <Page>
+        <PageTitle>알림</PageTitle>
+        <PageLede>
           알림은 Mattermost로도 갑니다. 여기서도 언제든 다시 볼 수 있습니다.
-        </p>
+        </PageLede>
 
         {loading ? (
           <SkeletonRows count={4} />
         ) : items.length === 0 ? (
-          <div className="notice">
+          <Notice>
             아직 알림이 없습니다. 누군가 연결을 요청하면 여기와 Mattermost로
             알려드립니다.
-          </div>
+          </Notice>
         ) : (
           <>
             {pending.length > 0 && (
-              <div className="section">
-                <div className="section-label">처리가 필요한 것</div>
+              <div className="mt-6">
+                <SectionLabel>처리가 필요한 것</SectionLabel>
                 {pending.map((item) => (
                   <Row key={item.id} item={item} />
                 ))}
@@ -105,10 +116,8 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
             )}
 
             {rest.length > 0 && (
-              <div className="section">
-                {pending.length > 0 && (
-                  <div className="section-label">지난 알림</div>
-                )}
+              <div className="mt-6">
+                {pending.length > 0 && <SectionLabel>지난 알림</SectionLabel>}
                 {rest.map((item) => (
                   <Row key={item.id} item={item} />
                 ))}
@@ -116,7 +125,7 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
             )}
           </>
         )}
-      </main>
-    </div>
+      </Page>
+    </ScrollPage>
   );
 }

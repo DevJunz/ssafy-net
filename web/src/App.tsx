@@ -5,7 +5,10 @@ import type {
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from './api/client';
+import { Page } from './components/primitives';
 import { Shell } from './components/Shell';
 import { FollowUpOverlay } from './features/connections/Overlays';
 import { DEMO_MODE } from './mocks';
@@ -91,7 +94,7 @@ function AuthenticatedApp() {
 function Routing() {
   const { me, loading } = useSession();
 
-  if (loading) return <main className="page">불러오는 중…</main>;
+  if (loading) return <Page>불러오는 중…</Page>;
 
   if (!me) {
     return (
@@ -118,8 +121,12 @@ function Routing() {
 export function App() {
   return (
     <SessionProvider>
-      {DEMO_MODE && <DemoBanner />}
-      <Routing />
+      <TooltipProvider delayDuration={300}>
+        {DEMO_MODE && <DemoBanner />}
+        <Routing />
+        {/* 토스트는 화면 아래 가운데 하나. 닫기 버튼을 둔다 — 되돌리기 같은 행동이 붙는다 */}
+        <Toaster position="bottom-center" closeButton />
+      </TooltipProvider>
     </SessionProvider>
   );
 }

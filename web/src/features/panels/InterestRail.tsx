@@ -1,5 +1,15 @@
 import type { GraphResponse, InterestCatalog } from '@ssafy-net/shared';
 import { useMemo, useState } from 'react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { categoryVar } from '../graph/encoding';
 
 /**
@@ -11,6 +21,9 @@ import { categoryVar } from '../graph/encoding';
  *
  * 그래프에 있는 관심사는 선택하고, 그래프 밖 관심사는 앵커를 그쪽으로 옮긴다
  * (docs/07 §2.4 "그래프 밖에 N명 더 있음 · 중심으로 보기"와 같은 규칙).
+ *
+ * Command(cmdk) 위에 얹었다 — 검색과 방향키 이동이 따라온다. 걸러내는 것은
+ * 여기서 직접 한다(shouldFilter=false): 검색은 전체 목록, 평소에는 그래프 안 관심사.
  */
 export function InterestRail({
   graph,
@@ -65,95 +78,114 @@ export function InterestRail({
     name,
     categoryId,
     suffix,
-    onClick,
+    onPick,
   }: {
     id: string;
     name: string;
     categoryId: string;
     suffix?: string;
-    onClick: () => void;
-  }) => (
-    <button
-      type="button"
-      className={`rail-row ${selectedId === id ? 'selected' : ''}`}
-      onClick={onClick}
-    >
-      <i style={{ background: categoryVar(categoryId) }} />
-      <span className="rail-name">{name}</span>
-      {(suffix || anchorSet.has(id)) && (
-        <span className="rail-suffix">
-          {anchorSet.has(id) ? '중심' : suffix}
-        </span>
-      )}
-    </button>
-  );
+    onPick: () => void;
+  }) => {
+    const selected = selectedId === id;
+    return (
+      <CommandItem
+        value={id}
+        onSelect={onPick}
+        className={cn(
+          'cursor-pointer gap-2 rounded-[7px] px-2 py-[7px] text-[13.5px] text-foreground data-[selected=true]:bg-secondary data-[selected=true]:text-foreground',
+          selected &&
+            'bg-accent font-semibold text-accent-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+        )}
+      >
+        <i
+          className="size-2 flex-none rounded-full"
+          style={{ background: categoryVar(categoryId) }}
+        />
+        <span className="truncate">{name}</span>
+        {(suffix || anchorSet.has(id)) && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {anchorSet.has(id) ? '중심' : suffix}
+          </span>
+        )}
+      </CommandItem>
+    );
+  };
 
   return (
-    <aside className="rail">
-      <input
-        type="text"
-        className="rail-search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="관심사 검색"
-      />
-
-      {normalized ? (
-        <>
-          <div className="rail-title">검색 결과</div>
-          {searchResults.length === 0 && (
-            <p className="rail-empty">결과가 없습니다.</p>
-          )}
-          {searchResults.map((interest) => (
-            <Row
-              key={interest.id}
-              id={interest.id}
-              name={interest.name}
-              categoryId={interest.category.id}
-              suffix={`${interest.holderCount}명`}
-              onClick={() =>
-                inGraph.has(interest.id)
-                  ? onSelect(interest.id)
-                  : onRecenter(interest.id)
-              }
+    <aside className="h-full border-r bg-card">
+      <ScrollArea className="h-full">
+        <Command
+          shouldFilter={false}
+          className="h-auto bg-transparent px-2.5 pt-3.5 pb-7 wide:px-3 wide:pt-4 wide:pb-8"
+        >
+          <div className="mb-3.5 rounded-md border border-input bg-card focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 [&_[data-slot=command-input-wrapper]]:h-9 [&_[data-slot=command-input-wrapper]]:border-b-0 [&_[data-slot=command-input-wrapper]]:px-2.5">
+            <CommandInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="관심사 검색"
+              className="h-9 text-[13px]"
             />
-          ))}
-        </>
-      ) : (
-        <>
-          <div className="rail-title">내 관심사</div>
-          {mine.map(([id, value]) => (
-            <Row
-              key={id}
-              id={id}
-              name={value.name}
-              categoryId={value.categoryId}
-              onClick={() => onSelect(id)}
-            />
-          ))}
+          </div>
 
-          {adjacent.length > 0 && (
-            <>
-              <div className="rail-title">
-                이 그래프에 함께 보이는 관심사
-              </div>
-              {adjacent.map(([id, value]) => (
-                <Row
-                  key={id}
-                  id={id}
-                  name={value.name}
-                  categoryId={value.categoryId}
-                  onClick={() => onSelect(id)}
-                />
-              ))}
-            </>
-          )}
+          <CommandList className="max-h-none overflow-visible">
+            {normalized ? (
+              <>
+                <CommandEmpty className="px-1.5 py-4 text-left text-xs leading-normal text-muted-foreground">
+                  결과가 없습니다.
+                </CommandEmpty>
+                <CommandGroup heading="검색 결과" className="p-0">
+                  {searchResults.map((interest) => (
+                    <Row
+                      key={interest.id}
+                      id={interest.id}
+                      name={interest.name}
+                      categoryId={interest.category.id}
+                      suffix={`${interest.holderCount}명`}
+                      onPick={() =>
+                        inGraph.has(interest.id)
+                          ? onSelect(interest.id)
+                          : onRecenter(interest.id)
+                      }
+                    />
+                  ))}
+                </CommandGroup>
+              </>
+            ) : (
+              <>
+                <CommandGroup heading="내 관심사" className="p-0">
+                  {mine.map(([id, value]) => (
+                    <Row
+                      key={id}
+                      id={id}
+                      name={value.name}
+                      categoryId={value.categoryId}
+                      onPick={() => onSelect(id)}
+                    />
+                  ))}
+                </CommandGroup>
 
-          <p className="rail-empty">
-            목록에 없는 관심사는 검색해서 그 관심사를 중심으로 볼 수 있습니다.
-          </p>
-        </>
-      )}
+                {adjacent.length > 0 && (
+                  <CommandGroup heading="이 그래프에 함께 보이는 관심사" className="mt-3 p-0">
+                    {adjacent.map(([id, value]) => (
+                      <Row
+                        key={id}
+                        id={id}
+                        name={value.name}
+                        categoryId={value.categoryId}
+                        onPick={() => onSelect(id)}
+                      />
+                    ))}
+                  </CommandGroup>
+                )}
+
+                <p className="mx-1.5 mt-4 text-xs leading-normal text-muted-foreground">
+                  목록에 없는 관심사는 검색해서 그 관심사를 중심으로 볼 수 있습니다.
+                </p>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </ScrollArea>
     </aside>
   );
 }

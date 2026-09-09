@@ -5,9 +5,67 @@ import type {
   PublicUser,
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
+import type { ComponentProps, ReactNode } from 'react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import {
+  Chip,
+  Chips,
+  ChipTag,
+  Muted,
+  Notice,
+  Tag,
+} from '../../components/primitives';
 import { categoryVar, INTEREST_VAR, ME_VAR, PERSON_VAR } from '../graph/encoding';
-import { PostComposer, PostList } from '../posts/PostList';
+import { PostBody, PostCard, PostComposer, PostFoot, PostList } from '../posts/PostList';
 import { PersonRow } from './PersonRow';
+
+/** 오른쪽 패널의 틀. 그래프 옆에서 스크롤된다. */
+function Panel({ children }: { children: ReactNode }) {
+  return (
+    <ScrollArea className="h-full border-l bg-card">
+      <div className="px-4 pt-5 pb-9 wide:px-5 wide:pt-[22px] wide:pb-10">{children}</div>
+    </ScrollArea>
+  );
+}
+
+function PanelTitle({ className, ...props }: ComponentProps<'h2'>) {
+  return (
+    <h2
+      className={cn('mb-[3px] flex flex-wrap items-center gap-2 text-lg', className)}
+      {...props}
+    />
+  );
+}
+
+function PanelSection({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('mt-[22px]', className)} {...props} />;
+}
+
+/** 범례 한 항목. 캔버스와 같은 색을 CSS 토큰에서 읽는다 */
+function LegendDot({ color, hollow }: { color?: string; hollow?: boolean }) {
+  return (
+    <i
+      className={cn(
+        'inline-block size-2.5 rounded-full',
+        // 인접 관심사는 속이 빈 원이다(docs/06 §2). 캔버스의 표현과 같게
+        hollow && 'border-[1.5px] border-dashed border-muted-foreground bg-[var(--graph-bg)]',
+      )}
+      style={color ? { background: color } : undefined}
+    />
+  );
+}
+
+function Legend({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground [&>span]:inline-flex [&>span]:items-center [&>span]:gap-[5px]">
+      {children}
+    </div>
+  );
+}
 
 /** 패널: 기본 (docs/05 §3.3) — 무엇을 할지 알려주고 추천 진입점을 준다. */
 export function BasePanel({
@@ -31,70 +89,74 @@ export function BasePanel({
   const peopleTotal = peopleInGraph + (graph?.truncated.people ?? 0);
 
   return (
-    <div className="panel">
+    <Panel>
       {anchorNames.length === 0 ? (
         <>
-          <h2>내 그래프</h2>
-          <p className="muted">사람이나 관심사를 눌러보세요.</p>
+          <PanelTitle>내 그래프</PanelTitle>
+          <Muted>사람이나 관심사를 눌러보세요.</Muted>
         </>
       ) : (
         <>
-          <h2>{anchorNames.map((name) => `#${name}`).join(' · ')}</h2>
-          <p className="muted">
+          <PanelTitle>{anchorNames.map((name) => `#${name}`).join(' · ')}</PanelTitle>
+          <Muted>
             {anchorNames.length === 1
               ? `이 관심사를 가진 사람 ${peopleTotal}명`
               : `${anchorNames.length}개를 모두 가진 사람 ${peopleTotal}명`}
             {graph && peopleTotal === 0 && ' · 다른 관심사를 빼 보세요.'}
-          </p>
+          </Muted>
         </>
       )}
 
       {anchorNames.length === 0 && (
-        <div className="section">
-          <button type="button" className="primary" onClick={onSimilarMode}>
+        <PanelSection>
+          <Button type="button" onClick={onSimilarMode}>
             나와 비슷한 사람 보기
             {similarTotal !== null && ` (${similarTotal}명)`}
-          </button>
-        </div>
+          </Button>
+        </PanelSection>
       )}
 
       {anchorNames.length > 0 && (
-        <div className="section notice">
-          관심사 노드를 <b>Shift+클릭</b>하면 그 관심사도 가진 사람만 남깁니다.
-          위쪽 칩의 ×로 하나씩 뺄 수 있습니다.
-        </div>
+        <PanelSection>
+          <Notice>
+            관심사 노드를 <b className="font-semibold text-foreground">Shift+클릭</b>하면 그
+            관심사도 가진 사람만 남깁니다. 위쪽 칩의 ×로 하나씩 뺄 수 있습니다.
+          </Notice>
+        </PanelSection>
       )}
 
-      <div className="section">
-        <div className="legend">
-          <span><i style={{ background: ME_VAR }} /> 나</span>
-          <span><i style={{ background: PERSON_VAR }} /> 사람</span>
-          <span><i style={{ background: INTEREST_VAR }} /> 관심사</span>
-          <span><i className="hollow" /> 인접 관심사</span>
-        </div>
-      </div>
+      <PanelSection>
+        <Legend>
+          <span><LegendDot color={ME_VAR} /> 나</span>
+          <span><LegendDot color={PERSON_VAR} /> 사람</span>
+          <span><LegendDot color={INTEREST_VAR} /> 관심사</span>
+          <span><LegendDot hollow /> 인접 관심사</span>
+        </Legend>
+      </PanelSection>
 
       {categories.size > 0 && (
-        <div className="section">
-          <div className="legend">
+        <PanelSection>
+          <Legend>
             {[...categories.keys()].map((id) => (
               <span key={id}>
-                <i style={{ background: categoryVar(id) }} />
+                <LegendDot color={categoryVar(id)} />
                 {/* Category 이름은 관심사 노드에서 알 수 없으므로 색만 보여준다 */}
               </span>
             ))}
-          </div>
-        </div>
+          </Legend>
+        </PanelSection>
       )}
 
       {graph && (graph.truncated.people > 0 || graph.truncated.interests > 0) && (
-        <div className="section notice">
-          나와 공통 관심사가 많은 순으로 보여줍니다.
-          {graph.truncated.people > 0 && ` 사람 ${graph.truncated.people}명 더 있음.`}
-          {graph.truncated.interests > 0 && ` 관심사 ${graph.truncated.interests}개 더 있음.`}
-        </div>
+        <PanelSection>
+          <Notice>
+            나와 공통 관심사가 많은 순으로 보여줍니다.
+            {graph.truncated.people > 0 && ` 사람 ${graph.truncated.people}명 더 있음.`}
+            {graph.truncated.interests > 0 && ` 관심사 ${graph.truncated.interests}개 더 있음.`}
+          </Notice>
+        </PanelSection>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -124,56 +186,52 @@ export function InterestPanel({
   onReload: () => void;
 }) {
   return (
-    <div className="panel">
-      <h2>
+    <Panel>
+      <PanelTitle>
         {detail.name}
-        {detail.mine && <span className="badge state">내 관심사</span>}
-        {inAnchor && anchorCount > 1 && (
-          <span className="badge state">함께 보는 중</span>
-        )}
-      </h2>
-      <p className="muted">
+        {detail.mine && <Tag tone="state">내 관심사</Tag>}
+        {inAnchor && anchorCount > 1 && <Tag tone="state">함께 보는 중</Tag>}
+      </PanelTitle>
+      <Muted>
         {detail.categoryName} · {detail.holderCount}명
-      </p>
+      </Muted>
 
-      <div className="section row wrap">
+      <PanelSection className="flex flex-wrap items-center gap-2">
         {anchorCount === 0 && (
-          <button type="button" onClick={onRecenter}>
+          <Button type="button" variant="outline" onClick={onRecenter}>
             이 관심사를 중심으로 보기
-          </button>
+          </Button>
         )}
         {anchorCount > 0 && !inAnchor && (
           <>
-            <button type="button" className="primary" onClick={onAddToAnchor}>
+            <Button type="button" onClick={onAddToAnchor}>
               함께 가진 사람만 보기
-            </button>
-            <button type="button" onClick={onRecenter}>
+            </Button>
+            <Button type="button" variant="outline" onClick={onRecenter}>
               이 관심사만 중심으로
-            </button>
+            </Button>
           </>
         )}
         {inAnchor && anchorCount > 1 && (
-          <button type="button" onClick={onRemoveFromAnchor}>
+          <Button type="button" variant="outline" onClick={onRemoveFromAnchor}>
             함께 보기에서 빼기
-          </button>
+          </Button>
         )}
         {!detail.mine && (
-          <button type="button" onClick={onAddToMine}>
+          <Button type="button" variant="outline" onClick={onAddToMine}>
             내 관심사에 추가
-          </button>
+          </Button>
         )}
-      </div>
+      </PanelSection>
 
-      <div className="section">
-        <div className="muted" style={{ marginBottom: 8 }}>
+      <PanelSection>
+        <Muted className="mb-2">
           나와 공통 관심사가 많은 순 · {detail.peopleTotal}명
-        </div>
+        </Muted>
         {detail.people.length === 0 ? (
-          <div className="notice">
-            아직 이 관심사를 가진 다른 사람이 없습니다.
-          </div>
+          <Notice>아직 이 관심사를 가진 다른 사람이 없습니다.</Notice>
         ) : (
-          <div className="list">
+          <div className="flex flex-col gap-1">
             {detail.people.map((item) => (
               <PersonRow
                 key={item.user.id}
@@ -185,17 +243,19 @@ export function InterestPanel({
           </div>
         )}
         {detail.peopleTotal > detail.people.length && (
-          <p className="muted" style={{ marginTop: 8 }}>
+          <Muted className="mt-2">
             {detail.peopleTotal - detail.people.length}명 더 있음
-          </p>
+          </Muted>
         )}
-      </div>
+      </PanelSection>
+
+      <Separator className="mt-[22px]" />
 
       {/* 글은 "이 관심사에서 누가 활동하는지"를 드러내는 장치다(docs/11 §1) */}
-      <div className="section">
-        <div className="muted" style={{ marginBottom: 8 }}>최근 글</div>
+      <PanelSection>
+        <Muted className="mb-2">최근 글</Muted>
         <PostList posts={detail.posts} onSelectAuthor={onSelectPerson} />
-        <div style={{ marginTop: 10 }}>
+        <div className="mt-2.5">
           {detail.canPost ? (
             <PostComposer
               interestId={detail.id}
@@ -203,13 +263,11 @@ export function InterestPanel({
               onPosted={onReload}
             />
           ) : (
-            <p className="muted" style={{ fontSize: 12 }}>
-              이 관심사를 추가하면 글을 남길 수 있습니다.
-            </p>
+            <Muted className="text-xs">이 관심사를 추가하면 글을 남길 수 있습니다.</Muted>
           )}
         </div>
-      </div>
-    </div>
+      </PanelSection>
+    </Panel>
   );
 }
 
@@ -230,68 +288,69 @@ export function PersonPanel({
   const realName = (person as ConnectedUser).realName;
 
   return (
-    <div className="panel">
-      <h2>
-        {person.displayName}
-        {person.displayNameType === 'REAL' && (
-          <span className="badge real">실명</span>
-        )}
-      </h2>
-      {/* 실명은 연결됨 상태에서만 응답에 들어온다(docs/12 §1) */}
-      {realName && <p className="muted">{realName}</p>}
-
-      <div className="section">
-        <div className="muted" style={{ marginBottom: 8 }}>
-          공통 관심사 {common.length}개 / 상대 관심사 {person.interests.length}개
-        </div>
-        <div className="chips">
-          {common.map((interest) => (
-            <button
-              key={interest.id}
-              type="button"
-              className="chip selected"
-              onClick={() => onSelectInterest(interest.id)}
-            >
-              {interest.name}
-            </button>
-          ))}
-          {others.map((interest) => (
-            <button
-              key={interest.id}
-              type="button"
-              className="chip"
-              onClick={() => onSelectInterest(interest.id)}
-            >
-              {interest.name}
-            </button>
-          ))}
+    <Panel>
+      <div className="flex items-start gap-3">
+        <Avatar className="size-10 flex-none">
+          <AvatarFallback className="bg-accent text-sm font-semibold text-accent-foreground">
+            {person.displayName.slice(0, 1)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <PanelTitle>
+            {person.displayName}
+            {person.displayNameType === 'REAL' && <Tag tone="real">실명</Tag>}
+          </PanelTitle>
+          {/* 실명은 연결됨 상태에서만 응답에 들어온다(docs/12 §1) */}
+          {realName && <Muted>{realName}</Muted>}
         </div>
       </div>
 
+      <PanelSection>
+        <Muted className="mb-2">
+          공통 관심사 {common.length}개 / 상대 관심사 {person.interests.length}개
+        </Muted>
+        <Chips>
+          {common.map((interest) => (
+            <Chip
+              key={interest.id}
+              selected
+              onClick={() => onSelectInterest(interest.id)}
+            >
+              {interest.name}
+            </Chip>
+          ))}
+          {others.map((interest) => (
+            <Chip key={interest.id} onClick={() => onSelectInterest(interest.id)}>
+              {interest.name}
+            </Chip>
+          ))}
+        </Chips>
+      </PanelSection>
+
       {person.recentPosts && person.recentPosts.length > 0 && (
-        <div className="section">
-          <div className="muted" style={{ marginBottom: 8 }}>최근 글</div>
-          <div className="list">
+        <PanelSection>
+          <Muted className="mb-2">최근 글</Muted>
+          <div className="flex flex-col gap-1">
             {person.recentPosts.map((post) => (
-              <div key={post.id} className="post">
-                <div className="post-body">{post.content}</div>
-                <div className="post-foot">
+              <PostCard key={post.id}>
+                <PostBody>{post.content}</PostBody>
+                <PostFoot>
                   <span>#{post.interestName}</span>
-                </div>
-              </div>
+                </PostFoot>
+              </PostCard>
             ))}
           </div>
-        </div>
+        </PanelSection>
       )}
 
-      <div className="section">
+      <PanelSection>
         <PersonAction
           person={person}
           onRequest={onRequest}
           onOpenConnection={onOpenConnection}
         />
-      </div>
-    </div>
+      </PanelSection>
+    </Panel>
   );
 }
 
@@ -307,38 +366,38 @@ function PersonAction({
 }) {
   switch (person.relation.status) {
     case 'SELF':
-      return (
-        <div className="notice">
-          내 프로필입니다. 관심사는 내 프로필에서 수정합니다.
-        </div>
-      );
+      return <Notice>내 프로필입니다. 관심사는 내 프로필에서 수정합니다.</Notice>;
     case 'CONNECTED':
       return (
-        <button type="button" className="primary" onClick={onOpenConnection}>
+        <Button type="button" onClick={onOpenConnection}>
           연결됨 · 성립 화면 열기
-        </button>
+        </Button>
       );
     case 'REQUEST_SENT':
-      return <button type="button" disabled>요청 보냄 · 응답 대기</button>;
+      return (
+        <Button type="button" variant="outline" disabled>
+          요청 보냄 · 응답 대기
+        </Button>
+      );
     case 'REQUEST_RECEIVED':
       return (
-        <div className="notice">
+        <Notice>
           이 사람이 먼저 요청했습니다. 연결 화면에서 수락하거나 거절할 수 있습니다.
-        </div>
+        </Notice>
       );
     case 'NO_RESPONSE':
       return (
-        <button type="button" disabled>
+        <Button type="button" variant="outline" disabled className="h-auto whitespace-normal">
           응답 없음
           {person.relation.reRequestableAt &&
             ` · ${new Date(person.relation.reRequestableAt).toLocaleDateString('ko-KR')} 이후 다시 요청 가능`}
-        </button>
+        </Button>
       );
     default:
       return (
-        <button type="button" className="primary" onClick={onRequest}>
+        <Button type="button" onClick={onRequest}>
           연결 요청
-        </button>
+        </Button>
       );
   }
 }
@@ -354,24 +413,26 @@ export function SimilarPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="panel">
-      <h2>나와 비슷한 사람 {data.total}명</h2>
+    <Panel>
+      <PanelTitle>나와 비슷한 사람 {data.total}명</PanelTitle>
       {/* 정렬 기준을 서버 문장 그대로 보여준다(docs/13 원칙 4) */}
-      <p className="muted">
+      <Muted>
         공통 관심사 {data.criterion.minCommon}개 이상 · {data.criterion.sortBy}
-      </p>
+      </Muted>
 
-      <div className="section notice">
-        선은 관심사가 겹친다는 뜻이며 아는 사이가 아닙니다.
-      </div>
+      <PanelSection>
+        <Notice>선은 관심사가 겹친다는 뜻이며 아는 사이가 아닙니다.</Notice>
+      </PanelSection>
 
       {data.items.length === 0 ? (
-        <div className="section notice">
-          아직 공통 관심사가 {data.criterion.minCommon}개 이상인 사람이 없습니다.
-          관심사를 더 고르면 비슷한 사람을 더 찾을 수 있습니다.
-        </div>
+        <PanelSection>
+          <Notice>
+            아직 공통 관심사가 {data.criterion.minCommon}개 이상인 사람이 없습니다.
+            관심사를 더 고르면 비슷한 사람을 더 찾을 수 있습니다.
+          </Notice>
+        </PanelSection>
       ) : (
-        <div className="section list">
+        <PanelSection className="flex flex-col gap-1">
           {data.items.map((item) => (
             <div key={item.user.id}>
               <PersonRow
@@ -380,21 +441,23 @@ export function SimilarPanel({
                 onClick={() => onSelectPerson(item.user.id)}
               />
               {/* 이유는 완전해야 한다 — 이름을 전부 보여준다(원칙 3) */}
-              <div className="chips" style={{ margin: '4px 0 8px 10px' }}>
+              <Chips className="mt-1 mb-2 ml-2.5">
                 {item.commonInterests.map((interest) => (
-                  <span key={interest.id} className="chip selected">
+                  <ChipTag key={interest.id} selected>
                     {interest.name}
-                  </span>
+                  </ChipTag>
                 ))}
-              </div>
+              </Chips>
             </div>
           ))}
-        </div>
+        </PanelSection>
       )}
 
-      <div className="section">
-        <button type="button" onClick={onClose}>모드 끄기</button>
-      </div>
-    </div>
+      <PanelSection>
+        <Button type="button" variant="outline" onClick={onClose}>
+          모드 끄기
+        </Button>
+      </PanelSection>
+    </Panel>
   );
 }

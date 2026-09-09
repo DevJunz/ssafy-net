@@ -4,7 +4,11 @@ import type {
   InterestListItem,
 } from '@ssafy-net/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { api, RequestFailed } from '../../api/client';
+import { Chip, Chips, ErrorText, Muted } from '../../components/primitives';
 import { SkeletonRows } from '../../components/Skeleton';
 import { CreateInterest } from './CreateInterest';
 
@@ -73,7 +77,7 @@ export function InterestPicker({
   }, [catalog]);
 
   if (!catalog) {
-    return error ? <p className="error">{error}</p> : <SkeletonRows count={4} />;
+    return error ? <ErrorText>{error}</ErrorText> : <SkeletonRows count={4} />;
   }
 
   const { min, max } = catalog;
@@ -190,24 +194,23 @@ export function InterestPicker({
   const renderChip = (interest: InterestListItem, kind: 'INTEREST' | 'ATTRIBUTE') => {
     const isSelected = selected.has(interest.id);
     return (
-      <button
+      <Chip
         key={interest.id}
-        type="button"
-        className={`chip ${isSelected ? 'selected' : ''}`}
+        selected={isSelected}
         disabled={kind === 'INTEREST' && !isSelected && atMax}
         onClick={() => toggle(interest.id)}
+        // 사람 수는 "여기 고르면 누가 있을지"의 힌트다.
+        count={`${interest.holderCount}명`}
       >
         {interest.name}
-        {/* 사람 수는 "여기 고르면 누가 있을지"의 힌트다. */}
-        <span className="count">{interest.holderCount}명</span>
-      </button>
+      </Chip>
     );
   };
 
   return (
     <div>
-      <div className="sticky-bar stack">
-        <input
+      <div className="sticky top-0 z-[2] flex flex-col gap-4 border-b bg-background py-4">
+        <Input
           type="text"
           value={query}
           onChange={(event) => {
@@ -215,35 +218,33 @@ export function InterestPicker({
             setCreating(false);
           }}
           placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
+          className="h-11 bg-card"
         />
 
-        <div className="muted">
+        <Muted>
           {topicCount}개 선택 · 최소 {min} · 최대 {max}
-        </div>
+        </Muted>
 
         {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다. */}
         {selected.size > 0 && (
-          <div className="chips">
+          <Chips>
             {[...selected].map((id) => (
-              <button
-                key={id}
-                type="button"
-                className="chip selected"
-                onClick={() => toggle(id)}
-              >
+              <Chip key={id} selected onClick={() => toggle(id)}>
                 {byId.get(id)?.name ?? id} ✕
-              </button>
+              </Chip>
             ))}
-          </div>
+          </Chips>
         )}
 
         {!normalized && (
-          <div className="chips">
+          <Chips>
             {catalog.categories.map((category) => (
-              <button
+              <Button
                 key={category.id}
                 type="button"
-                className="chip"
+                variant="outline"
+                size="sm"
+                className="h-auto rounded-full px-3 py-[5px] text-[13.5px] font-normal"
                 onClick={() =>
                   sectionRefs.current[category.id]?.scrollIntoView({
                     behavior: 'smooth',
@@ -252,9 +253,9 @@ export function InterestPicker({
                 }
               >
                 {category.name}
-              </button>
+              </Button>
             ))}
-          </div>
+          </Chips>
         )}
       </div>
 
@@ -265,22 +266,30 @@ export function InterestPicker({
             sectionRefs.current[category.id] = node;
           }}
         >
-          <div className="category-title">{category.name}</div>
-          <div className="chips">
+          <div className="mt-7 mb-2.5 font-semibold tracking-tight">{category.name}</div>
+          <Chips>
             {category.interests.map((interest) => renderChip(interest, 'INTEREST'))}
-          </div>
+          </Chips>
         </div>
       ))}
 
       {normalized && !exactExists && !creating && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <span className="muted">
-            {visibleTopics.length === 0 ? '검색 결과가 없습니다. ' : '찾는 것이 없나요? '}
-          </span>
-          <button type="button" className="link" onClick={() => setCreating(true)}>
-            “{query.trim()}” 관심사 추가하기
-          </button>
-        </div>
+        <Card className="mt-4 gap-0 rounded-xl py-[22px]">
+          <CardContent className="px-6">
+            <Muted className="inline">
+              {visibleTopics.length === 0 ? '검색 결과가 없습니다. ' : '찾는 것이 없나요? '}
+            </Muted>
+            {/* 문장 속에 놓이는 버튼. 링크처럼 보이되 버튼으로 동작한다. */}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-[15px] underline underline-offset-2"
+              onClick={() => setCreating(true)}
+            >
+              “{query.trim()}” 관심사 추가하기
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {creating && (
@@ -300,40 +309,39 @@ export function InterestPicker({
             ref={(node) => {
               sectionRefs.current[category.id] = node;
             }}
-            style={{ marginTop: 24 }}
+            className="mt-6"
           >
-            <div className="category-title">활동하는 {category.name}</div>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+            <div className="mt-7 mb-2.5 font-semibold tracking-tight">
+              활동하는 {category.name}
+            </div>
+            <Muted className="mb-2 text-[13px]">
               선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.
               같은 {category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.
-            </p>
-            <div className="chips">
+            </Muted>
+            <Chips>
               {category.interests.map((interest) => renderChip(interest, 'ATTRIBUTE'))}
-            </div>
+            </Chips>
           </div>
         ))}
 
-      <div className="stack" style={{ marginTop: 32 }}>
+      <div className="mt-8 flex flex-col gap-4">
         {shortBy > 0 && (
-          <p className="muted">
-            {shortBy}개 더 고르면 추천이 생길 가능성이 높아집니다.
-          </p>
+          <Muted>{shortBy}개 더 고르면 추천이 생길 가능성이 높아집니다.</Muted>
         )}
         {atMax && (
-          <p className="muted">
-            최대 {max}개까지 고를 수 있습니다. 정말 중요한 것만 남겨보세요.
-          </p>
+          <Muted>최대 {max}개까지 고를 수 있습니다. 정말 중요한 것만 남겨보세요.</Muted>
         )}
-        {error && <p className="error">{error}</p>}
+        {error && <ErrorText>{error}</ErrorText>}
 
-        <button
-          className="primary"
+        <Button
           type="button"
+          size="lg"
+          className="self-start"
           disabled={shortBy > 0 || saving}
           onClick={() => void save()}
         >
           {submitLabel}
-        </button>
+        </Button>
       </div>
     </div>
   );

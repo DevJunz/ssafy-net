@@ -1,7 +1,20 @@
 import type { NetworkDetail, NetworkSummary } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '../api/client';
+import {
+  CardRowBody,
+  CardRowButton,
+  CardRowRight,
+  CardRowSub,
+  CardRowTitle,
+  Notice,
+  Page,
+  PageLede,
+  PageTitle,
+  ScrollPage,
+} from '../components/primitives';
 import { SkeletonRows } from '../components/Skeleton';
 import { NetworkOverlay } from '../features/networks/NetworkOverlay';
 
@@ -55,52 +68,47 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
   };
 
   return (
-    <div className="scroll-page">
-      <main className="page">
-        <h1 className="page-title">네트워크</h1>
-        <p className="page-lede">
+    <ScrollPage>
+      <Page>
+        <PageTitle>네트워크</PageTitle>
+        <PageLede>
           여러 관심사를 함께 공유하는 3~6명의 그룹입니다. 참여한 사람이 3명이
           되면 성립합니다.
-        </p>
+        </PageLede>
 
-        <div className="tabs">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={tab === item.key ? 'on' : ''}
-              onClick={() => setTab(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mb-5">
+          <TabsList
+            variant="line"
+            className="w-full justify-start border-b max-sm:overflow-x-auto max-sm:[scrollbar-width:none]"
+          >
+            {TABS.map((item) => (
+              <TabsTrigger key={item.key} value={item.key} className="flex-none px-3.5 py-2.5">
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {loading ? (
           <SkeletonRows />
         ) : items.length === 0 ? (
-          <div className="notice">
+          <Notice>
             {tab === 'recommended'
               ? '아직 나에게 맞는 네트워크가 없습니다. 관심사를 더 고르면 생길 수 있습니다.'
               : tab === 'joined'
                 ? '참여 대기 중인 네트워크가 없습니다.'
                 : '아직 성립된 네트워크가 없습니다.'}
-          </div>
+          </Notice>
         ) : (
           items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="card-row"
-              onClick={() => void openDetail(item.id)}
-            >
-              <div className="body">
-                <div className="title">{item.reason}</div>
-                <div className="sub">
+            <CardRowButton key={item.id} onClick={() => void openDetail(item.id)}>
+              <CardRowBody>
+                <CardRowTitle>{item.reason}</CardRowTitle>
+                <CardRowSub>
                   {item.commonInterests.map((i) => i.name).join(' · ')}
-                </div>
-              </div>
-              <div className="right">
+                </CardRowSub>
+              </CardRowBody>
+              <CardRowRight>
                 {item.status === 'ACTIVATED' ? (
                   '성립됨'
                 ) : (
@@ -110,11 +118,11 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
                     {item.daysLeft}일 남음
                   </>
                 )}
-              </div>
-            </button>
+              </CardRowRight>
+            </CardRowButton>
           ))
         )}
-      </main>
+      </Page>
 
       {open && (
         <NetworkOverlay
@@ -126,6 +134,6 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
           }}
         />
       )}
-    </div>
+    </ScrollPage>
   );
 }
