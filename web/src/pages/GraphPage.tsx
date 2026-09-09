@@ -10,6 +10,7 @@ import type {
   PublicUser,
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
+import { MAX_ANCHOR_INTERESTS } from '@ssafy-net/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -29,7 +30,8 @@ import {
 import '../features/panels/panels.css';
 import { useSession } from '../session';
 
-type Anchor = { type: 'ME' } | { type: 'INTEREST'; interestId: string };
+/** 앵커 관심사는 하나 이상이다. 둘 이상이면 모두 가진 사람만 보인다(D-76). */
+type Anchor = { type: 'ME' } | { type: 'INTEREST'; interestIds: string[] };
 type Selection =
   | { kind: 'PERSON'; id: string }
   | { kind: 'INTEREST'; id: string }
@@ -40,7 +42,7 @@ type Selection =
  * Similar 모드는 별도 화면이 아니라 이 그래프의 상태다(docs/05 §1).
  *
  * 인터랙션 원칙(docs/07 §1)
- *   - 선택은 항상 0개 또는 1개
+ *   - 선택은 항상 0개 또는 1개. 앵커 관심사는 여럿일 수 있다(D-76) — 선택과 다른 개념이다
  *   - 모드는 선택과 독립. 모드 안에서 노드를 선택해도 모드가 유지된다
  *   - 배경 클릭은 한 단계만 되돌린다: 선택 → 모드
  *   - 카메라는 모드 전환과 앵커 변경 때만 자동으로 맞춘다
@@ -80,7 +82,7 @@ export function GraphPage() {
     const query =
       anchor.type === 'ME'
         ? '/graph?anchor=me'
-        : `/graph?anchor=interest&interestId=${anchor.interestId}`;
+        : `/graph?anchor=interest&interestIds=${anchor.interestIds.join(',')}`;
     setBase(await api.get<GraphResponse>(query));
   }, [anchor]);
 
@@ -227,12 +229,72 @@ export function GraphPage() {
     }
   };
 
+  const anchorIds = anchor.type === 'INTEREST' ? anchor.interestIds : [];
+  const peopleShown = base?.nodes.filter((node) => node.kind === 'PERSON').length ?? 0;
+
   /** 카메라 자동 맞춤의 유일한 트리거(docs/07 §1). 선택은 여기에 들어가지 않는다. */
-  const cameraKey = `${anchor.type}:${anchor.type === 'INTEREST' ? anchor.interestId : ''}:${similarMode}`;
+  const cameraKey = `${anchor.type}:${anchorIds.join(',')}:${similarMode}`;
+
+  /** 칩과 패널 제목에 쓸 이름. 응답 → 그래프 노드 → 전체 목록 순으로 찾는다. */
+  const interestNameOf = (id: string): string => {
+    if (base?.anchor.type === 'INTEREST') {
+      const hit = base.anchor.interests.find((item) => item.id === id);
+      if (hit?.name) return hit.name;
+    }
+    const node = base?.nodes.find((item) => item.id === id);
+    if (node?.kind === 'INTEREST') return node.name;
+    for (const category of catalog?.categories ?? []) {
+      const hit = category.interests.find((item) => item.id === id);
+      if (hit) return hit.name;
+    }
+    return '…';
+  };
+
+  // ── 앵커
+  const backToMyGraph = () => {
+    setAnchor({ type: 'ME' });
+    setSelection(null);
+  };
+
+  const recenter = (interestId: string) => {
+    // 앵커를 옮기면 모드는 꺼진다. 모드는 나 중심 그래프의 개념이다(docs/07 §2.5).
+    setSimilarMode(false);
+    setAnchor({ type: 'INTEREST', interestIds: [interestId] });
+  };
+
+  /** 앵커에 관심사를 더한다. 더할수록 사람은 준다 — 모두 가진 사람만 남기 때문이다(D-76). */
+  const addToAnchor = (interestId: string) => {
+    if (anchorIds.includes(interestId)) return;
+    if (anchorIds.length >= MAX_ANCHOR_INTERESTS) {
+      setToast(`관심사는 ${MAX_ANCHOR_INTERESTS}개까지 함께 볼 수 있습니다.`);
+      return;
+    }
+    setSimilarMode(false);
+    setAnchor({ type: 'INTEREST', interestIds: [...anchorIds, interestId] });
+  };
+
+  const removeFromAnchor = (interestId: string) => {
+    const rest = anchorIds.filter((id) => id !== interestId);
+    if (rest.length === 0) {
+      backToMyGraph();
+      return;
+    }
+    setAnchor({ type: 'INTEREST', interestIds: rest });
+    // 뺀 관심사가 선택돼 있었으면 선택도 푼다. 그래프에서 사라질 수 있다.
+    if (selection?.kind === 'INTEREST' && selection.id === interestId) {
+      setSelection(null);
+    }
+  };
 
   // ── 인터랙션
-  const onNodeClick = (node: GraphNode) => {
+  const onNodeClick = (node: GraphNode, event: MouseEvent) => {
     if (node.kind === 'INTEREST') {
+      // Shift+클릭은 앵커에 넣고 빼는 지름길이다. 패널의 버튼과 같은 일을 한다.
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        if (anchorIds.includes(node.id)) removeFromAnchor(node.id);
+        else addToAnchor(node.id);
+        return;
+      }
       setSelection({ kind: 'INTEREST', id: node.id });
       return;
     }
@@ -258,17 +320,6 @@ export function GraphPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
-
-  const recenter = (interestId: string) => {
-    // 앵커를 옮기면 모드는 꺼진다. 모드는 나 중심 그래프의 개념이다(docs/07 §2.5).
-    setSimilarMode(false);
-    setAnchor({ type: 'INTEREST', interestId });
-  };
-
-  const backToMyGraph = () => {
-    setAnchor({ type: 'ME' });
-    setSelection(null);
-  };
 
   const addInterestToMine = async (interestId: string) => {
     await api.post(`/me/interests/${interestId}`);
@@ -307,17 +358,41 @@ export function GraphPage() {
         graph={base}
         catalog={catalog}
         selectedId={selection?.kind === 'INTEREST' ? selection.id : null}
+        anchorIds={anchorIds}
         onSelect={(id) => setSelection({ kind: 'INTEREST', id })}
         onRecenter={recenter}
       />
 
       <div className="graph-area" ref={areaRef}>
         <div className="graph-toolbar">
-          <span className="anchor-label">
-            {anchor.type === 'ME'
-              ? '내 그래프'
-              : `#${base?.anchor.type === 'INTEREST' ? base.anchor.name : ''} 중심`}
-          </span>
+          {anchor.type === 'ME' ? (
+            <span className="anchor-label">내 그래프</span>
+          ) : (
+            <div className="anchor-chips">
+              {anchorIds.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="chip"
+                  aria-label={`#${interestNameOf(id)} 함께 보기에서 빼기`}
+                  title="함께 보기에서 빼기"
+                  onClick={() => removeFromAnchor(id)}
+                >
+                  #{interestNameOf(id)}
+                  <span className="x" aria-hidden="true">×</span>
+                </button>
+              ))}
+              <span className="anchor-caption">
+                {anchorIds.length === 1 ? (
+                  '중심'
+                ) : (
+                  <>
+                    모두 가진 사람 <b>{peopleShown + (base?.truncated.people ?? 0)}명</b>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
 
           {anchor.type === 'INTEREST' && (
             <button type="button" onClick={backToMyGraph}>
@@ -353,6 +428,8 @@ export function GraphPage() {
         <div className="graph-corner">
           {hoveredLink?.kind === 'SIMILARITY' ? (
             <>공통 관심사 {hoveredLink.commonCount}개 — 관심사가 겹친다는 뜻입니다</>
+          ) : base && anchorIds.length > 1 && peopleShown === 0 ? (
+            <>이 관심사를 모두 가진 사람이 없습니다. 칩의 ×로 하나를 빼 보세요</>
           ) : (
             base && (
               <>
@@ -376,10 +453,11 @@ export function GraphPage() {
       ) : selection?.kind === 'INTEREST' && interest ? (
         <InterestPanel
           detail={interest}
-          isAnchor={
-            anchor.type === 'INTEREST' && anchor.interestId === interest.id
-          }
+          anchorCount={anchorIds.length}
+          inAnchor={anchorIds.includes(interest.id)}
           onRecenter={() => recenter(interest.id)}
+          onAddToAnchor={() => addToAnchor(interest.id)}
+          onRemoveFromAnchor={() => removeFromAnchor(interest.id)}
           onSelectPerson={(id) => setSelection({ kind: 'PERSON', id })}
           onAddToMine={() => void addInterestToMine(interest.id)}
           onReload={async () => {
@@ -397,6 +475,7 @@ export function GraphPage() {
       ) : (
         <BasePanel
           graph={base}
+          anchorNames={anchorIds.map(interestNameOf)}
           similarTotal={similarList?.total ?? null}
           onSimilarMode={() => setSimilarMode(true)}
         />

@@ -192,6 +192,7 @@ DELETE /api/me/interests/:id                 하나 제거
 ```
 GET /api/graph?anchor=me
 GET /api/graph?anchor=interest&interestId=i_be
+GET /api/graph?anchor=interest&interestIds=i_be,i_run   (모두 가진 사람만. 최대 5개, D-76)
 GET /api/graph/similar
 GET /api/graph/network/:recommendationId          (S2)
 ```
@@ -232,6 +233,7 @@ GET /api/graph/network/:recommendationId          (S2)
 | 좌표 없음 | 배치는 클라이언트 힘 기반 레이아웃이 정한다. 저장하지 않는다(07 §2.15) |
 
 - `anchor=interest`: 그 관심사 + 보유자 `[P-13]`명 + 그들의 다른 관심사 `[P-14]`개. **나는 항상 남는다**(06 §1.1).
+- `anchor=interest&interestIds=a,b,c`: **그 관심사를 모두 가진 사람**만 보유자로 센다(D-76). 나머지 구성은 같다. 응답의 `anchor`는 `{ "type": "INTEREST", "interests": [{ "id", "name" }] }`로 요청한 순서를 돌려준다. 최대 5개, 넘으면 `400 VALIDATION_FAILED`. 하나면 `interestId=`와 같다.
 - `anchor=me`의 계층 2 구성 절차(관심사당 최소 2명 보정)는 20 §6.1.
 - Person Focus의 임시 확장(06 §1.1)은 **클라이언트가 하지 않는다.** `GET /api/users/:id`가 그 사람의 관심사 전부를 주므로 프론트가 그래프에 임시 노드를 얹는다. 서버 왕복을 늘리지 않기 위해서다.
 - `GET /api/graph/similar`: 나 + 상위 `[P-15]` 10명 + `SIMILARITY` 링크. 목록 전체는 §6.

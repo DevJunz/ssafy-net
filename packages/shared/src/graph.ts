@@ -59,7 +59,14 @@ export interface GraphLink {
 
 export type GraphAnchor =
   | { type: 'ME' }
-  | { type: 'INTEREST'; interestId: string; name: string };
+  /**
+   * 관심사 하나 이상. 둘 이상이면 **그 관심사를 모두 가진 사람**만 보인다(D-76).
+   * 요청한 순서를 그대로 돌려준다.
+   */
+  | { type: 'INTEREST'; interests: { id: string; name: string }[] };
+
+/** 함께 볼 수 있는 관심사 수의 상한. 넘으면 교집합이 거의 항상 비어 의미가 없다. */
+export const MAX_ANCHOR_INTERESTS = 5;
 
 export interface GraphResponse {
   anchor: GraphAnchor;

@@ -16,16 +16,20 @@ export function InterestRail({
   graph,
   catalog,
   selectedId,
+  anchorIds,
   onSelect,
   onRecenter,
 }: {
   graph: GraphResponse | null;
   catalog: InterestCatalog | null;
   selectedId: string | null;
+  /** 앵커인 관심사. 행에 "중심" 표시가 붙는다. */
+  anchorIds: string[];
   onSelect: (interestId: string) => void;
   onRecenter: (interestId: string) => void;
 }) {
   const [query, setQuery] = useState('');
+  const anchorSet = new Set(anchorIds);
 
   const inGraph = useMemo(() => {
     const map = new Map<string, { name: string; categoryId: string; mine: boolean }>();
@@ -76,7 +80,11 @@ export function InterestRail({
     >
       <i style={{ background: categoryVar(categoryId) }} />
       <span className="rail-name">{name}</span>
-      {suffix && <span className="rail-suffix">{suffix}</span>}
+      {(suffix || anchorSet.has(id)) && (
+        <span className="rail-suffix">
+          {anchorSet.has(id) ? '중심' : suffix}
+        </span>
+      )}
     </button>
   );
 

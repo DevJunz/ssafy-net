@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { Interest, User } from '@prisma/client';
-import type {
-  GraphInterestNode,
-  GraphLink,
-  GraphNode,
-  GraphPersonNode,
-  GraphResponse,
+import {
+  MAX_ANCHOR_INTERESTS,
+  type GraphInterestNode,
+  type GraphLink,
+  type GraphNode,
+  type GraphPersonNode,
+  type GraphResponse,
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -147,11 +148,21 @@ export class GraphService {
   // 앵커 = 관심사 (재중심)
   // ─────────────────────────────────────────────────────────
 
-  async interestAnchored(me: User, interestId: string): Promise<GraphResponse> {
-    const interest = await this.prisma.interest.findUnique({
-      where: { id: interestId },
-    });
-    if (!interest) throw new AppError('NOT_FOUND');
+  /**
+   * 관심사 하나 이상을 앵커로. 둘 이상이면 **모두 가진 사람**만 남는다(D-76).
+   * 교집합이라 관심사를 더할수록 사람은 줄어든다 — "이 둘을 다 좋아하는 사람"을 찾는 용도다.
+   */
+  async interestAnchored(
+    me: User,
+    interestIds: string[],
+  ): Promise<GraphResponse> {
+    const ids = [...new Set(interestIds)];
+    if (ids.length === 0 || ids.length > MAX_ANCHOR_INTERESTS) {
+      throw new AppError('VALIDATION_FAILED', { max: MAX_ANCHOR_INTERESTS });
+    }
+
+    const anchorInterests = await this.loadInterests(ids);
+    if (anchorInterests.size !== ids.length) throw new AppError('NOT_FOUND');
 
     const [myInterestIds, activeUsers, peopleLimit, adjacentLimit] =
       await Promise.all([
@@ -170,13 +181,15 @@ export class GraphService {
       overlapping.map((row) => [row.userId, row]),
     );
 
-    const holders = await this.prisma.userInterest.findMany({
+    // (userId, interestId)가 유니크라, 앵커 관심사 수만큼 행이 있는 사람이 전부 가진 사람이다.
+    const holders = await this.prisma.userInterest.groupBy({
+      by: ['userId'],
       where: {
-        interestId,
+        interestId: { in: ids },
         user: { status: 'ACTIVE' },
         NOT: { userId: me.id },
       },
-      select: { userId: true },
+      having: { interestId: { _count: { equals: ids.length } } },
     });
 
     // 나와 공통 관심사가 많은 순. 겹치지 않는 사람도 뒤에 남는다.
@@ -201,12 +214,18 @@ export class GraphService {
       selected.map((row) => row.userId),
       new Map(selected.map((row) => [row.userId, row.commonCount])),
       myInterestIds,
-      [...new Set([interestId, ...myInterestIds])],
+      [...new Set([...ids, ...myInterestIds])],
       adjacentLimit,
     );
 
     return {
-      anchor: { type: 'INTEREST', interestId, name: interest.name },
+      anchor: {
+        type: 'INTEREST',
+        interests: ids.map((id) => ({
+          id,
+          name: anchorInterests.get(id)?.name ?? '',
+        })),
+      },
       nodes,
       links,
       truncated: {

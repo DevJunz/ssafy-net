@@ -215,8 +215,87 @@ function handleGet(path: string): unknown {
     }
   }
 
+  if (base === '/graph') return graphFor(query);
+
   const exact = fixtures[path] ?? fixtures[base];
   return exact ?? fallbackFor(path) ?? {};
+}
+
+/**
+ * 그래프. 관심사 앵커가 하나면 캡처된 응답을 그대로 쓰고,
+ * 여럿이면 캡처를 걸러 "모두 가진 사람"만 남긴다(D-76). 캡처된 30명 안에서만 거르므로
+ * 실제 서버보다 사람이 적게 나온다 — 디자인 확인용이다.
+ */
+function graphFor(query: string): unknown {
+  const params = new URLSearchParams(query);
+  const ids = [
+    ...(params.get('interestId') ? [params.get('interestId') as string] : []),
+    ...(params.get('interestIds') ?? '').split(','),
+  ]
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const unique = [...new Set(ids)];
+  if (params.get('anchor') !== 'interest' || unique.length === 0) {
+    return fixtures['/graph?anchor=me'];
+  }
+
+  const catalogEntry = (id: string): { name: string; categoryId: string } => {
+    for (const category of state.catalog.categories ?? []) {
+      const hit = category.interests.find((interest: Json) => interest.id === id);
+      if (hit) return { name: hit.name, categoryId: category.id };
+    }
+    return { name: '', categoryId: '' };
+  };
+
+  const captured = fixtures[`/graph?anchor=interest&interestId=${unique[0]}`];
+  const source = clone(captured ?? fixtures['/graph?anchor=me']);
+  const anchor = {
+    type: 'INTEREST',
+    interests: unique.map((id) => ({ id, name: catalogEntry(id).name })),
+  };
+  // 캡처 응답은 옛 형태(interestId, name)라 앵커만 바꿔 준다.
+  if (unique.length === 1 && captured) return { ...source, anchor };
+
+  const has = new Map<string, Set<string>>();
+  for (const link of source.links) {
+    if (link.kind !== 'HAS_INTEREST') continue;
+    const set = has.get(link.source) ?? new Set<string>();
+    set.add(link.target);
+    has.set(link.source, set);
+  }
+  const meId = source.nodes.find((node: Json) => node.kind === 'ME')?.id;
+  const keep = new Set<string>();
+  for (const node of source.nodes) {
+    if (node.kind !== 'PERSON') continue;
+    const owned = has.get(node.id);
+    if (owned && unique.every((id) => owned.has(id))) keep.add(node.id);
+  }
+
+  // 앵커 관심사가 캡처에 없으면 노드를 붙여 준다. 선은 없지만 칩과 그래프가 어긋나지 않는다.
+  const nodeIds = new Set(source.nodes.map((node: Json) => node.id));
+  for (const id of unique) {
+    if (nodeIds.has(id)) continue;
+    const entry = catalogEntry(id);
+    source.nodes.push({
+      id,
+      kind: 'INTEREST',
+      name: entry.name,
+      categoryId: entry.categoryId,
+      mine: false,
+      holderCount: 0,
+      adjacent: true,
+    });
+  }
+
+  return {
+    anchor,
+    nodes: source.nodes.filter((node: Json) => node.kind !== 'PERSON' || keep.has(node.id)),
+    links: source.links.filter(
+      (link: Json) =>
+        link.kind !== 'HAS_INTEREST' || link.source === meId || keep.has(link.source),
+    ),
+    truncated: { people: 0, interests: source.truncated?.interests ?? 0 },
+  };
 }
 
 // ── 변경 ─────────────────────────────────────────────────

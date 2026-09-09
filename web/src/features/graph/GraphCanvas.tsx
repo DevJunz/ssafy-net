@@ -42,7 +42,8 @@ interface Props {
   height: number;
   /** 이 값이 바뀔 때만 카메라를 자동으로 맞춘다(docs/07 §1). */
   cameraKey: string;
-  onNodeClick: (node: GraphNode) => void;
+  /** 이벤트를 함께 준다. Shift+클릭 같은 보조 동작을 페이지가 정한다. */
+  onNodeClick: (node: GraphNode, event: MouseEvent) => void;
   onBackgroundClick: () => void;
   onLinkHover: (link: GraphLink | null) => void;
 }
@@ -414,7 +415,7 @@ export function GraphCanvas({
         d3VelocityDecay={0.42}
         nodeRelSize={1}
         nodeLabel={(node) => tooltipOf(node as GraphNode)}
-        onNodeClick={(node) => onNodeClick(node as GraphNode)}
+        onNodeClick={(node, event) => onNodeClick(node as GraphNode, event)}
         onNodeHover={(node) => setHoverId(node ? (node as RenderNode).id : null)}
         onBackgroundClick={onBackgroundClick}
         onLinkHover={(link) =>

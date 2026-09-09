@@ -12,29 +12,58 @@ import { PersonRow } from './PersonRow';
 /** 패널: 기본 (docs/05 §3.3) — 무엇을 할지 알려주고 추천 진입점을 준다. */
 export function BasePanel({
   graph,
+  anchorNames,
   similarTotal,
   onSimilarMode,
 }: {
   graph: GraphResponse | null;
+  /** 앵커가 관심사일 때 그 이름들. 비어 있으면 내 그래프다. */
+  anchorNames: string[];
   similarTotal: number | null;
   onSimilarMode: () => void;
 }) {
   const categories = new Map<string, string>();
+  let peopleInGraph = 0;
   graph?.nodes.forEach((node) => {
     if (node.kind === 'INTEREST') categories.set(node.categoryId, node.name);
+    if (node.kind === 'PERSON') peopleInGraph += 1;
   });
+  const peopleTotal = peopleInGraph + (graph?.truncated.people ?? 0);
 
   return (
     <div className="panel">
-      <h2>내 그래프</h2>
-      <p className="muted">사람이나 관심사를 눌러보세요.</p>
+      {anchorNames.length === 0 ? (
+        <>
+          <h2>내 그래프</h2>
+          <p className="muted">사람이나 관심사를 눌러보세요.</p>
+        </>
+      ) : (
+        <>
+          <h2>{anchorNames.map((name) => `#${name}`).join(' · ')}</h2>
+          <p className="muted">
+            {anchorNames.length === 1
+              ? `이 관심사를 가진 사람 ${peopleTotal}명`
+              : `${anchorNames.length}개를 모두 가진 사람 ${peopleTotal}명`}
+            {graph && peopleTotal === 0 && ' · 다른 관심사를 빼 보세요.'}
+          </p>
+        </>
+      )}
 
-      <div className="section">
-        <button type="button" className="primary" onClick={onSimilarMode}>
-          나와 비슷한 사람 보기
-          {similarTotal !== null && ` (${similarTotal}명)`}
-        </button>
-      </div>
+      {anchorNames.length === 0 && (
+        <div className="section">
+          <button type="button" className="primary" onClick={onSimilarMode}>
+            나와 비슷한 사람 보기
+            {similarTotal !== null && ` (${similarTotal}명)`}
+          </button>
+        </div>
+      )}
+
+      {anchorNames.length > 0 && (
+        <div className="section notice">
+          관심사 노드를 <b>Shift+클릭</b>하면 그 관심사도 가진 사람만 남깁니다.
+          위쪽 칩의 ×로 하나씩 뺄 수 있습니다.
+        </div>
+      )}
 
       <div className="section">
         <div className="legend">
@@ -72,15 +101,24 @@ export function BasePanel({
 /** 패널: Interest 상세 (docs/06 §3.3) */
 export function InterestPanel({
   detail,
-  isAnchor,
+  anchorCount,
+  inAnchor,
   onRecenter,
+  onAddToAnchor,
+  onRemoveFromAnchor,
   onSelectPerson,
   onAddToMine,
   onReload,
 }: {
   detail: InterestDetail;
-  isAnchor: boolean;
+  /** 지금 앵커인 관심사 수. 0이면 내 그래프다. */
+  anchorCount: number;
+  /** 이 관심사가 앵커에 들어 있는지 */
+  inAnchor: boolean;
   onRecenter: () => void;
+  /** 앵커에 더해 "함께 가진 사람만" 남긴다(D-76) */
+  onAddToAnchor: () => void;
+  onRemoveFromAnchor: () => void;
   onSelectPerson: (userId: string) => void;
   onAddToMine: () => void;
   onReload: () => void;
@@ -90,15 +128,33 @@ export function InterestPanel({
       <h2>
         {detail.name}
         {detail.mine && <span className="badge state">내 관심사</span>}
+        {inAnchor && anchorCount > 1 && (
+          <span className="badge state">함께 보는 중</span>
+        )}
       </h2>
       <p className="muted">
         {detail.categoryName} · {detail.holderCount}명
       </p>
 
-      <div className="section row">
-        {!isAnchor && (
+      <div className="section row wrap">
+        {anchorCount === 0 && (
           <button type="button" onClick={onRecenter}>
             이 관심사를 중심으로 보기
+          </button>
+        )}
+        {anchorCount > 0 && !inAnchor && (
+          <>
+            <button type="button" className="primary" onClick={onAddToAnchor}>
+              함께 가진 사람만 보기
+            </button>
+            <button type="button" onClick={onRecenter}>
+              이 관심사만 중심으로
+            </button>
+          </>
+        )}
+        {inAnchor && anchorCount > 1 && (
+          <button type="button" onClick={onRemoveFromAnchor}>
+            함께 보기에서 빼기
           </button>
         )}
         {!detail.mine && (
