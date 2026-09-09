@@ -10,6 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../../common/current-user.decorator';
@@ -18,12 +25,24 @@ import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { SessionService } from '../auth/session.service';
 import { NOTIFICATION_RULES } from './notification.catalog';
 
+@ApiTags('알림')
+@ApiCookieAuth('sn_session')
 @Controller('notifications')
 @UseGuards(AuthGuard, OnboardedGuard)
 export class NotificationsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @ApiOperation({
+    summary: '알림함',
+    description:
+      '알림 채널은 Mattermost DM + 이 알림함 둘뿐이다(D-67). 최신순.\n\n' +
+      '`[{ id, type, text, targetPath, actionRequired, resolved, readAt, createdAt }]`\n\n' +
+      '- `text`는 판단 근거(표시명, 공통 관심사, 메시지 첫 줄)를 넣어 서버가 완성한 문장(FR-14.3)\n' +
+      '- 수락/거절 같은 행동 필드는 없다(D-25). `targetPath`로 행동 화면에 직행한다\n' +
+      '- `actionRequired`가 true이고 `resolved`가 false면 배지에 센다',
+  })
+  @ApiQuery({ name: 'limit', required: false, description: '기본 50, 최대 100' })
   async list(
     @CurrentUser() user: User,
     @Query('limit') limit: string | undefined,
@@ -54,6 +73,12 @@ export class NotificationsController {
    * 0이면 할 일이 없다는 뜻이어야 한다.
    */
   @Get('badge')
+  @ApiOperation({
+    summary: '배지 수',
+    description:
+      '`{ count }`. **처리가 필요한 것의 수**다(D-31). 미읽음 수가 아니다. ' +
+      '받은 요청·아직 열지 않은 성립·답하지 않은 후속 확인처럼 행동이 남은 것만 센다. 0이면 할 일이 없다는 뜻이어야 한다.',
+  })
   async badge(@CurrentUser() user: User) {
     const count = await this.prisma.notification.count({
       where: { userId: user.id, actionRequired: true, resolvedAt: null },
@@ -62,6 +87,11 @@ export class NotificationsController {
   }
 
   @Post(':id/read')
+  @ApiOperation({
+    summary: '알림 읽음 처리',
+    description: '`readAt`만 기록한다. 배지 수와는 무관하다 — 배지는 행동을 해야 줄어든다.',
+  })
+  @ApiParam({ name: 'id', description: '알림 UUID' })
   async read(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
@@ -84,6 +114,7 @@ export class NotificationsController {
  *
  * API 접두어 밖에 있다(main.ts의 exclude).
  */
+@ApiTags('알림')
 @Controller()
 export class NotificationRedirectController {
   constructor(
@@ -93,6 +124,16 @@ export class NotificationRedirectController {
   ) {}
 
   @Get('n/:deliveryId')
+  @ApiOperation({
+    summary: '알림 딥링크 (302)',
+    description:
+      'Mattermost DM에 실리는 링크. `/api` 접두어 밖에 있다. 모든 알림 링크가 이 하나의 형태다(design/20 §5.3).\n\n' +
+      '1. 클릭을 기록한다(`clickedAt`, 채널별 클릭률 측정)\n' +
+      '2. 세션이 없으면 `/login?redirect=<targetPath>`로 보낸다\n' +
+      '3. 세션이 있으면 알림의 `targetPath`(행동 화면)로 직행한다. 홈으로 보내고 다시 찾게 하지 않는다(FR-14.4)\n\n' +
+      '없는 id면 `/notifications`로.',
+  })
+  @ApiParam({ name: 'deliveryId', description: '발송 건 id (NotificationDelivery)' })
   async open(
     @Param('deliveryId') deliveryId: string,
     @Req() request: Request,

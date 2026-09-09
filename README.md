@@ -76,6 +76,10 @@ npm run dev:web    # http://localhost:5173
 
 `web`이 `/api`와 `/n`을 `api`로 프록시한다. 세션 쿠키를 같은 오리진에서 주고받기 위해서다.
 
+API 목록과 각 엔드포인트가 강제하는 정책은 `http://localhost:3000/api/docs`(Swagger)에서 본다.
+운영(`NODE_ENV=production`)에서는 뜨지 않는다. 요청 본문은 Zod 스키마라 Swagger가 읽지 못해
+컨트롤러에 직접 적어 두었다 — `packages/shared/src/schemas.ts`를 고치면 그쪽도 맞춘다.
+
 ## 자주 쓰는 명령
 
 ```bash
