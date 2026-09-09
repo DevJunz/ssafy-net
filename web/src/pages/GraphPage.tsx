@@ -11,7 +11,9 @@ import type {
   SimilarPeopleResponse,
 } from '@ssafy-net/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { GRAPH_MIN_WIDTH_QUERY, useMediaQuery } from '../components/useMediaQuery';
 import {
   ConnectionOverlay,
   RequestComposeOverlay,
@@ -45,6 +47,7 @@ type Selection =
  */
 export function GraphPage() {
   const { me } = useSession();
+  const wideEnough = useMediaQuery(GRAPH_MIN_WIDTH_QUERY);
   const [anchor, setAnchor] = useState<Anchor>({ type: 'ME' });
   const [similarMode, setSimilarMode] = useState(false);
   const [selection, setSelection] = useState<Selection>(null);
@@ -275,6 +278,29 @@ export function GraphPage() {
 
   if (!me) return null;
 
+  // 그래프는 PC 전용이다(docs/06 §5). 좁은 화면은 요청 처리와 성립 확인만 한다.
+  if (!wideEnough) {
+    return (
+      <div className="scroll-page">
+        <main className="page">
+          <h1 className="page-title">그래프는 PC에서 볼 수 있습니다</h1>
+          <p className="page-lede">
+            휴대폰에서는 받은 요청을 처리하고 성립된 연결을 확인할 수 있습니다.
+            그래프에서 사람을 찾는 것은 넓은 화면에서 해주세요.
+          </p>
+          <div className="row wrap">
+            <Link className="button primary" to="/connections">
+              연결
+            </Link>
+            <Link className="button" to="/notifications">
+              알림
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="graph-layout">
       <InterestRail
@@ -399,7 +425,7 @@ export function GraphPage() {
       )}
 
       {toast && (
-        <div className="toast">
+        <div className="toast" role="status">
           {toast}
           <button type="button" onClick={() => setToast(null)}>닫기</button>
         </div>

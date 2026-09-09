@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SERVICE_NAME } from '@ssafy-net/shared';
 import { useSession } from '../session';
+import { BrandMark } from './BrandMark';
 import './shell.css';
 
 /**
@@ -22,10 +23,17 @@ export function Shell({
 
   return (
     <div className="shell">
-      <header className="nav">
-        <span className="brand">{SERVICE_NAME}</span>
+      <a className="skip-link" href="#main">
+        본문으로 건너뛰기
+      </a>
 
-        <nav>
+      <header className="nav">
+        <span className="brand">
+          <BrandMark />
+          <span>{SERVICE_NAME}</span>
+        </span>
+
+        <nav aria-label="주 메뉴">
           <NavLink to="/" end>
             그래프
           </NavLink>
@@ -43,7 +51,9 @@ export function Shell({
         <span className="who">{me?.displayName}</span>
       </header>
 
-      <div className="shell-body">{children}</div>
+      <div className="shell-body" id="main">
+        {children}
+      </div>
     </div>
   );
 }

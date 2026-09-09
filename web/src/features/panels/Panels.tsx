@@ -89,7 +89,7 @@ export function InterestPanel({
     <div className="panel">
       <h2>
         {detail.name}
-        {detail.mine && <span className="badge state" style={{ marginLeft: 8 }}>내 관심사</span>}
+        {detail.mine && <span className="badge state">내 관심사</span>}
       </h2>
       <p className="muted">
         {detail.categoryName} · {detail.holderCount}명
@@ -178,7 +178,7 @@ export function PersonPanel({
       <h2>
         {person.displayName}
         {person.displayNameType === 'REAL' && (
-          <span className="badge real" style={{ marginLeft: 8 }}>실명</span>
+          <span className="badge real">실명</span>
         )}
       </h2>
       {/* 실명은 연결됨 상태에서만 응답에 들어온다(docs/12 §1) */}

@@ -196,6 +196,25 @@ function handleGet(path: string): unknown {
     return state.networkDetail;
   }
 
+  // 받은 요청 상세. 캡처에 없으므로 목록 항목으로 만든다. 없으면 상세 화면이 렌더 중에 죽는다.
+  if (base.startsWith('/connection-requests/')) {
+    const id = base.split('/')[2];
+    const request = state.received.find((r) => r.id === id);
+    if (request) {
+      return {
+        id: request.id,
+        from: request.from,
+        commonInterests: request.commonInterests ?? [],
+        message: request.messagePreview,
+        createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+        expiresAt: request.expiresAt,
+        daysLeft: request.daysLeft,
+        revealsMyRealName: state.me.displayNameType === 'NICKNAME',
+        myRealName: state.me.realName,
+      };
+    }
+  }
+
   const exact = fixtures[path] ?? fixtures[base];
   return exact ?? fallbackFor(path) ?? {};
 }

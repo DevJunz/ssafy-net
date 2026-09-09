@@ -96,7 +96,9 @@ export function MattermostStep({
           onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
           placeholder="000000"
           maxLength={6}
-          style={{ fontSize: 22, letterSpacing: 6, textAlign: 'center' }}
+          className="code-input"
+          inputMode="numeric"
+          autoComplete="one-time-code"
         />
 
         {error && <p className="error">{error}</p>}
@@ -164,7 +166,7 @@ export function MattermostStep({
 
       <div className="card">
         <span className="muted">연결이 성립되면 이렇게 보입니다</span>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>{preview}</div>
+        <div className="name">{preview}</div>
       </div>
 
       {error && <p className="error">{error}</p>}

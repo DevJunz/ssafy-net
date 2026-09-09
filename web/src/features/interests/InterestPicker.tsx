@@ -5,6 +5,7 @@ import type {
 } from '@ssafy-net/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, RequestFailed } from '../../api/client';
+import { SkeletonRows } from '../../components/Skeleton';
 import { CreateInterest } from './CreateInterest';
 
 /**
@@ -72,7 +73,7 @@ export function InterestPicker({
   }, [catalog]);
 
   if (!catalog) {
-    return <p className="muted">{error ?? '불러오는 중…'}</p>;
+    return error ? <p className="error">{error}</p> : <SkeletonRows count={4} />;
   }
 
   const { min, max } = catalog;

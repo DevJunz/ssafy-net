@@ -98,6 +98,8 @@ docker exec -i ssafy-net-db psql -U ssafynet -d ssafynet \
 - Mattermost 알림 + 앱 내 알림함 + 딥링크, 배치 10종
 - Network 추천(후보 생성·노출·참여·성립), Interest Post, 묶음 알림
 - 관심사 100개 확정본(`api/prisma/seed/interests.ts`) + 사용자 직접 추가(추가 전 중복·유사 검사), 활동하는 층 선택, 반 1~22 선택
+- 반응형: 휴대폰에서는 요청 처리·성립 확인·알림함만 제공하고 그래프는 PC 안내로 대체한다(docs/06 §5). 알림 딥링크가 로그인을 거쳐도 원래 목적지로 돌아온다
+- 디자인 토큰은 `web/src/index.css` 머리에 있다. 본문 글꼴 Pretendard는 `web/index.html`에서 jsDelivr로 받고, 막힌 망에서는 시스템 글꼴로 대체된다
 
 ## 진행 상황
 

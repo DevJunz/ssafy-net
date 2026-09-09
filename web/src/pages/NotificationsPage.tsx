@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { SkeletonRows } from '../components/Skeleton';
 
 interface NotificationItem {
   id: string;
@@ -58,12 +59,11 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
   const Row = ({ item }: { item: NotificationItem }) => (
     <button
       type="button"
-      className="card-row"
+      className={`card-row ${item.readAt ? 'read' : ''}`}
       onClick={() => void open(item)}
-      style={item.readAt ? { opacity: 0.66 } : undefined}
     >
       <div className="body">
-        <div className="sub" style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>
+        <div className="text">
           {/* 서버가 만든 문구를 그대로 쓴다. 판단 근거가 이미 들어 있다(FR-14.3) */}
           {item.text.replace(/\*\*/g, '').replace(/^> /gm, '“').trim()}
         </div>
@@ -80,16 +80,16 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="scroll-page">
-      <main className="page" style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 22, marginBottom: 4 }}>알림</h1>
-        <p className="muted">
+      <main className="page">
+        <h1 className="page-title">알림</h1>
+        <p className="page-lede">
           알림은 Mattermost로도 갑니다. 여기서도 언제든 다시 볼 수 있습니다.
         </p>
 
         {loading ? (
-          <p className="muted">불러오는 중…</p>
+          <SkeletonRows count={4} />
         ) : items.length === 0 ? (
-          <div className="notice" style={{ marginTop: 20 }}>
+          <div className="notice">
             아직 알림이 없습니다. 누군가 연결을 요청하면 여기와 Mattermost로
             알려드립니다.
           </div>
@@ -97,9 +97,7 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
           <>
             {pending.length > 0 && (
               <div className="section">
-                <div className="rail-title" style={{ margin: '0 0 8px' }}>
-                  처리가 필요한 것
-                </div>
+                <div className="section-label">처리가 필요한 것</div>
                 {pending.map((item) => (
                   <Row key={item.id} item={item} />
                 ))}
@@ -109,9 +107,7 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
             {rest.length > 0 && (
               <div className="section">
                 {pending.length > 0 && (
-                  <div className="rail-title" style={{ margin: '0 0 8px' }}>
-                    지난 알림
-                  </div>
+                  <div className="section-label">지난 알림</div>
                 )}
                 {rest.map((item) => (
                   <Row key={item.id} item={item} />

@@ -50,7 +50,12 @@ export function NetworkOverlay({
 
   return (
     <div className="overlay-backdrop" onClick={onClose}>
-      <div className="overlay" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="overlay"
+        role="dialog"
+        aria-modal="true"
+        onClick={(event) => event.stopPropagation()}
+      >
         <h2>{activated ? '네트워크가 성립되었습니다' : '추천 네트워크'}</h2>
         {/* 이유가 완전해야 한다: 개수와 이름을 전부 보여준다(docs/13 원칙 3) */}
         <p className="muted">{detail.reason}</p>

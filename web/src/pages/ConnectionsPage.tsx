@@ -7,6 +7,7 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { SkeletonRows } from '../components/Skeleton';
 import {
   ConnectionOverlay,
   RequestDetailOverlay,
@@ -32,6 +33,8 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
   const [received, setReceived] = useState<ReceivedRequestSummary[]>([]);
   const [sent, setSent] = useState<SentRequestSummary[]>([]);
   const [connections, setConnections] = useState<ConnectionSummary[]>([]);
+  // 첫 응답이 오기 전에는 빈 상태 문구를 보여주지 않는다. "아직 없습니다"가 거짓이 된다.
+  const [loading, setLoading] = useState(true);
 
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   const [openConnection, setOpenConnection] = useState<ConnectionDetail | null>(null);
@@ -47,6 +50,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
     setReceived(r);
     setSent(s);
     setConnections(c);
+    setLoading(false);
     onChanged();
   }, [onChanged]);
 
@@ -94,8 +98,8 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="scroll-page">
-      <main className="page" style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 22, marginBottom: 18 }}>연결</h1>
+      <main className="page">
+        <h1 className="page-title">연결</h1>
 
         <div className="tabs">
           <button
@@ -122,7 +126,10 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
           </button>
         </div>
 
-        {tab === 'received' &&
+        {loading && <SkeletonRows />}
+
+        {!loading &&
+          tab === 'received' &&
           (received.length === 0 ? (
             <div className="notice">
               아직 받은 요청이 없습니다. 관심사를 늘리면 발견될 가능성이 높아집니다.
@@ -150,7 +157,8 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
             ))
           ))}
 
-        {tab === 'sent' &&
+        {!loading &&
+          tab === 'sent' &&
           (sent.length === 0 ? (
             <div className="notice">아직 보낸 요청이 없습니다.</div>
           ) : (
@@ -169,11 +177,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
                   {item.canCancel && (
                     <>
                       <br />
-                      <button
-                        type="button"
-                        style={{ padding: '3px 9px', fontSize: 12, marginTop: 5 }}
-                        onClick={() => void cancel(item.id)}
-                      >
+                      <button type="button" onClick={() => void cancel(item.id)}>
                         취소
                       </button>
                     </>
@@ -183,7 +187,8 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
             ))
           ))}
 
-        {tab === 'connected' &&
+        {!loading &&
+          tab === 'connected' &&
           (connections.length === 0 ? (
             <div className="notice">
               아직 연결된 사람이 없습니다. 그래프에서 나와 비슷한 사람을 찾아보세요.
@@ -244,7 +249,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
       )}
 
       {undo && (
-        <div className="toast">
+        <div className="toast" role="status">
           요청을 거절했습니다. 상대에게는 알려지지 않습니다.
           <button
             type="button"

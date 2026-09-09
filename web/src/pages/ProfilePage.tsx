@@ -19,40 +19,34 @@ export function ProfilePage() {
 
   return (
     <div className="scroll-page">
-      <main className="page" style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 22, marginBottom: 4 }}>내 프로필</h1>
-        <p className="muted">
+      <main className="page">
+        <h1 className="page-title">내 프로필</h1>
+        <p className="page-lede">
           관심사는 조직 구성원 전체에게 보입니다. 실명은 연결이 성립될 때만
           공개됩니다.
         </p>
 
-        <div className="section" style={{ display: 'flex', gap: 12 }}>
-          <div className="card" style={{ flex: 1 }}>
+        <div className="preview-pair">
+          <div className="card">
             <span className="muted">연결 전에 보이는 모습</span>
-            <div style={{ fontSize: 17, fontWeight: 650, marginTop: 4 }}>
+            <div className="name">
               {me.displayName}
               {me.displayNameType === 'REAL' && (
-                <span className="badge real" style={{ marginLeft: 8 }}>실명</span>
+                <span className="badge real">실명</span>
               )}
             </div>
-            <div className="muted" style={{ fontSize: 13 }}>
-              관심사 {me.interests.length}개
-            </div>
+            <div className="muted small">관심사 {me.interests.length}개</div>
           </div>
 
-          <div className="card" style={{ flex: 1 }}>
+          <div className="card">
             <span className="muted">연결된 상대에게 보이는 모습</span>
-            <div style={{ fontSize: 17, fontWeight: 650, marginTop: 4 }}>
-              {me.realName}
-            </div>
-            <div className="muted" style={{ fontSize: 13 }}>
-              관심사 {me.interests.length}개
-            </div>
+            <div className="name">{me.realName}</div>
+            <div className="muted small">관심사 {me.interests.length}개</div>
           </div>
         </div>
 
         <div className="section">
-          <h2 style={{ fontSize: 17 }}>관심사 수정</h2>
+          <h2 className="section-title">관심사 수정</h2>
           <p className="muted">저장하면 그래프와 추천이 즉시 바뀝니다.</p>
           {notice && <p className="muted">{notice}</p>}
           <InterestPicker
@@ -65,7 +59,7 @@ export function ProfilePage() {
         </div>
 
         <div className="section">
-          <h2 style={{ fontSize: 17 }}>내가 쓴 글</h2>
+          <h2 className="section-title">내가 쓴 글</h2>
           <MyPosts />
         </div>
       </main>

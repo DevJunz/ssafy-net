@@ -2,6 +2,7 @@ import type { NetworkDetail, NetworkSummary } from '@ssafy-net/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
+import { SkeletonRows } from '../components/Skeleton';
 import { NetworkOverlay } from '../features/networks/NetworkOverlay';
 
 type Tab = 'recommended' | 'joined' | 'activated';
@@ -21,11 +22,14 @@ const TABS: { key: Tab; label: string }[] = [
 export function NetworksPage({ onChanged }: { onChanged: () => void }) {
   const [tab, setTab] = useState<Tab>('recommended');
   const [items, setItems] = useState<NetworkSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<NetworkDetail | null>(null);
   const [params, setParams] = useSearchParams();
 
   const reload = useCallback(async () => {
+    setLoading(true);
     setItems(await api.get<NetworkSummary[]>(`/networks?tab=${tab}`));
+    setLoading(false);
     onChanged();
   }, [tab, onChanged]);
 
@@ -52,14 +56,14 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="scroll-page">
-      <main className="page" style={{ maxWidth: 760 }}>
-        <h1 style={{ fontSize: 22, marginBottom: 4 }}>네트워크</h1>
-        <p className="muted">
+      <main className="page">
+        <h1 className="page-title">네트워크</h1>
+        <p className="page-lede">
           여러 관심사를 함께 공유하는 3~6명의 그룹입니다. 참여한 사람이 3명이
           되면 성립합니다.
         </p>
 
-        <div className="tabs" style={{ marginTop: 18 }}>
+        <div className="tabs">
           {TABS.map((item) => (
             <button
               key={item.key}
@@ -72,7 +76,9 @@ export function NetworksPage({ onChanged }: { onChanged: () => void }) {
           ))}
         </div>
 
-        {items.length === 0 ? (
+        {loading ? (
+          <SkeletonRows />
+        ) : items.length === 0 ? (
           <div className="notice">
             {tab === 'recommended'
               ? '아직 나에게 맞는 네트워크가 없습니다. 관심사를 더 고르면 생길 수 있습니다.'
