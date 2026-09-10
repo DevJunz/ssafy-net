@@ -16,7 +16,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 /**
  * 전역 내비게이션 (docs/05 §2).
- * 그래프 · 연결 · 네트워크(S2) · 알림 · 내 프로필. 이 이상 늘리지 않는다.
+ * 커넥션(그래프 홈) · 연결 · 네트워크(S2) · 알림. 이 이상 늘리지 않는다.
+ * 내 프로필은 메뉴가 아니라 오른쪽 위의 내 표시명을 눌러 간다(2026-09-10, 사용자 결정).
  * 네트워크는 데이터 게이트를 통과해야 나타난다(docs/10 §4).
  */
 export function Shell({
@@ -53,7 +54,7 @@ export function Shell({
           className="flex min-w-0 gap-0.5 max-sm:flex-1 max-sm:overflow-x-auto max-sm:[scrollbar-width:none]"
         >
           <NavLink to="/" end className={navLinkClass}>
-            그래프
+            커넥션
           </NavLink>
           <NavLink to="/connections" className={navLinkClass}>
             연결
@@ -66,7 +67,7 @@ export function Shell({
           )}
           <NavLink to="/notifications" className={navLinkClass}>
             알림
-            {/* 배지는 처리가 필요한 것의 수다. 0이면 할 일이 없다는 뜻이어야 한다(D-31) */}
+            {/* 배지는 아직 확인하지 않은 알림 수다. 알림함을 열면 사라진다(D-81) */}
             {badge ? (
               <Badge
                 variant="destructive"
@@ -75,9 +76,6 @@ export function Shell({
                 {badge}
               </Badge>
             ) : null}
-          </NavLink>
-          <NavLink to="/profile" className={navLinkClass}>
-            내 프로필
           </NavLink>
         </nav>
 
@@ -88,9 +86,17 @@ export function Shell({
               운영
             </NavLink>
           )}
-          <span className="max-w-[180px] truncate text-[13px] text-muted-foreground max-sm:hidden">
-            {me?.displayName}
-          </span>
+          {/* 내 표시명이 곧 프로필 입구다. 좁은 화면에서도 남긴다 — 프로필로 가는 유일한 길이라서 */}
+          <NavLink
+            to="/profile"
+            className={(state) =>
+              cn(navLinkClass(state), 'max-w-[220px] max-sm:max-w-[140px]')
+            }
+            title="내 프로필"
+            aria-label="내 프로필"
+          >
+            <span className="truncate">{me?.displayName}</span>
+          </NavLink>
         </span>
       </header>
 

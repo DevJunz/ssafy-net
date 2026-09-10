@@ -468,16 +468,17 @@ DELETE /api/posts/:id
 ```
 GET  /api/notifications?cursor=
 GET  /api/notifications/badge
+POST /api/notifications/read-all         알림함을 열 때. 미읽음 전부에 readAt (D-81)
 POST /api/notifications/:id/read
 GET  /n/:deliveryId                     (API 아님. 302 리다이렉트)
 ```
 
 ```json
 // GET /api/notifications/badge
-{ "count": 3, "breakdown": { "receivedRequests": 2, "unseenConnections": 1, "followUps": 0 } }
+{ "count": 3 }
 ```
 
-- **배지는 처리가 필요한 것의 수다**(D-31). 미읽음 수가 아니다. 0이면 할 일이 없다는 뜻이어야 한다.
+- **배지는 아직 확인하지 않은 알림의 수다**(D-81, D-31 대체) — `readAt`이 없는 것. 알림함을 열면 프론트가 `POST /notifications/read-all`을 불러 0이 된다. 처리가 남은 것은 알림함의 "처리가 필요한 것" 구역(`actionRequired && !resolved`)이 보여 준다.
 - 알림 항목에는 판단 근거(표시명, 공통 관심사 개수와 이름, 메시지 첫 줄)가 들어간다(FR-14.3).
 - **알림에 수락/거절 같은 행동 필드를 넣지 않는다**(D-25). `targetPath`만 준다.
 - `/n/:deliveryId`: 클릭 기록 → 로그인 확인(없으면 `?redirect=`로 OAuth) → `targetPath`로 302. 대상이 이미 처리됐으면 "이미 처리된 항목입니다" 화면으로(07 §6).
@@ -499,7 +500,7 @@ POST   /api/me/external-channels             (S3a, B-4 확인 후)
 DELETE /api/me                               탈퇴
 ```
 
-`PATCH /me/display-name` 은 구현했다(2026-09-10). 온보딩의 `POST /onboarding/display-name` 과 같은 입력이고, 입력 중 검사도 온보딩의 `GET /onboarding/nickname-check` 를 그대로 쓴다. 나머지(`preview`·`real-name`·알림 설정·탈퇴)는 아직 없다 — 프로필 화면의 미리보기는 `GET /me` 로 그린다.
+`PATCH /me/display-name` 은 구현했다(2026-09-10). 온보딩의 `POST /onboarding/display-name` 과 같은 입력이고, 입력 중 검사도 온보딩의 `GET /onboarding/nickname-check` 를 그대로 쓴다. `PATCH /me/real-name` 도 같은 날 구현했다 — 입력은 온보딩 1단계와 같은 `{ realName, classNo }`(캠퍼스 고정, D-47), 응답 `{ realName }` 은 조합된 전체 실명이고 `SelfUser.identity` 가 지금 값이다. 하루 1회 규칙은 표시명에만 걸린다. 나머지(`preview`·알림 설정·탈퇴)는 아직 없다 — 프로필 화면의 미리보기는 `GET /me` 로 그린다.
 
 | 규칙 | 근거 |
 |---|---|
@@ -605,7 +606,7 @@ PUT  /api/admin/parameters/:key              { "value": 2, "reason": "추천 0�
 | Connections 3탭 | `GET /api/connection-requests?box=`, `GET /api/connections` |
 | Networks 3탭 | `GET /api/networks?tab=` |
 | Notifications | `GET /api/notifications` |
-| My Profile | `GET /api/me`, `PATCH /api/me/display-name`, `PUT /api/me/interests` |
+| My Profile | `GET /api/me`, `PATCH /api/me/display-name`, `PATCH /api/me/real-name`, `PUT /api/me/interests` |
 | Settings | `GET/PUT /api/me/notification-settings` |
 | Overlay 요청 작성 | `GET /api/me/request-quota` → `POST /api/connection-requests` |
 | Overlay 요청 상세 | `GET /api/connection-requests/:id` → accept/reject |

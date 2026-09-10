@@ -65,6 +65,11 @@ const listOf = (value: any): Json[] =>
 function freshState(): State {
   const scene = currentScene();
   const me = clone(fixtures['/me']);
+  // 캡처가 옛 형태라 실명의 재료(identity)가 없다. 전체 실명 "이름_서울_N반" 에서 나눈다.
+  if (!me.identity) {
+    const [realName = '', campus = '서울', classNo = ''] = String(me.realName ?? '').split('_');
+    me.identity = { realName, classNo, campus };
+  }
   return {
     me: scene === 'onboarding' ? { ...me, status: 'ONBOARDING' } : me,
     catalog: clone(fixtures['/interests']),
@@ -136,7 +141,7 @@ function handleGet(path: string): unknown {
     case '/notifications':
       return state.notifications;
     case '/notifications/badge':
-      return { count: state.notifications.filter((n) => n.actionRequired && !n.resolvedAt).length };
+      return { count: state.notifications.filter((n) => !n.readAt).length };
     case '/follow-ups/pending':
       return state.followUps;
     case '/connections':
@@ -370,6 +375,13 @@ function handleMutation(method: string, path: string, body: Json): unknown {
     return { ok: true };
   }
 
+  // 알림함을 열면 전부 읽음(D-81)
+  if (method === 'POST' && base === '/notifications/read-all') {
+    const now = new Date().toISOString();
+    state.notifications = state.notifications.map((n) => (n.readAt ? n : { ...n, readAt: now }));
+    return { count: 0 };
+  }
+
   // 알림 읽음
   if (method === 'POST' && base.startsWith('/notifications/')) {
     state.notifications = state.notifications.map((n) =>
@@ -492,6 +504,16 @@ function handleMutation(method: string, path: string, body: Json): unknown {
       displayName: body.type === 'REAL' ? state.me.realName : body.nickname,
     };
     return { displayName: state.me.displayName };
+  }
+  if (method === 'PATCH' && base === '/me/real-name') {
+    const realName = `${body.realName}_서울_${body.classNo}`;
+    state.me = {
+      ...state.me,
+      realName,
+      identity: { realName: body.realName, classNo: body.classNo, campus: '서울' },
+      displayName: state.me.displayNameType === 'REAL' ? realName : state.me.displayName,
+    };
+    return { realName };
   }
   if (method === 'POST' && base === '/onboarding/complete') {
     state.onboardingStep = 'DONE';

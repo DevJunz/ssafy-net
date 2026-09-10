@@ -66,6 +66,8 @@ export interface SelfUser extends ConnectedUser {
   requestSuspended: boolean;
   /** 표시명을 다음에 바꿀 수 있는 시각(ISO). 지금 바꿀 수 있으면 null. 하루 1회(docs/12 §3) */
   displayNameChangeableAt: string | null;
+  /** 실명의 재료(이름·반·캠퍼스). 실명 수정 폼이 쓴다. 표시용 전체 실명은 `realName` */
+  identity: { realName: string | null; classNo: string | null; campus: string };
 }
 
 export type OnboardingStep =

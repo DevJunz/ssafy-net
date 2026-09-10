@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '../api/client';
 import {
+  Chips,
+  ChipTag,
   Muted,
   Page,
   PageLede,
@@ -15,6 +17,7 @@ import {
 import { InterestPicker } from '../features/interests/InterestPicker';
 import { MyPosts } from '../features/posts/MyPosts';
 import { DisplayNameForm } from '../features/profile/DisplayNameForm';
+import { RealNameForm } from '../features/profile/RealNameForm';
 import { useSession } from '../session';
 
 /** "9월 11일 오후 2:20" — 다음 변경 가능 시각 안내에 쓴다. */
@@ -32,13 +35,15 @@ const formatWhen = (date: Date) =>
  * 남에게 보이는 모습을 "연결 전 / 연결 후" 두 가지로 미리 보여준다.
  * 표시명 선택의 결과를 여기서 실감하게 하는 것이 목적이다.
  *
- * 표시명(닉네임 ↔ 실명)은 여기서 바꾼다. 하루 1회(docs/12 §3).
+ * 표시명(닉네임 ↔ 실명, 닉네임 바꾸기)은 하루 1회(docs/12 §3).
+ * 실명(이름·반)은 언제든 고친다 — 연결된 상대에게 보이는 이름이라 오타를 막지 않는다.
  * 관심사 수정은 온보딩과 같은 화면을 쓴다(D-24).
  */
 export function ProfilePage() {
   const { me, reload } = useSession();
-  const [notice, setNotice] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
+  const [editingInterests, setEditingInterests] = useState(false);
+  const [editingRealName, setEditingRealName] = useState(false);
 
   if (!me) return null;
 
@@ -87,6 +92,7 @@ export function ProfilePage() {
         <div className="mt-6">
           <SectionTitle>표시명</SectionTitle>
           <Muted>
+            닉네임으로 활동할지 실명으로 활동할지 고르고, 닉네임도 여기서 바꿉니다.
             바꾸면 진행 중인 요청의 상대와 추천 목록에도 새 표시명이 보입니다.
             하루에 한 번 바꿀 수 있습니다.
           </Muted>
@@ -111,33 +117,103 @@ export function ProfilePage() {
               />
             </div>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3"
-              onClick={() => setEditingName(true)}
-            >
-              표시명 바꾸기
-            </Button>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-[15px] font-semibold">
+                {me.displayNameType === 'REAL' ? '실명으로 활동 중' : '닉네임으로 활동 중'}
+                {me.displayNameType === 'NICKNAME' && (
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    {me.displayName}
+                  </span>
+                )}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingName(true)}
+              >
+                표시명 바꾸기
+              </Button>
+            </div>
           )}
         </div>
 
         <div className="mt-6">
-          <SectionTitle>관심사 수정</SectionTitle>
-          <Muted>저장하면 그래프와 추천이 즉시 바뀝니다.</Muted>
-          {notice && <Muted>{notice}</Muted>}
-          <InterestPicker
-            submitLabel="저장"
-            onSaved={(message) => {
-              setNotice(message);
-              void reload();
-            }}
-          />
+          <SectionTitle>실명</SectionTitle>
+          <Muted>
+            연결이 성립된 상대에게 보이는 이름입니다. 실명으로 활동 중이면 처음부터
+            보입니다. 이름과 반을 고칠 수 있습니다.
+          </Muted>
+          {editingRealName ? (
+            <div className="mt-3">
+              <RealNameForm
+                initial={{
+                  realName: me.identity.realName ?? '',
+                  classNo: me.identity.classNo ?? '',
+                }}
+                onSubmit={async (input) => {
+                  await api.patch('/me/real-name', input);
+                  await reload();
+                  setEditingRealName(false);
+                  toast.success('실명을 바꿨습니다.');
+                }}
+                onCancel={() => setEditingRealName(false)}
+              />
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-[15px] font-semibold">{me.realName || '아직 없음'}</span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingRealName(true)}
+              >
+                실명 수정
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="mt-6">
           <SectionTitle>내가 쓴 글</SectionTitle>
           <MyPosts />
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle>관심사</SectionTitle>
+          <Muted>
+            그래프와 추천의 재료입니다. 저장하면 그래프와 추천이 즉시 바뀝니다.
+          </Muted>
+          {editingInterests ? (
+            // 온보딩과 같은 선택 화면(D-24)을 상자에 넣는다. 안에서 스크롤하고 저장·취소는 발에 있다.
+            <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-xs">
+              <InterestPicker
+                embedded
+                submitLabel="저장"
+                onSaved={async (message) => {
+                  await reload();
+                  setEditingInterests(false);
+                  toast.success(message ?? '관심사를 저장했습니다.');
+                }}
+                onCancel={() => setEditingInterests(false)}
+              />
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Chips>
+                {me.interests.map((interest) => (
+                  <ChipTag key={interest.id}>{interest.name}</ChipTag>
+                ))}
+              </Chips>
+              <Button
+                type="button"
+                variant="outline"
+                className="ml-1"
+                onClick={() => setEditingInterests(true)}
+              >
+                관심사 수정
+              </Button>
+            </div>
+          )}
         </div>
       </Page>
     </ScrollPage>

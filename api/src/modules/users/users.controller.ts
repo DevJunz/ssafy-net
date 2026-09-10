@@ -15,7 +15,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
-import { displayNameSchema, type DisplayNameInput } from '@ssafy-net/shared';
+import {
+  displayNameSchema,
+  identitySchema,
+  type DisplayNameInput,
+  type IdentityInput,
+} from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AnalyticsService } from '../analytics/analytics.service';
@@ -85,6 +90,33 @@ export class UsersController {
     @Body(new ZodValidationPipe(displayNameSchema)) body: DisplayNameInput,
   ) {
     return this.users.setDisplayName(user, body);
+  }
+
+  /** 실명 수정(docs/06 §3.10). 온보딩 1단계에서 적은 이름·반을 고친다. */
+  @Patch('me/real-name')
+  @UseGuards(OnboardedGuard)
+  @ApiOperation({
+    summary: '실명 수정 (My Profile)',
+    description:
+      '`{ realName, classNo }`. 캠퍼스는 고정이라 받지 않는다(D-47). 전체 실명은 `이름_서울_N반` 으로 조합된다. ' +
+      '연결된 상대에게 보이는 이름이 바뀌고, 실명으로 활동 중이면 표시명도 바로 바뀐다. 하루 1회 규칙은 표시명 선택에만 걸린다(docs/12 §3). ' +
+      '같은 값을 보내면 아무것도 바꾸지 않고 200. 응답 `{ realName }` 은 조합된 전체 실명이다. `SelfUser.identity` 가 지금 값.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['realName', 'classNo'],
+      properties: {
+        realName: { type: 'string', minLength: 1, maxLength: 20, example: '최준환' },
+        classNo: { type: 'string', example: '18반', description: '"N반" 형식, 1~22' },
+      },
+    },
+  })
+  setRealName(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(identitySchema)) body: IdentityInput,
+  ) {
+    return this.users.setRealName(user, body);
   }
 
   @Get('users/:id')

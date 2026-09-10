@@ -18,7 +18,7 @@ export const classNoSchema = z
   }, `반은 1반부터 ${CLASS_COUNT}반까지 있습니다.`);
 
 export const identitySchema = z.object({
-  realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20),
+  realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20, '이름은 20자까지입니다.'),
   classNo: classNoSchema,
 });
 export type IdentityInput = z.infer<typeof identitySchema>;
@@ -38,7 +38,7 @@ export const mattermostSendSchema = z.object({
     .min(3, 'Mattermost 아이디를 입력해주세요.')
     .max(64)
     .regex(/^@?[A-Za-z0-9._-]+$/, '아이디 형식이 아닙니다.'),
-  realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20),
+  realName: z.string().trim().min(1, '이름을 입력해주세요.').max(20, '이름은 20자까지입니다.'),
   classNo: classNoSchema,
 });
 export type MattermostSendInput = z.infer<typeof mattermostSendSchema>;

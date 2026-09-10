@@ -41,7 +41,7 @@ export class NotificationsController {
       '`[{ id, type, text, targetPath, actionRequired, resolved, readAt, createdAt }]`\n\n' +
       '- `text`는 판단 근거(표시명, 공통 관심사, 메시지 첫 줄)를 넣어 서버가 완성한 문장(FR-14.3)\n' +
       '- 수락/거절 같은 행동 필드는 없다(D-25). `targetPath`로 행동 화면에 직행한다\n' +
-      '- `actionRequired`가 true이고 `resolved`가 false면 배지에 센다',
+      '- 배지는 `readAt`이 없는 것의 수다(D-81). 알림함을 열면 `POST /notifications/read-all` 로 전부 읽음이 된다',
   })
   @ApiQuery({ name: 'limit', required: false, description: '기본 50, 최대 100' })
   async list(
@@ -70,27 +70,42 @@ export class NotificationsController {
   }
 
   /**
-   * 배지 = **처리가 필요한 것의 수**다(D-31). 단순 미읽음 수가 아니다.
-   * 0이면 할 일이 없다는 뜻이어야 한다.
+   * 배지 = **아직 확인하지 않은 알림 수**다(D-81). 알림함을 열면 0이 된다.
+   * 처리가 남은 것은 알림함 위쪽 "처리가 필요한 것"과 연결 화면이 보여 준다.
    */
   @Get('badge')
   @ApiOperation({
     summary: '배지 수',
     description:
-      '`{ count }`. **처리가 필요한 것의 수**다(D-31). 미읽음 수가 아니다. ' +
-      '받은 요청·아직 열지 않은 성립·답하지 않은 후속 확인처럼 행동이 남은 것만 센다. 0이면 할 일이 없다는 뜻이어야 한다.',
+      '`{ count }`. **아직 확인하지 않은 알림 수**다(D-81) — `readAt`이 없는 것. ' +
+      '알림함을 열면 `POST /notifications/read-all` 이 전부 읽음으로 만들어 0이 된다. 처리가 남은 것은 알림함의 "처리가 필요한 것" 구역이 보여 준다.',
   })
   async badge(@CurrentUser() user: User) {
     const count = await this.prisma.notification.count({
-      where: { userId: user.id, actionRequired: true, resolvedAt: null },
+      where: { userId: user.id, readAt: null },
     });
     return { count };
+  }
+
+  /** 알림함을 열면 부른다. 지금까지 온 것을 전부 확인한 것으로 친다(D-81). */
+  @Post('read-all')
+  @ApiOperation({
+    summary: '알림 전부 읽음 처리',
+    description:
+      '알림함을 열 때 부른다. `readAt`이 없는 내 알림 전부에 지금 시각을 적는다. 배지가 0이 된다(D-81). `{ count }` 는 이번에 읽음이 된 수.',
+  })
+  async readAll(@CurrentUser() user: User) {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId: user.id, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { count: result.count };
   }
 
   @Post(':id/read')
   @ApiOperation({
     summary: '알림 읽음 처리',
-    description: '`readAt`만 기록한다. 배지 수와는 무관하다 — 배지는 행동을 해야 줄어든다.',
+    description: '`readAt`을 기록한다. 배지는 읽지 않은 알림 수라(D-81) 하나 줄어든다.',
   })
   @ApiParam({ name: 'id', description: '알림 UUID' })
   async read(

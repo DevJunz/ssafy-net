@@ -29,8 +29,8 @@ function AuthenticatedApp() {
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
 
   /**
-   * 배지는 **처리가 필요한 것의 수**다(D-31). 미읽음 수가 아니다.
-   * 0이면 할 일이 없다는 뜻이어야 한다.
+   * 배지는 **아직 확인하지 않은 알림 수**다(D-81). 알림함을 열면 0이 된다.
+   * 후속 확인은 별개로 받아 어느 화면 위에서든 띄운다.
    */
   const refreshBadge = useCallback(async () => {
     const [count, pending] = await Promise.all([

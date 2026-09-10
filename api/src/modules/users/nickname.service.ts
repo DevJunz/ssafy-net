@@ -12,7 +12,8 @@ export type NicknameVerdict =
         | 'NICKNAME_INVALID';
     };
 
-const BANNED = ['운영자', '관리자', 'admin', 'ssafy', '싸피'];
+/** 닉네임에도 실명에도 못 쓰는 말. 운영자 사칭·조직명(docs/12 §3) */
+export const BANNED_WORDS = ['운영자', '관리자', 'admin', 'ssafy', '싸피'];
 
 /**
  * 닉네임 규칙 (docs/12 §3, D-49).
@@ -31,7 +32,7 @@ export class NicknameService {
     if (nickname.length < NICKNAME_MIN || nickname.length > NICKNAME_MAX) {
       return { ok: false, code: 'NICKNAME_INVALID' };
     }
-    if (BANNED.some((word) => nickname.toLowerCase().includes(word))) {
+    if (BANNED_WORDS.some((word) => nickname.toLowerCase().includes(word))) {
       return { ok: false, code: 'NICKNAME_INVALID' };
     }
 

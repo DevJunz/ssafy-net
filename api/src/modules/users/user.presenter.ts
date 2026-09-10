@@ -94,6 +94,11 @@ export class UserPresenter {
       requestSuspended: user.requestSuspended,
       displayNameChangeableAt:
         nextDisplayNameChangeAt(user)?.toISOString() ?? null,
+      identity: {
+        realName: user.realName,
+        classNo: user.classNo,
+        campus: user.campus,
+      },
     };
   }
 }

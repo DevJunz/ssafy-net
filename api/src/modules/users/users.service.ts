@@ -3,6 +3,7 @@ import type { User } from '@prisma/client';
 import type {
   ConnectedUser,
   DisplayNameInput,
+  IdentityInput,
   InterestRef,
   PublicUser,
 } from '@ssafy-net/shared';
@@ -11,7 +12,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RelationService } from '../connections/relation.service';
 import { PostsService } from '../posts/posts.service';
 import { nextDisplayNameChangeAt } from './display-name-policy';
-import { NicknameService } from './nickname.service';
+import { BANNED_WORDS, NicknameService } from './nickname.service';
 import { UserPresenter } from './user.presenter';
 
 @Injectable()
@@ -130,5 +131,36 @@ export class UsersService {
       },
     });
     return { displayName: this.presenter.displayName(updated) };
+  }
+
+  /**
+   * 실명 수정 (docs/06 §3.10). 이름과 반만 바뀐다 — 캠퍼스는 고정이다(D-47).
+   * 연결된 상대에게 보이는 이름이 바뀌고, 실명으로 활동 중이면 표시명도 바뀐다.
+   * 하루 1회 규칙은 표시명 선택에만 걸린다(docs/12 §3) — 오타 고치기를 막지 않는다.
+   */
+  async setRealName(
+    user: User,
+    input: IdentityInput,
+  ): Promise<{ realName: string }> {
+    const realName = input.realName.trim();
+    const classNo = input.classNo.trim();
+
+    if (BANNED_WORDS.some((word) => realName.toLowerCase().includes(word))) {
+      throw new AppError(
+        'VALIDATION_FAILED',
+        undefined,
+        '이름에 쓸 수 없는 말이 들어 있습니다.',
+      );
+    }
+
+    if (user.realName === realName && user.classNo === classNo) {
+      return { realName: this.presenter.fullRealName(user) ?? '' };
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { realName, classNo },
+    });
+    return { realName: this.presenter.fullRealName(updated) ?? '' };
   }
 }

@@ -42,7 +42,8 @@ function timeAgo(iso: string): string {
  * 나에게 온 것을 모아 보고 **바로 처리한다**. 항목을 누르면 홈이 아니라
  * 행동 화면으로 직행한다(FR-14.4).
  *
- * 처리가 필요한 것은 위에 고정한다. 배지가 0이면 여기 할 일이 없다는 뜻이다(D-31).
+ * 처리가 필요한 것은 위에 고정한다. 배지는 아직 확인하지 않은 알림 수이고,
+ * 이 화면을 열면 전부 확인한 것으로 쳐서 사라진다(D-81).
  */
 export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -50,8 +51,14 @@ export function NotificationsPage({ onChanged }: { onChanged: () => void }) {
   const navigate = useNavigate();
 
   const reload = useCallback(async () => {
-    setItems(await api.get<NotificationItem[]>('/notifications'));
+    const list = await api.get<NotificationItem[]>('/notifications');
+    setItems(list);
     setLoading(false);
+    // 알림함을 열어 본 것으로 확인이 끝난다. 배지는 여기서 0이 된다(D-81).
+    // 목록은 받은 그대로 두어, 이번에 새로 온 것은 다음 방문 전까지 흐려지지 않는다.
+    if (list.some((item) => !item.readAt)) {
+      await api.post('/notifications/read-all').catch(() => {});
+    }
     onChanged();
   }, [onChanged]);
 

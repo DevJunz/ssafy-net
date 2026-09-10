@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { api, RequestFailed } from '../../api/client';
 import { Chip, Chips, ErrorText, Muted } from '../../components/primitives';
 import { SkeletonRows } from '../../components/Skeleton';
@@ -26,13 +27,23 @@ import { CreateInterest } from './CreateInterest';
  *   - ATTRIBUTE: 활동하는 층처럼 분류당 하나만 고르는 속성. 개수에 세지 않는다
  *
  * 찾는 관심사가 없으면 여기서 바로 추가한다(D-74). 별도 제안 화면은 없다.
+ *
+ * `embedded` 는 My Profile 처럼 다른 화면 안에 상자로 들어갈 때다. 목록이 상자 안에서
+ * 스크롤되고(검색은 상자 위에 고정) 저장·취소 버튼은 상자 아래 발에 남는다 —
+ * 페이지 하나를 통째로 차지하는 온보딩과 달리, 다른 구역 사이에 얌전히 끼어야 한다.
  */
 export function InterestPicker({
   submitLabel,
   onSaved,
+  onCancel,
+  embedded = false,
 }: {
   submitLabel: string;
   onSaved: (notice: string | null) => void;
+  /** 있으면 취소 버튼이 생긴다(My Profile) */
+  onCancel?: () => void;
+  /** 상자 안에 들어가는 형태. 높이를 제한하고 안에서 스크롤한다 */
+  embedded?: boolean;
 }) {
   const [catalog, setCatalog] = useState<InterestCatalog | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -77,7 +88,11 @@ export function InterestPicker({
   }, [catalog]);
 
   if (!catalog) {
-    return error ? <ErrorText>{error}</ErrorText> : <SkeletonRows count={4} />;
+    return (
+      <div className={cn(embedded && 'p-5')}>
+        {error ? <ErrorText>{error}</ErrorText> : <SkeletonRows count={4} />}
+      </div>
+    );
   }
 
   const { min, max } = catalog;
@@ -207,142 +222,164 @@ export function InterestPicker({
     );
   };
 
-  return (
-    <div>
-      <div className="sticky top-0 z-[2] flex flex-col gap-4 border-b bg-background py-4">
-        <Input
-          type="text"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setCreating(false);
-          }}
-          placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
-          className="h-11 bg-card"
-        />
-
-        <Muted>
-          {topicCount}개 선택 · 최소 {min} · 최대 {max}
-        </Muted>
-
-        {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다. */}
-        {selected.size > 0 && (
-          <Chips>
-            {[...selected].map((id) => (
-              <Chip key={id} selected onClick={() => toggle(id)}>
-                {byId.get(id)?.name ?? id} ✕
-              </Chip>
-            ))}
-          </Chips>
-        )}
-
-        {!normalized && (
-          <Chips>
-            {catalog.categories.map((category) => (
-              <Button
-                key={category.id}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto rounded-full px-3 py-[5px] text-[13.5px] font-normal"
-                onClick={() =>
-                  sectionRefs.current[category.id]?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  })
-                }
-              >
-                {category.name}
-              </Button>
-            ))}
-          </Chips>
-        )}
-      </div>
-
-      {visibleTopics.map((category) => (
-        <div
-          key={category.id}
-          ref={(node) => {
-            sectionRefs.current[category.id] = node;
-          }}
-        >
-          <div className="mt-7 mb-2.5 font-semibold tracking-tight">{category.name}</div>
-          <Chips>
-            {category.interests.map((interest) => renderChip(interest, 'INTEREST'))}
-          </Chips>
-        </div>
-      ))}
-
-      {normalized && !exactExists && !creating && (
-        <Card className="mt-4 gap-0 rounded-xl py-[22px]">
-          <CardContent className="px-6">
-            <Muted className="inline">
-              {visibleTopics.length === 0 ? '검색 결과가 없습니다. ' : '찾는 것이 없나요? '}
-            </Muted>
-            {/* 문장 속에 놓이는 버튼. 링크처럼 보이되 버튼으로 동작한다. */}
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-[15px] underline underline-offset-2"
-              onClick={() => setCreating(true)}
-            >
-              “{query.trim()}” 관심사 추가하기
-            </Button>
-          </CardContent>
-        </Card>
+  // 안내와 저장 버튼. 온보딩에서는 목록 끝에, 상자 안에서는 상자의 발에 놓인다.
+  const footer = (
+    <>
+      {shortBy > 0 && (
+        <Muted>{shortBy}개 더 고르면 추천이 생길 가능성이 높아집니다.</Muted>
       )}
-
-      {creating && (
-        <CreateInterest
-          initialName={query.trim()}
-          categories={topics}
-          onCreated={onCreated}
-          onPickExisting={onPickExisting}
-          onClose={() => setCreating(false)}
-        />
+      {atMax && (
+        <Muted>최대 {max}개까지 고를 수 있습니다. 정말 중요한 것만 남겨보세요.</Muted>
       )}
+      {error && <ErrorText>{error}</ErrorText>}
 
-      {!normalized &&
-        attributes.map((category) => (
-          <div
-            key={category.id}
-            ref={(node) => {
-              sectionRefs.current[category.id] = node;
-            }}
-            className="mt-6"
-          >
-            <div className="mt-7 mb-2.5 font-semibold tracking-tight">
-              활동하는 {category.name}
-            </div>
-            <Muted className="mb-2 text-[13px]">
-              선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.
-              같은 {category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.
-            </Muted>
-            <Chips>
-              {category.interests.map((interest) => renderChip(interest, 'ATTRIBUTE'))}
-            </Chips>
-          </div>
-        ))}
-
-      <div className="mt-8 flex flex-col gap-4">
-        {shortBy > 0 && (
-          <Muted>{shortBy}개 더 고르면 추천이 생길 가능성이 높아집니다.</Muted>
-        )}
-        {atMax && (
-          <Muted>최대 {max}개까지 고를 수 있습니다. 정말 중요한 것만 남겨보세요.</Muted>
-        )}
-        {error && <ErrorText>{error}</ErrorText>}
-
+      <div className="flex gap-2">
         <Button
           type="button"
           size="lg"
-          className="self-start"
           disabled={shortBy > 0 || saving}
           onClick={() => void save()}
         >
           {submitLabel}
         </Button>
+        {onCancel && (
+          <Button type="button" size="lg" variant="outline" onClick={onCancel}>
+            취소
+          </Button>
+        )}
       </div>
+    </>
+  );
+
+  return (
+    <div className={cn(embedded && 'flex max-h-[72vh] min-h-0 flex-col')}>
+      <div className={cn(embedded && 'min-h-0 flex-1 overflow-y-auto px-5 pb-6')}>
+        <div
+          className={cn(
+            'sticky top-0 z-[2] flex flex-col gap-4 border-b py-4',
+            embedded ? 'bg-card' : 'bg-background',
+          )}
+        >
+          <Input
+            type="text"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setCreating(false);
+            }}
+            placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
+            className={cn('h-11', embedded ? 'bg-secondary/60' : 'bg-card')}
+          />
+
+          <Muted>
+            {topicCount}개 선택 · 최소 {min} · 최대 {max}
+          </Muted>
+
+          {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다. */}
+          {selected.size > 0 && (
+            <Chips>
+              {[...selected].map((id) => (
+                <Chip key={id} selected onClick={() => toggle(id)}>
+                  {byId.get(id)?.name ?? id} ✕
+                </Chip>
+              ))}
+            </Chips>
+          )}
+
+          {!normalized && (
+            <Chips>
+              {catalog.categories.map((category) => (
+                <Button
+                  key={category.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-auto rounded-full px-3 py-[5px] text-[13.5px] font-normal"
+                  onClick={() =>
+                    sectionRefs.current[category.id]?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    })
+                  }
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </Chips>
+          )}
+        </div>
+
+        {visibleTopics.map((category) => (
+          <div
+            key={category.id}
+            ref={(node) => {
+              sectionRefs.current[category.id] = node;
+            }}
+          >
+            <div className="mt-7 mb-2.5 font-semibold tracking-tight">{category.name}</div>
+            <Chips>
+              {category.interests.map((interest) => renderChip(interest, 'INTEREST'))}
+            </Chips>
+          </div>
+        ))}
+
+        {normalized && !exactExists && !creating && (
+          <Card className="mt-4 gap-0 rounded-xl py-[22px]">
+            <CardContent className="px-6">
+              <Muted className="inline">
+                {visibleTopics.length === 0 ? '검색 결과가 없습니다. ' : '찾는 것이 없나요? '}
+              </Muted>
+              {/* 문장 속에 놓이는 버튼. 링크처럼 보이되 버튼으로 동작한다. */}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-[15px] underline underline-offset-2"
+                onClick={() => setCreating(true)}
+              >
+                “{query.trim()}” 관심사 추가하기
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {creating && (
+          <CreateInterest
+            initialName={query.trim()}
+            categories={topics}
+            onCreated={onCreated}
+            onPickExisting={onPickExisting}
+            onClose={() => setCreating(false)}
+          />
+        )}
+
+        {!normalized &&
+          attributes.map((category) => (
+            <div
+              key={category.id}
+              ref={(node) => {
+                sectionRefs.current[category.id] = node;
+              }}
+              className="mt-6"
+            >
+              <div className="mt-7 mb-2.5 font-semibold tracking-tight">
+                활동하는 {category.name}
+              </div>
+              <Muted className="mb-2 text-[13px]">
+                선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.
+                같은 {category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.
+              </Muted>
+              <Chips>
+                {category.interests.map((interest) => renderChip(interest, 'ATTRIBUTE'))}
+              </Chips>
+            </div>
+          ))}
+
+        {!embedded && <div className="mt-8 flex flex-col gap-4">{footer}</div>}
+      </div>
+
+      {embedded && (
+        <div className="flex flex-col gap-3 border-t bg-card px-5 py-4">{footer}</div>
+      )}
     </div>
   );
 }

@@ -32,6 +32,8 @@ import {
   RequestComposeOverlay,
 } from '../features/connections/Overlays';
 import { GraphCanvas } from '../features/graph/GraphCanvas';
+import { PanelResizeHandle } from '../features/graph/PanelResizeHandle';
+import { PANEL_LIMITS, WIDE_QUERY, usePanelWidths } from '../features/graph/usePanelWidths';
 import { InterestRail } from '../features/panels/InterestRail';
 import {
   BasePanel,
@@ -67,6 +69,8 @@ const glassClass =
 export function GraphPage() {
   const { me } = useSession();
   const wideEnough = useMediaQuery(GRAPH_MIN_WIDTH_QUERY);
+  // 양쪽 패널 폭. 손잡이를 끌어 바꾸면 브라우저에 남는다.
+  const panels = usePanelWidths(useMediaQuery(WIDE_QUERY));
   const [anchor, setAnchor] = useState<Anchor>({ type: 'ME' });
   const [similarMode, setSimilarMode] = useState(false);
   const [selection, setSelection] = useState<Selection>(null);
@@ -84,15 +88,18 @@ export function GraphPage() {
   const areaRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 600 });
 
+  // 창 크기뿐 아니라 패널 폭을 끌어 바꿀 때도 캔버스가 따라온다.
+  // 좁은 화면에서는 그래프 영역이 없으므로 넓어질 때 다시 붙인다.
   useEffect(() => {
-    const measure = () => {
-      const node = areaRef.current;
-      if (node) setSize({ width: node.clientWidth, height: node.clientHeight });
-    };
+    const node = areaRef.current;
+    if (!node) return;
+    const measure = () =>
+      setSize({ width: node.clientWidth, height: node.clientHeight });
     measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [wideEnough]);
 
   const loadGraph = useCallback(async () => {
     const query =
@@ -407,7 +414,12 @@ export function GraphPage() {
   }
 
   return (
-    <div className="grid h-full grid-cols-[208px_1fr_332px] overflow-hidden bg-secondary wide:grid-cols-[232px_1fr_372px]">
+    <div
+      className="relative grid h-full overflow-hidden bg-secondary"
+      style={{
+        gridTemplateColumns: `${panels.widths.left}px 1fr ${panels.widths.right}px`,
+      }}
+    >
       <InterestRail
         graph={base}
         catalog={catalog}
@@ -419,11 +431,8 @@ export function GraphPage() {
 
       <div className="relative overflow-hidden bg-[var(--graph-bg)]" ref={areaRef}>
         <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-[2] flex flex-wrap items-center gap-2 [&>*]:pointer-events-auto">
-          {anchor.type === 'ME' ? (
-            <span className="rounded-md border bg-card px-3 py-[7px] text-[13.5px] font-semibold shadow-xs">
-              내 그래프
-            </span>
-          ) : (
+          {/* 내 그래프일 때는 아무 표시도 없다. 앵커 관심사가 있을 때만 칩이 나온다 */}
+          {anchor.type === 'INTEREST' && (
             // 앵커 관심사 칩. 둘 이상이면 "모두 가진 사람"만 보이는 상태다(D-76).
             <div className="flex flex-wrap items-center gap-1.5">
               {anchorIds.map((id) => (
@@ -558,6 +567,26 @@ export function GraphPage() {
           onSimilarMode={() => setSimilarMode(true)}
         />
       )}
+
+      {/* 패널과 그래프 사이 손잡이. 끌어서 폭을 바꾸고, 두 번 누르면 기본 폭이다 */}
+      <PanelResizeHandle
+        side="left"
+        width={panels.widths.left}
+        min={PANEL_LIMITS.left.min}
+        max={PANEL_LIMITS.left.max}
+        label="관심사 레일 폭"
+        onResize={(px) => panels.resize('left', px)}
+        onReset={panels.reset}
+      />
+      <PanelResizeHandle
+        side="right"
+        width={panels.widths.right}
+        min={PANEL_LIMITS.right.min}
+        max={PANEL_LIMITS.right.max}
+        label="상세 패널 폭"
+        onResize={(px) => panels.resize('right', px)}
+        onReset={panels.reset}
+      />
 
       {composing && person && (
         <RequestComposeOverlay
