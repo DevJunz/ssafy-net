@@ -58,6 +58,7 @@ jobs:
           password: ${{ secrets.GCP_SA_KEY }}
 
       # 두 타깃이 deps·build 단계를 공유한다. 캐시(type=gha) 덕에 두 번째부터는 2분 안팎.
+      # 라벨의 커밋은 VM 의 deploy.sh 가 "무엇이 올라갔나"를 적는 데 쓴다.
       - name: api image
         uses: docker/build-push-action@v6
         with:
@@ -68,6 +69,9 @@ jobs:
           tags: |
             ${{ env.IMAGE_REPO }}/api:${{ steps.meta.outputs.sha }}
             ${{ env.IMAGE_REPO }}/api:latest
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -81,6 +85,9 @@ jobs:
           tags: |
             ${{ env.IMAGE_REPO }}/web:${{ steps.meta.outputs.sha }}
             ${{ env.IMAGE_REPO }}/web:latest
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -92,9 +99,9 @@ jobs:
             echo "- \`${IMAGE_REPO}/api:${{ steps.meta.outputs.sha }}\`"
             echo "- \`${IMAGE_REPO}/web:${{ steps.meta.outputs.sha }}\`"
             echo
-            echo "VM 에서:"
+            echo "VM 의 자동 배포(auto-deploy.sh)가 2분 안에 latest 를 받아 띄운다. 손으로 하거나 이 커밋에 고정하려면:"
             echo
             echo '```bash'
-            echo "IMAGE_TAG=${{ steps.meta.outputs.sha }} ./deploy/deploy.sh   # 또는 태그 없이 latest"
+            echo "IMAGE_TAG=${{ steps.meta.outputs.sha }} ./deploy/deploy.sh   # 고정(자동 배포 멈춤). 태그 없이 돌리면 latest + 재개"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

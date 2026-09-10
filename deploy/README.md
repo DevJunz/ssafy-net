@@ -16,7 +16,7 @@ Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 
 | OAuth 리디렉션 URI | `https://ssafy-networking.store/api/auth/google/callback` (추가됨) |
 | 이미지 | Artifact Registry `asia-northeast3-docker.pkg.dev/ssanecting/ssafy-net/{api,web}` (§5-2). GitHub Actions 가 올리고 VM 은 `deploy.sh` 로 받는다 |
 
-**흐름.** `git push` → GitHub Actions 가 이미지 둘을 빌드해 Artifact Registry 에 올린다 → VM 에서 `./deploy/deploy.sh` 가 받아 띄운다. VM 에서는 빌드하지 않는다(2026-09-10 채택, design/20 §13).
+**흐름.** `git push` → GitHub Actions 가 이미지 둘을 빌드해 Artifact Registry 에 올린다 → VM 의 cron(`auto-deploy.sh`)이 2분 안에 알아채고 `deploy.sh` 로 받아 띄운다 → 운영자 채널에 한 줄. VM 에서는 빌드하지 않고, 손으로 할 것도 없다(2026-09-10 채택, design/20 §13, §8).
 
 이 폴더에 있는 것:
 
@@ -26,7 +26,8 @@ Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 
 | `../.github/workflows/build.yml` | main 푸시마다 두 이미지를 빌드해 Artifact Registry 에 `<짧은 sha>`·`latest` 로 올린다 |
 | `docker-compose.prod.yml` | db + api + web. 이미지는 레지스트리에서. 이 파일 옆의 `.env` 를 읽는다 |
 | `docker-compose.build.yml` | 비상용. VM 에서 직접 빌드할 때 prod 파일 위에 겹친다(§8) |
-| `deploy.sh` | 배포. 로그인 → pull → up → healthy 대기. `IMAGE_TAG=<sha>` 로 롤백 |
+| `deploy.sh` | 배포. 로그인 → pull → up → healthy 대기 → 운영자 채널에 한 줄. `IMAGE_TAG=<sha>` 로 롤백(고정) |
+| `auto-deploy.sh` | VM cron 이 2분마다. 레지스트리 latest 가 바뀌었으면 `deploy.sh`. `deploy/.pin` 이 있으면 쉰다(§8) |
 | `.env.example` | 채워야 할 값. 복사해서 `.env` 로 |
 | `Caddyfile` | TLS 자동 발급, `/api`·`/n` 은 api 로, 나머지는 정적 파일 |
 | `api-entrypoint.sh` | 컨테이너 시작 때 `prisma migrate deploy` |
@@ -255,18 +256,32 @@ $C start api
 gcloud storage buckets create gs://ssanecting-backups --location=asia-northeast3 --uniform-bucket-level-access
 ```
 
-## 8. 갱신과 롤백
+## 8. 갱신과 롤백 — 자동 배포
+
+**main 에 푸시하면 끝이다.** Actions 가 이미지를 올리면 VM 의 cron 이 2분 안에 알아채고 `deploy.sh` 를 돌린다(`auto-deploy.sh`, 2026-09-10 채택). 끝나면 운영자 채널에 "[deploy] 배포됨 — 커밋 …" 한 줄이 온다. 실패해도 한 줄이 온다.
+
+밖에서 VM 으로 들어오는 길(SSH 키를 GitHub 에 두는 방식)을 열지 않고 VM 이 스스로 당겨온다. 인증은 이미 있는 VM 서비스 계정(§5-2 리더 역할)뿐이다. 레지스트리의 `api:latest` 지문을 지금 받아 둔 것과 비교하므로 문서만 바뀐 커밋(이미지가 안 만들어진다)은 아무 일도 하지 않는다.
+
+**설치 — VM 에서 한 번:**
 
 ```bash
-# 갱신 — 로컬에서 main 에 푸시 → Actions 초록불 확인 → VM 에서
-cd ~/ssafy-net && ./deploy/deploy.sh            # git pull 도 스크립트가 한다
+cd ~/ssafy-net && git pull
+( crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/ssafy-net/deploy/auto-deploy.sh >> $HOME/deploy.log 2>&1" ) | crontab -
+crontab -l                      # 줄이 보이면 된 것. 2분 안에 첫 배포가 돈다
+tail -f ~/deploy.log            # 지켜보기. Ctrl+C 로 나온다
+```
 
-# 특정 커밋으로 (Actions 요약에 찍힌 짧은 sha). 롤백도 같은 명령이다
-IMAGE_TAG=1a2b3c4 ./deploy/deploy.sh
+**롤백 = 고정.** 특정 커밋(Actions 요약의 짧은 sha)을 지정해 돌리면 그 이미지로 바뀌고 `deploy/.pin` 이 생겨 자동 배포가 멈춘다. 고친 커밋을 푸시한 뒤 태그 없이 한 번 돌리면 latest 로 돌아오고 자동 배포도 다시 켜진다.
+
+```bash
+IMAGE_TAG=1a2b3c4 ./deploy/deploy.sh   # 이 커밋으로. 자동 배포 멈춤
+./deploy/deploy.sh                     # latest 로. 자동 배포 재개 (rm deploy/.pin 만 해도 재개된다)
 ```
 
 api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마이그레이션은 따로 하지 않는다. 롤백할 때 마이그레이션은 되돌아가지 않는다 — 옛 코드가 새 스키마 위에서 돌 수 있는지 보고 한다(컬럼 추가 정도는 문제없다).
 `packages/shared` 를 고쳤어도 이미지 안에서 처음부터 다시 빌드하니 로컬의 dist 함정은 없다.
+
+**뜻하는 것.** main 의 초록불 커밋은 전부 몇 분 안에 실제 서비스가 된다. 공개 뒤에는 main 에 올리는 것이 곧 배포임을 알고 올린다. 시험이 필요한 것은 브랜치에서 하고, 잠깐 멈추고 싶으면 `touch deploy/.pin`.
 
 **비상 — Actions 가 안 될 때 VM 에서 직접 빌드:**
 

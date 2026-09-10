@@ -16,3 +16,6 @@ deploy/backups/
 
 # 에이전트 워크트리(저장소 전체 사본). 커밋 금지
 .claude/worktrees/
+
+# 자동 배포를 멈추는 고정 표시. deploy.sh 가 IMAGE_TAG 를 받으면 만든다(README §8)
+deploy/.pin
