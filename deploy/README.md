@@ -119,7 +119,12 @@ git clone git@github.com:DevJunz/ssafy-net.git && cd ssafy-net
    - 이름 `ssafy-net-env`
    - 보안 비밀 값: 로컬에서 채운 `deploy/.env` 파일 내용을 **통째로** 붙여 넣거나 파일 업로드. 위 표의 키가 전부 들어 있어야 한다.
    - 리전은 자동, 나머지 기본값.
-3. **VM 서비스 계정에 권한**: 만든 보안 비밀 → 권한 탭 → 주 구성원 추가 → `<프로젝트 번호>-compute@developer.gserviceaccount.com` (IAM 화면에 "Compute Engine 기본 서비스 계정" 으로 보인다) → 역할 **Secret Manager 보안 비밀 접근자**.
+3. **VM 서비스 계정에 권한**: 만든 보안 비밀 → 권한 탭 → 주 구성원 추가 → `<프로젝트 번호>-compute@developer.gserviceaccount.com` (IAM 화면에 "Compute Engine 기본 서비스 계정" 으로 보인다) → 역할 **Secret Manager 보안 비밀 접근자**. 콘솔에서 헤매면 Cloud Shell 에서 한 줄(2026-09-10 에 콘솔로 넣은 것이 붙지 않아 이걸로 했다):
+
+   ```bash
+   gcloud secrets add-iam-policy-binding ssafy-net-env \
+     --member="serviceAccount:543998929768-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
+   ```
 4. **VM 액세스 범위**: VM 상세 → "API 및 ID 관리" → Cloud API 액세스 범위가 **"모든 Cloud API 에 대한 전체 액세스 허용"** 이어야 한다. "기본 액세스" 면 VM 을 **중지 → 수정 → 범위 변경 → 시작**. (범위는 켜진 VM 에서 못 바꾼다.)
 5. VM 에서 `./deploy/fetch-env.sh`. `deploy/.env` 가 생기고(권한 600) 이후는 (b) 와 같다.
 
@@ -271,6 +276,7 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | `./deploy/deploy.sh: No such file or directory` | clone 이 안 됐거나 Cloud Shell 에 있다. 프롬프트를 본다(§5 머리) |
 | Actions 가 `secret 확인` 에서 실패 | `GCP_SA_KEY` 가 없다. §5-2 의 `gh secret set` |
 | Actions 가 `login` 에서 실패 | 키 JSON 이 통째로 들어갔는지(`gh secret set ... < 파일`). 서비스 계정에 저장소 writer 역할이 있는지 |
+| `fetch-env.sh` 가 `PERMISSION_DENIED: Permission 'secretmanager.versions.access'` | VM 서비스 계정에 접근자 역할이 없다. §5-1 3번의 Cloud Shell 한 줄. 보안 비밀이 없으면 `gcloud secrets list` 로 이름부터 확인 |
 | `deploy.sh` 가 `registry login` 에서 실패 | VM 액세스 범위가 "모든 Cloud API" 인지(§2), gcloud 가 있는지(`gcloud --version`) |
 | `deploy.sh` 의 pull 이 `denied` 또는 `permission` | VM 서비스 계정(`<번호>-compute@`)에 저장소 reader 역할(§5-2 마지막 명령) |
 | pull 이 `manifest unknown` | 그 sha 로 이미지가 없다. 문서만 바뀐 커밋이거나 Actions 가 아직 안 끝났다. `latest` 나 Actions 요약의 sha 를 쓴다 |
