@@ -154,12 +154,19 @@ gcloud artifacts repositories add-iam-policy-binding ssafy-net --location=$REGIO
   --member="serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" --role=roles/artifactregistry.reader
 ```
 
-그 다음 키를 GitHub 에 넣는다. Cloud Shell 에서 `cloudshell download ~/gh-actions-key.json` 으로 내려받고, **로컬에서**:
+그 다음 키를 GitHub 저장소 secret `GCP_SA_KEY` 에 넣는다. 둘 중 하나.
 
-```bash
-gh secret set GCP_SA_KEY < gh-actions-key.json    # 저장소 secret. gh 가 로그인돼 있어야 한다
-rm gh-actions-key.json                            # 로컬 사본 삭제. Cloud Shell 의 것도 rm ~/gh-actions-key.json
-```
+- **웹으로(내려받기 없음).** Cloud Shell 에서 `cat ~/gh-actions-key.json` → 출력 전체(`{` 부터 `}` 까지) 복사 → GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret → 이름 `GCP_SA_KEY`, 값에 붙여 넣기.
+- **CLI 로.** Cloud Shell 에서 `cloudshell download ~/gh-actions-key.json` 으로 내려받고 로컬에서:
+
+  ```bash
+  gh secret set GCP_SA_KEY < gh-actions-key.json                       # Git Bash
+  Get-Content .\gh-actions-key.json -Raw | gh secret set GCP_SA_KEY    # PowerShell
+  ```
+
+  넣었으면 로컬 사본을 지운다.
+
+어느 쪽이든 끝나면 Cloud Shell 의 것도 지운다: `rm ~/gh-actions-key.json`.
 
 키는 2주 뒤 정리 때 서비스 계정과 함께 지운다(§10). 이제 main 에 푸시하면 Actions 탭에 `build-images` 가 돈다. 문서만 바뀐 커밋은 돌지 않는다. 손으로 돌리려면 `gh workflow run build.yml`.
 
