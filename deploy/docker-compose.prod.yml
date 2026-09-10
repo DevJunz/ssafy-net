@@ -48,9 +48,14 @@ services:
       TZ: Asia/Seoul
       # Prisma 기본 풀은 코어×2+1 이라 2 vCPU 에서 5개뿐이다. 명시한다(design/23 §1).
       DATABASE_URL: postgresql://ssafynet:${POSTGRES_PASSWORD}@db:5432/ssafynet?schema=public&connection_limit=20
+      # 운영자 대시보드가 마지막 백업 시각·크기와 디스크 여유를 읽는 폴더(아래 volumes, D-77).
+      BACKUPS_DIR: /backups
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # backup.sh 가 만드는 덤프 폴더. 읽기 전용.
+      - ./backups:/backups:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

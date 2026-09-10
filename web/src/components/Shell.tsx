@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { DEMO_MODE } from '../mocks';
 import { useSession } from '../session';
 import { BrandMark } from './BrandMark';
 
@@ -80,8 +81,16 @@ export function Shell({
           </NavLink>
         </nav>
 
-        <span className="ml-auto max-w-[180px] truncate text-[13px] text-muted-foreground max-sm:hidden">
-          {me?.displayName}
+        <span className="ml-auto flex min-w-0 items-center gap-2">
+          {/* 운영자 대시보드 입구. 주 메뉴는 다섯 개로 고정이라(docs/05 §2) 오른쪽에 따로 둔다 */}
+          {me?.isOperator && !DEMO_MODE && (
+            <NavLink to="/ops" className={navLinkClass}>
+              운영
+            </NavLink>
+          )}
+          <span className="max-w-[180px] truncate text-[13px] text-muted-foreground max-sm:hidden">
+            {me?.displayName}
+          </span>
         </span>
       </header>
 

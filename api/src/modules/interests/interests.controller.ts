@@ -27,6 +27,7 @@ import {
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from './interests.service';
 
@@ -35,7 +36,10 @@ import { InterestsService } from './interests.service';
 @Controller()
 @UseGuards(AuthGuard)
 export class InterestsController {
-  constructor(private readonly interests: InterestsService) {}
+  constructor(
+    private readonly interests: InterestsService,
+    private readonly analytics: AnalyticsService,
+  ) {}
 
   /** 온보딩과 My Profile 관심사 수정이 같은 화면·같은 응답을 쓴다(D-24). */
   @Get('interests')
@@ -116,11 +120,13 @@ export class InterestsController {
       '`canPost`(내가 이 관심사를 가졌는가, FR-6.1). 층(ATTRIBUTE)에는 글이 붙지 않는다(D-72).',
   })
   @ApiParam({ name: 'id', description: '관심사 UUID' })
-  detail(
+  async detail(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) interestId: string,
   ) {
-    return this.interests.detail(user, interestId);
+    const result = await this.interests.detail(user, interestId);
+    this.analytics.track('interest.detail_view', user.id, { interestId });
+    return result;
   }
 
   @Get('interests/:id/people')
@@ -133,12 +139,15 @@ export class InterestsController {
   })
   @ApiParam({ name: 'id', description: '관심사 UUID' })
   @ApiQuery({ name: 'offset', required: false, description: '건너뛸 개수. 기본 0' })
-  people(
+  async people(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) interestId: string,
     @Query('offset') offset: string | undefined,
   ) {
-    return this.interests.people(user, interestId, Number(offset ?? 0) || 0);
+    const skip = Number(offset ?? 0) || 0;
+    const result = await this.interests.people(user, interestId, skip);
+    this.analytics.track('interest.people_view', user.id, { interestId, offset: skip });
+    return result;
   }
 
   @Put('me/interests')
@@ -166,6 +175,11 @@ export class InterestsController {
     body: InterestSelectionInput,
   ) {
     const interests = await this.interests.replace(user.id, body.interestIds);
+    this.analytics.track('interest.changed', user.id, {
+      mode: 'replace',
+      count: body.interestIds.length,
+      onboarding: user.status !== 'ACTIVE',
+    });
     return {
       interests,
       // 저장하면 그래프와 추천이 즉시 달라진다(NFR-5, docs/07 §5).
@@ -180,11 +194,13 @@ export class InterestsController {
       'Interest 패널의 "내 관심사에 추가" 버튼(docs/06 §3.3). 개수 상한과 층 단일 규칙은 전체 교체와 같다.',
   })
   @ApiParam({ name: 'id', description: '관심사 UUID' })
-  addOne(
+  async addOne(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) interestId: string,
   ) {
-    return this.interests.addOne(user.id, interestId);
+    const result = await this.interests.addOne(user.id, interestId);
+    this.analytics.track('interest.changed', user.id, { mode: 'add', interestId });
+    return result;
   }
 
   @Delete('me/interests/:id')
@@ -193,10 +209,12 @@ export class InterestsController {
     description: '최소 개수(P-01) 아래로 내려가면 `INTEREST_COUNT_MIN`.',
   })
   @ApiParam({ name: 'id', description: '관심사 UUID' })
-  removeOne(
+  async removeOne(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) interestId: string,
   ) {
-    return this.interests.removeOne(user.id, interestId);
+    const result = await this.interests.removeOne(user.id, interestId);
+    this.analytics.track('interest.changed', user.id, { mode: 'remove', interestId });
+    return result;
   }
 }

@@ -21,6 +21,7 @@ import type { User } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { SessionService } from '../auth/session.service';
 import { NOTIFICATION_RULES } from './notification.catalog';
@@ -121,6 +122,7 @@ export class NotificationRedirectController {
     private readonly prisma: PrismaService,
     private readonly session: SessionService,
     private readonly config: ConfigService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   @Get('n/:deliveryId')
@@ -155,6 +157,11 @@ export class NotificationRedirectController {
       await this.prisma.notificationDelivery.update({
         where: { id: deliveryId },
         data: { clickedAt: new Date() },
+      });
+      this.analytics.track('notification.clicked', delivery.notification.userId, {
+        deliveryId,
+        type: delivery.notification.type,
+        channel: delivery.channel,
       });
     }
 

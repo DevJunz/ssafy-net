@@ -3,7 +3,7 @@ import type {
   FollowUpItem,
   ParameterMap,
 } from '@ssafy-net/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -22,7 +22,11 @@ import { OnboardingPage } from './pages/OnboardingPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SessionProvider, useSession } from './session';
 
+// 운영자만 여는 화면이라 따로 나눠 받는다. 일반 사용자 번들에 들어가지 않는다(D-77).
+const OpsPage = lazy(() => import('./pages/OpsPage'));
+
 function AuthenticatedApp() {
+  const { me } = useSession();
   const [badge, setBadge] = useState(0);
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
   const [features, setFeatures] = useState<FeatureFlagMap | null>(null);
@@ -73,6 +77,17 @@ function AuthenticatedApp() {
           element={<NotificationsPage onChanged={refreshBadge} />}
         />
         <Route path="/profile" element={<ProfilePage />} />
+        {/* 운영자 대시보드. 서버도 is_operator 가 아니면 403 을 준다 */}
+        {me?.isOperator && !DEMO_MODE && (
+          <Route
+            path="/ops"
+            element={
+              <Suspense fallback={<Page>불러오는 중…</Page>}>
+                <OpsPage />
+              </Suspense>
+            }
+          />
+        )}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

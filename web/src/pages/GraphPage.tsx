@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { track } from '../analytics';
 import { api } from '../api/client';
 import {
   Page,
@@ -46,6 +47,8 @@ type Selection =
   | { kind: 'PERSON'; id: string }
   | { kind: 'INTEREST'; id: string }
   | null;
+/** 앵커를 어디서 바꿨는지. 측정용(shared/events.ts `graph.anchor_change`). */
+type AnchorVia = 'panel' | 'shift' | 'chip' | 'back';
 
 /** 툴바 위 반투명 작은 상자(앵커 설명, 구석 안내) */
 const glassClass =
@@ -264,34 +267,55 @@ export function GraphPage() {
   };
 
   // ── 앵커
-  const backToMyGraph = () => {
+  /**
+   * 앵커가 바뀌는 순간을 기록한다. 서버는 결과(GET /graph)만 보고
+   * 어느 버튼으로 바꿨는지는 모른다(shared/events.ts).
+   */
+  const trackAnchorChange = (
+    to: 'me' | 'interest',
+    interestCount: number,
+    via: AnchorVia,
+  ) => {
+    track('graph.anchor_change', {
+      from: anchor.type === 'ME' ? 'me' : 'interest',
+      to,
+      interestCount,
+      via,
+    });
+  };
+
+  const backToMyGraph = (via: AnchorVia = 'back') => {
+    trackAnchorChange('me', 0, via);
     setAnchor({ type: 'ME' });
     setSelection(null);
   };
 
-  const recenter = (interestId: string) => {
+  const recenter = (interestId: string, via: AnchorVia = 'panel') => {
     // 앵커를 옮기면 모드는 꺼진다. 모드는 나 중심 그래프의 개념이다(docs/07 §2.5).
     setSimilarMode(false);
+    trackAnchorChange('interest', 1, via);
     setAnchor({ type: 'INTEREST', interestIds: [interestId] });
   };
 
   /** 앵커에 관심사를 더한다. 더할수록 사람은 준다 — 모두 가진 사람만 남기 때문이다(D-76). */
-  const addToAnchor = (interestId: string) => {
+  const addToAnchor = (interestId: string, via: AnchorVia = 'panel') => {
     if (anchorIds.includes(interestId)) return;
     if (anchorIds.length >= MAX_ANCHOR_INTERESTS) {
       toast(`관심사는 ${MAX_ANCHOR_INTERESTS}개까지 함께 볼 수 있습니다.`);
       return;
     }
     setSimilarMode(false);
+    trackAnchorChange('interest', anchorIds.length + 1, via);
     setAnchor({ type: 'INTEREST', interestIds: [...anchorIds, interestId] });
   };
 
-  const removeFromAnchor = (interestId: string) => {
+  const removeFromAnchor = (interestId: string, via: AnchorVia = 'panel') => {
     const rest = anchorIds.filter((id) => id !== interestId);
     if (rest.length === 0) {
-      backToMyGraph();
+      backToMyGraph(via);
       return;
     }
+    trackAnchorChange('interest', rest.length, via);
     setAnchor({ type: 'INTEREST', interestIds: rest });
     // 뺀 관심사가 선택돼 있었으면 선택도 푼다. 그래프에서 사라질 수 있다.
     if (selection?.kind === 'INTEREST' && selection.id === interestId) {
@@ -299,36 +323,53 @@ export function GraphPage() {
     }
   };
 
+  /** 모드를 끄는 것만 기록한다. 켜는 것은 서버가 본다(GET /graph/similar). */
+  const turnSimilarOff = (via: 'toggle' | 'panel' | 'background') => {
+    track('graph.similar_mode', { on: false, via });
+    setSimilarMode(false);
+  };
+
   // ── 인터랙션
   const onNodeClick = (node: GraphNode, event: MouseEvent) => {
     if (node.kind === 'INTEREST') {
       // Shift+클릭은 앵커에 넣고 빼는 지름길이다. 패널의 버튼과 같은 일을 한다.
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
-        if (anchorIds.includes(node.id)) removeFromAnchor(node.id);
-        else addToAnchor(node.id);
+        if (anchorIds.includes(node.id)) removeFromAnchor(node.id, 'shift');
+        else addToAnchor(node.id, 'shift');
         return;
       }
+      track('graph.interest_click', {
+        adjacent: node.adjacent ?? false,
+        mine: node.mine,
+      });
       setSelection({ kind: 'INTEREST', id: node.id });
       return;
     }
     if (node.kind === 'ME' || node.kind === 'PERSON') {
+      track('graph.person_click', { me: node.kind === 'ME' });
       setSelection({ kind: 'PERSON', id: node.id });
     }
   };
 
   /** 배경 클릭은 한 단계만 되돌린다(docs/07 §2.7). */
-  const onBackgroundClick = () => {
+  const onBackgroundClick = (via: 'click' | 'escape' = 'click') => {
     if (selection) {
+      track('graph.background_click', { cleared: 'selection', via });
       setSelection(null);
       return;
     }
-    if (similarMode) setSimilarMode(false);
+    if (similarMode) {
+      track('graph.background_click', { cleared: 'mode', via });
+      turnSimilarOff('background');
+      return;
+    }
+    track('graph.background_click', { cleared: 'none', via });
   };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      onBackgroundClick();
+      onBackgroundClick('escape');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -373,7 +414,7 @@ export function GraphPage() {
         selectedId={selection?.kind === 'INTEREST' ? selection.id : null}
         anchorIds={anchorIds}
         onSelect={(id) => setSelection({ kind: 'INTEREST', id })}
-        onRecenter={recenter}
+        onRecenter={(id) => recenter(id, 'panel')}
       />
 
       <div className="relative overflow-hidden bg-[var(--graph-bg)]" ref={areaRef}>
@@ -394,7 +435,7 @@ export function GraphPage() {
                       size="sm"
                       className="group h-auto gap-0.5 rounded-full border border-primary/30 bg-accent py-[5px] pr-[9px] pl-3 text-[13px] font-medium text-accent-foreground shadow-xs hover:bg-accent/70"
                       aria-label={`#${interestNameOf(id)} 함께 보기에서 빼기`}
-                      onClick={() => removeFromAnchor(id)}
+                      onClick={() => removeFromAnchor(id, 'chip')}
                     >
                       #{interestNameOf(id)}
                       <XIcon
@@ -427,7 +468,7 @@ export function GraphPage() {
               variant="outline"
               size="sm"
               className="bg-card shadow-xs hover:bg-card hover:shadow-md"
-              onClick={backToMyGraph}
+              onClick={() => backToMyGraph('back')}
             >
               내 그래프로 돌아가기
             </Button>
@@ -438,7 +479,9 @@ export function GraphPage() {
               variant="outline"
               size="sm"
               pressed={similarMode}
-              onPressedChange={setSimilarMode}
+              onPressedChange={(on) =>
+                on ? setSimilarMode(true) : turnSimilarOff('toggle')
+              }
               className="bg-card px-3 shadow-xs hover:bg-card hover:text-foreground hover:shadow-md data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90"
             >
               나와 비슷한 사람 보기
@@ -455,7 +498,7 @@ export function GraphPage() {
             width={size.width}
             height={size.height}
             onNodeClick={onNodeClick}
-            onBackgroundClick={onBackgroundClick}
+            onBackgroundClick={() => onBackgroundClick('click')}
             onLinkHover={setHoveredLink}
           />
         )}
@@ -490,9 +533,9 @@ export function GraphPage() {
           detail={interest}
           anchorCount={anchorIds.length}
           inAnchor={anchorIds.includes(interest.id)}
-          onRecenter={() => recenter(interest.id)}
-          onAddToAnchor={() => addToAnchor(interest.id)}
-          onRemoveFromAnchor={() => removeFromAnchor(interest.id)}
+          onRecenter={() => recenter(interest.id, 'panel')}
+          onAddToAnchor={() => addToAnchor(interest.id, 'panel')}
+          onRemoveFromAnchor={() => removeFromAnchor(interest.id, 'panel')}
           onSelectPerson={(id) => setSelection({ kind: 'PERSON', id })}
           onAddToMine={() => void addInterestToMine(interest.id)}
           onReload={async () => {
@@ -505,7 +548,7 @@ export function GraphPage() {
         <SimilarPanel
           data={similarList}
           onSelectPerson={(id) => setSelection({ kind: 'PERSON', id })}
-          onClose={() => setSimilarMode(false)}
+          onClose={() => turnSimilarOff('panel')}
         />
       ) : (
         <BasePanel

@@ -35,10 +35,25 @@ export class AuthGuard implements CanActivate {
       throw new AppError('UNAUTHENTICATED');
     }
 
+    this.touch(user);
     request.user = user;
     return true;
   }
+
+  /**
+   * `lastSeenAt` 을 한 시간에 한 번만 갱신한다. 로그인 때만 갱신하면 세션이 30일이라
+   * 첫날 뒤로는 움직이지 않아 재방문을 알 수 없다(design/23 §7). 응답을 붙잡지 않는다.
+   */
+  private touch(user: User): void {
+    const seen = user.lastSeenAt?.getTime() ?? 0;
+    if (Date.now() - seen < LAST_SEEN_INTERVAL_MS) return;
+    void this.prisma.user
+      .update({ where: { id: user.id }, data: { lastSeenAt: new Date() } })
+      .catch(() => {});
+  }
 }
+
+const LAST_SEEN_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * 온보딩을 마치기 전에는 그래프·추천·다른 사용자 조회에 갈 수 없다(FR-1.6).

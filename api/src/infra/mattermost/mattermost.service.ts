@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { StatsService } from '../../common/stats.service';
 
 /**
  * Mattermost 발송기 (D-66).
@@ -25,7 +26,10 @@ export const MATTERMOST_UNKNOWN_USER = '400';
 export class MattermostService {
   private readonly logger = new Logger(MattermostService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly stats: StatsService,
+  ) {}
 
   get enabled(): boolean {
     return Boolean(this.config.get<string>('MATTERMOST_WEBHOOK_URL'));
@@ -129,6 +133,17 @@ export class MattermostService {
     const url = this.config.get<string>('MATTERMOST_WEBHOOK_URL');
     if (!url) return { ok: false, error: 'MATTERMOST_WEBHOOK_URL 없음' };
 
+    const startedAt = Date.now();
+    const result = await this.call(url, payload);
+    // 성공·실패·지연을 메모리에 센다. 운영자 대시보드의 "웹훅" 칸이다(D-77).
+    this.stats.recordWebhook({ ...result, ms: Date.now() - startedAt });
+    return result;
+  }
+
+  private async call(
+    url: string,
+    payload: { text: string; channel?: string },
+  ): Promise<{ ok: boolean; error?: string }> {
     try {
       const response = await fetch(url, {
         method: 'POST',

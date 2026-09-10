@@ -541,25 +541,28 @@ POST /api/events
 { "events": [ { "name": "graph.interest_click", "props": { "adjacent": true }, "occurredAt": "..." } ] }
 ```
 
-14 §6의 목록을 이름으로 고정한다. 서버가 아는 사건(요청 발송·수락·거절·만료·성립·참여)은 **서버가 직접 기록하고 프론트가 보내지 않는다**(20 §10).
+이름은 `packages/shared/src/events.ts` 가 고정한다(2026-09-10 정리). **서버가 볼 수 있는 것은 서버가 기록한다**(20 §10) — 열람은 그 요청 자체가 열람이다. 프론트는 `CLIENT_EVENTS` 안의 이름만 보낼 수 있고 나머지는 `202` 로 받되 버린다(`{ accepted, dropped }`). 한 번에 50개, `sessionId` 는 탭 단위. 온보딩 미완료여도 보낼 수 있다. 요청·연결·후속 확인·Network 처럼 표에 상태로 남는 사건은 이벤트로 남기지 않는다.
 
-| 영역 | 이벤트 이름 |
-|---|---|
-| 온보딩 | `onboarding.invite_open` `onboarding.login` `onboarding.identity` `onboarding.display_name` `onboarding.interests_saved` `onboarding.notification_setup` `onboarding.completed` |
-| 그래프 | `graph.view` `graph.interest_click` `graph.person_click` `graph.anchor_change` `graph.similar_mode` `graph.network_mode` `graph.background_click` `graph.more_click` |
-| 프로필 | `profile.view` `profile.request_button` |
-| 요청 | (서버) `request.sent` `request.read` `request.accepted` `request.rejected` `request.expired` `request.cancelled` `request.reminder_sent` |
-| 연결 | (서버) `connection.established` `connection.marked_started` `connection.initiator_reminded` |
-| 후속 확인 | (서버) `followup.asked` `followup.responded` |
-| Network | (서버) `network.candidates_computed` `network.exposed` `network.joined` `network.declined` `network.activated` `network.expired` / (프론트) `network.card_view` |
-| 글 | `post.created` `post.impression` `post.author_click` |
-| 알림 | (서버) `notification.sent` `notification.clicked` / (프론트) `notification.settings_changed` |
-| 관심사 | `interest.changed` `interest.created` |
-| 신고 | (서버) `report.created` `report.resolved` |
+| 영역 | 서버가 남긴다 | 프론트가 보낸다 |
+|---|---|---|
+| 그래프 | `graph.view` { anchor, interestIds, interestCount } · `graph.similar_mode` { on: true } | `graph.interest_click` `graph.person_click` `graph.anchor_change` { from, to, interestCount, via } `graph.similar_mode` { on: false } `graph.network_mode` `graph.background_click` `graph.more_click` |
+| 프로필 | `profile.view` { targetId, relation, commonCount } | `profile.request_button` |
+| 관심사 | `interest.detail_view` `interest.people_view` `interest.changed` `interest.created` | — |
+| 알림 | `notification.clicked` { deliveryId, type, channel } | `notification.settings_changed` |
+| 온보딩 | — (퍼널은 `user`·`mattermost_verification` 표에서) | `onboarding.*` 7종 |
+| Network · 글 | — (표에서) | `network.card_view` `post.impression` `post.author_click` |
 
 ---
 
-## 15. 운영자 (UI 없음, L6)
+## 15. 운영자
+
+운영자 대시보드(D-77)는 아래 한 엔드포인트를 읽는다. 나머지는 UI 없이 curl 로 부른다(L6).
+
+```
+GET  /api/admin/ops?days=14                  제품 블록 + 서버 블록 (OpsMetrics, packages/shared/src/ops.ts). days 1~90
+```
+
+응답에 실명은 없다. 사용자는 표시명과 id 뿐이다(20 §11). 비율은 분모가 0이면 null. HTTP·웹훅 카운터는 프로세스 메모리라 `since` 부터다.
 
 ```
 GET  /api/admin/networks/gate                1인당 후보 수와 게이트 판정 (10 §4)

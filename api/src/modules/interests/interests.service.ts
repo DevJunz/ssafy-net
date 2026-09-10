@@ -26,7 +26,7 @@ const PEOPLE_PAGE_SIZE = 20;
  * 한 사람이 하루에 직접 만들 수 있는 관심사 수 (D-74).
  * 사용이 2주에 집중되므로 목록이 하루 만에 흐트러지지 않게 하는 장치다.
  */
-const CREATE_PER_DAY = 3;
+export const CREATE_PER_DAY = 3;
 
 type InterestWithCategory = Interest & {
   category: { id: string; name: string; kind: 'INTEREST' | 'ATTRIBUTE' };

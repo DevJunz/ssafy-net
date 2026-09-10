@@ -2,6 +2,7 @@ import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common
 import { ApiCookieAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from '../interests/interests.service';
 import { UserPresenter } from './user.presenter';
@@ -16,6 +17,7 @@ export class UsersController {
     private readonly presenter: UserPresenter,
     private readonly interests: InterestsService,
     private readonly users: UsersService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /** 나 자신에게만 나가는 형태. 계정 이메일은 여기에만 있다(docs/12 §1). */
@@ -43,10 +45,19 @@ export class UsersController {
       '관심사 전부를 주므로 프론트가 Person Focus의 임시 노드를 그래프에 얹는다(서버 왕복 없음).',
   })
   @ApiParam({ name: 'id', description: '사용자 UUID' })
-  profile(
+  async profile(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) targetId: string,
   ) {
-    return this.users.profile(user, targetId);
+    const profile = await this.users.profile(user, targetId);
+    // 프로필 열람은 요청 전환율의 분모다(docs/14 §2.3). 서버가 남긴다.
+    if (targetId !== user.id) {
+      this.analytics.track('profile.view', user.id, {
+        targetId,
+        relation: profile.relation?.status ?? null,
+        commonCount: profile.commonCount ?? null,
+      });
+    }
+    return profile;
   }
 }

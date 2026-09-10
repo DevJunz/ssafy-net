@@ -3,6 +3,7 @@ import { ApiCookieAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import type { User } from '@prisma/client';
 import { AppError } from '../../common/app-error';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { GraphService } from './graph.service';
 
@@ -11,7 +12,10 @@ import { GraphService } from './graph.service';
 @Controller('graph')
 @UseGuards(AuthGuard, OnboardedGuard)
 export class GraphController {
-  constructor(private readonly graph: GraphService) {}
+  constructor(
+    private readonly graph: GraphService,
+    private readonly analytics: AnalyticsService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -43,9 +47,18 @@ export class GraphController {
         .map((id) => id.trim())
         .filter(Boolean);
       if (ids.length === 0) throw new AppError('VALIDATION_FAILED');
-      return this.graph.interestAnchored(user, ids);
+      const result = await this.graph.interestAnchored(user, ids);
+      // 열람은 서버가 남긴다. 이 요청 자체가 열람이다(design/20 §10).
+      this.analytics.track('graph.view', user.id, {
+        anchor: 'interest',
+        interestIds: ids,
+        interestCount: ids.length,
+      });
+      return result;
     }
-    return this.graph.meAnchored(user);
+    const result = await this.graph.meAnchored(user);
+    this.analytics.track('graph.view', user.id, { anchor: 'me', interestCount: 0 });
+    return result;
   }
 
   /** Similar 모드. 기본 그래프 위에 겹쳐질 나–사람 선만 돌려준다. */
@@ -56,7 +69,10 @@ export class GraphController {
       '"나와 비슷한 사람 보기". 기본 그래프 위에 겹칠 나 + 상위 P-15(10)명 + `SIMILARITY` 선만 준다. ' +
       '각 선에 `commonCount`와 공통 관심사 id 전부(hover에 이름 전부, FR-8.2). 목록 전체는 `GET /api/recommendations/similar-people`.',
   })
-  similar(@CurrentUser() user: User) {
-    return this.graph.similarMode(user);
+  async similar(@CurrentUser() user: User) {
+    const result = await this.graph.similarMode(user);
+    // 켜는 것은 이 요청으로 안다. 끄는 것은 프론트가 보낸다(graph.similar_mode { on: false }).
+    this.analytics.track('graph.similar_mode', user.id, { on: true });
+    return result;
   }
 }

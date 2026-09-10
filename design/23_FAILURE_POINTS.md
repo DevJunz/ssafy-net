@@ -98,15 +98,15 @@ docs/14 결정: North Star = 신규 성립 연결 수, 가드레일 = "대화 �
 |---|---|---|
 | 요청→수락, 수락→대화 시작 | O | `connection_request.status`, `follow_up_check` |
 | Network 노출→참여→성립 | O | `network_member.decision` |
-| 추천 대비 성사율의 **분모**(본 사람 수, 프로필 연 수) | X | 이벤트 기록이 없다. analytics 미구현의 실제 손실 |
-| 재방문율 | X | `lastSeenAt`이 로그인 때만 갱신되고 세션이 30일. AuthGuard에서 1시간 지났으면 갱신하면 DAU/WAU가 나온다. 제품 철학에는 "돌아와서 무언가 했는가"(쓰기 행동 기준)가 맞다 |
+| 추천 대비 성사율의 **분모**(본 사람 수, 프로필 연 수) | ~~X~~ **O(2026-09-10)** | 서버가 열람을 `analytics_event` 에 남긴다(`graph.view`·`profile.view`·`interest.detail_view`). 길별 전환율 = 요청 ÷ 열람 |
+| 재방문율 | ~~X~~ **O(2026-09-10)** | AuthGuard 가 `lastSeenAt` 을 1시간에 한 번 갱신한다. DAU 는 이벤트의 distinct user, 2주차 재방문은 `onboardedAt + 8일` 뒤의 `lastSeenAt` |
 | 요청 만료율 | O | 받은 쪽이 앱을 안 여는 신호 |
 | 알림 클릭률 | O | `notification_delivery.clickedAt`. Mattermost 알림이 읽히는지의 유일한 신호 |
 | 수락률 감속 발동 인원 | O | 스팸 신호 |
 | 관심사 직접 추가 수·병합 비율 | O | R-05 |
 | 온보딩 퍼널 단계별 이탈 | O | `user.status`, `mattermost_verification` |
 
-**형태.** 매일 아침 웹훅으로 운영자 채널에 표 하나. cron과 웹훅이 있으니 잡 하나면 된다. docs/14 미결정 "대시보드 형태"의 답으로 충분하다.
+**형태.** ~~매일 아침 웹훅으로 운영자 채널에 표 하나.~~ **앱 안의 운영자 화면 `/ops` 로 정했다(D-77, 2026-09-10).** `GET /api/admin/ops` 가 제품 블록과 서버 블록을 준다. 서버 블록은 이 문서의 순서 그대로다 — 알림 발송 실패(§6)·30분 넘게 QUEUED, 잡 10종의 마지막 성공 시각과 늦음(§4), 5xx·1초 넘는 요청·p95(메모리 카운터), 웹훅 성공·실패·지연, DB 크기·표별 행 수·연결 수, 마지막 백업과 디스크 여유(`deploy/backups` 를 읽기 전용 마운트), 정지·상한 도달·감속 인원(§5). 아침 요약 메시지는 같은 서비스를 불러 나중에 얹을 수 있다.
 
 ## 8. 그 외
 
