@@ -1,10 +1,18 @@
 import type {
   AdminCategory,
+  AdminInterest,
   AdminInterestQuestionSummary,
   AdminQuestion,
 } from '@ssafy-net/shared';
-import { CATEGORY_NAME_MAX, QUESTION_TEXT_MAX } from '@ssafy-net/shared';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { CATEGORY_NAME_MAX, INTEREST_NAME_MAX, QUESTION_TEXT_MAX } from '@ssafy-net/shared';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  EyeIcon,
+  EyeOffIcon,
+  PencilIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +32,10 @@ import { useSession } from '../../session';
 import { Section } from './charts';
 
 /**
- * 운영자 레버 — 내용 관리 (D-84 · D-86 · D-87).
+ * 운영자 레버 — 내용 관리 (D-84 · D-86 · D-87 · D-88).
  *   InviteSwitch       가입에 초대 링크가 필요한지
  *   CategoriesSection  관심사 분류(대분류) 추가·이름·순서·삭제
+ *   InterestsSection   관심사 추가·이름·별칭·분류·순서·숨김·삭제
  *   QuestionsSection   네트워킹 질문: 주제별 고정 질문과 포괄 아이스브레이킹
  * 서버가 준 것을 그대로 보여주고, 바꾼 뒤에는 목록을 다시 받는다. 여기서 계산하지 않는다.
  */
@@ -276,6 +285,379 @@ export function CategoriesSection() {
         </Select>
         <Button type="submit" size="sm" disabled={busy || !name.trim()}>
           분류 추가
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// 관심사 (D-88)
+// ─────────────────────────────────────────────────────────
+
+/** 분류 필터의 "전체". shadcn Select 는 빈 문자열을 값으로 쓸 수 없다. */
+const ALL_CATEGORIES = '__all__';
+
+/** 이름과 별칭 어디에 걸려도 찾는다. 대소문자는 보지 않는다. */
+function matchesTerm(item: AdminInterest, term: string): boolean {
+  const needle = term.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    item.name.toLowerCase().includes(needle) ||
+    item.aliases.some((alias) => alias.toLowerCase().includes(needle))
+  );
+}
+
+type InterestDraft = { id: string; name: string; categoryId: string; aliases: string };
+
+/**
+ * 관심사 목록 관리 (D-88).
+ *
+ * 100개가 넘으므로 분류 필터와 검색을 먼저 둔다. 순서 바꾸기는 **같은 분류 안에서만** 뜻이 있어
+ * 위·아래 버튼은 그 분류의 이웃과 자리를 바꾼다.
+ * 지우기와 숨기기를 나란히 두되, 사람이 있는 관심사에서는 지우기가 잠긴다.
+ */
+export function InterestsSection() {
+  const [items, setItems] = useState<AdminInterest[] | null>(null);
+  const [categories, setCategories] = useState<AdminCategory[] | null>(null);
+  const [filter, setFilter] = useState<string>(ALL_CATEGORIES);
+  const [term, setTerm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<InterestDraft | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const [list, cats] = await Promise.all([
+        api.get<AdminInterest[]>('/admin/interests'),
+        api.get<AdminCategory[]>('/admin/categories'),
+      ]);
+      setItems(list);
+      setCategories(cats);
+    } catch (cause) {
+      toast.error(errorText(cause));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const run = async (work: () => Promise<void>, done?: string) => {
+    setBusy(true);
+    try {
+      await work();
+      if (done) toast.success(done);
+      await load();
+    } catch (cause) {
+      toast.error(errorText(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 같은 분류 안에서 몇 번째인지. 위·아래 버튼을 잠그고 옮길 자리를 정하는 데 쓴다 */
+  const position = useMemo(() => {
+    const map = new Map<string, { index: number; total: number }>();
+    const byCategory = new Map<string, AdminInterest[]>();
+    for (const item of items ?? []) {
+      const list = byCategory.get(item.categoryId) ?? [];
+      list.push(item);
+      byCategory.set(item.categoryId, list);
+    }
+    for (const list of byCategory.values()) {
+      list.forEach((item, index) => map.set(item.id, { index, total: list.length }));
+    }
+    return map;
+  }, [items]);
+
+  const shown = useMemo(
+    () =>
+      (items ?? []).filter(
+        (item) => (filter === ALL_CATEGORIES || item.categoryId === filter) && matchesTerm(item, term),
+      ),
+    [items, filter, term],
+  );
+
+  const hiddenCount = items?.filter((item) => item.status !== 'ACTIVE').length ?? 0;
+
+  /** 고른 것이 없으면 첫 분류. 목록이 늦게 오거나 고른 분류가 사라져도 비어 있지 않다 */
+  const addCategoryId = categoryId || categories?.[0]?.id || '';
+
+  const add = (event: FormEvent) => {
+    event.preventDefault();
+    const value = name.trim();
+    if (!value || !addCategoryId) return;
+    void run(async () => {
+      await api.post('/admin/interests', { name: value, categoryId: addCategoryId });
+      setName('');
+    }, `"${value}" 관심사를 추가했습니다`);
+  };
+
+  const save = () => {
+    if (!editing) return;
+    const draft = editing;
+    void run(async () => {
+      await api.patch(`/admin/interests/${draft.id}`, {
+        name: draft.name.trim(),
+        categoryId: draft.categoryId,
+        aliases: draft.aliases
+          .split(',')
+          .map((alias) => alias.trim())
+          .filter(Boolean),
+      });
+      setEditing(null);
+    }, '관심사를 고쳤습니다');
+  };
+
+  const move = (item: AdminInterest, delta: -1 | 1) => {
+    const at = position.get(item.id);
+    if (!at) return;
+    const to = at.index + delta;
+    if (to < 0 || to >= at.total) return;
+    void run(() => api.patch(`/admin/interests/${item.id}`, { sortOrder: to }).then(() => undefined));
+  };
+
+  const toggleHidden = (item: AdminInterest) => {
+    const next = item.status === 'ACTIVE' ? 'HIDDEN' : 'ACTIVE';
+    void run(
+      () => api.patch(`/admin/interests/${item.id}`, { status: next }).then(() => undefined),
+      next === 'HIDDEN'
+        ? `"${item.name}"을(를) 목록에서 내렸습니다. 이미 가진 사람에게는 남습니다`
+        : `"${item.name}"을(를) 다시 목록에 올렸습니다`,
+    );
+  };
+
+  const remove = (item: AdminInterest) => {
+    void run(async () => {
+      await api.del<void>(`/admin/interests/${item.id}`);
+      setRemoving(null);
+    }, `"${item.name}" 관심사를 지웠습니다`);
+  };
+
+  return (
+    <Section
+      // 제품 탭에도 "관심사"(직접 추가·보유자 분석)가 있다. 이름을 나눠 헷갈리지 않게 한다.
+      title="관심사 목록"
+      description="목록에 무엇이 있는지가 이 서비스의 뼈대다. 이름·별칭·분류·순서를 고치고, 쓰지 않는 것은 숨기고, 아무도 고르지 않은 것만 지운다. 사람이 있는 관심사는 지우지 말고 숨긴다 — 지우면 그 사람들의 선택과 글이 함께 사라진다"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-[190px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_CATEGORIES}>모든 분류</SelectItem>
+            {(categories ?? []).map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder="이름·별칭 검색"
+          className="max-w-[200px]"
+        />
+        {items && (
+          <Muted className="text-[12.5px]">
+            {shown.length === items.length
+              ? `전체 ${items.length}개`
+              : `${shown.length}개 / 전체 ${items.length}개`}
+            {hiddenCount > 0 && ` · 숨김 ${hiddenCount}개`}
+          </Muted>
+        )}
+      </div>
+
+      {!items || !categories ? (
+        <Skeleton className="h-[200px]" />
+      ) : shown.length === 0 ? (
+        <Muted className="text-[12.5px]">해당하는 관심사가 없습니다.</Muted>
+      ) : (
+        <ul className="flex max-h-[420px] flex-col gap-1.5 overflow-y-auto">
+          {shown.map((item) => {
+            const at = position.get(item.id);
+            return (
+              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+                {editing?.id === item.id ? (
+                  <form
+                    className="flex flex-1 flex-wrap items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      save();
+                    }}
+                  >
+                    <Input
+                      value={editing.name}
+                      maxLength={INTEREST_NAME_MAX}
+                      autoFocus
+                      onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                      className="h-8 max-w-[180px]"
+                    />
+                    <Select
+                      value={editing.categoryId}
+                      onValueChange={(value) => setEditing({ ...editing, categoryId: value })}
+                    >
+                      <SelectTrigger className="h-8 w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={editing.aliases}
+                      onChange={(event) => setEditing({ ...editing, aliases: event.target.value })}
+                      placeholder="별칭 (쉼표로 구분)"
+                      className="h-8 min-w-[160px] flex-1"
+                    />
+                    <Button type="submit" size="sm" disabled={busy || !editing.name.trim()}>
+                      저장
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(null)}>
+                      취소
+                    </Button>
+                  </form>
+                ) : (
+                  <>
+                    <span className={`font-medium ${item.status === 'ACTIVE' ? '' : 'text-muted-foreground line-through'}`}>
+                      {item.name}
+                    </span>
+                    <Badge variant="secondary">{item.categoryName}</Badge>
+                    {item.status !== 'ACTIVE' && (
+                      <Badge variant="outline">{item.status === 'HIDDEN' ? '숨김' : '병합됨'}</Badge>
+                    )}
+                    {item.userAdded && <Badge variant="outline">사용자 추가</Badge>}
+                    <Muted className="text-[12.5px]">
+                      {item.holderCount}명
+                      {item.postCount > 0 && ` · 글 ${item.postCount}`}
+                      {item.questionCount > 0 && ` · 질문 ${item.questionCount}`}
+                      {item.aliases.length > 0 && ` · ${item.aliases.join(', ')}`}
+                    </Muted>
+                  </>
+                )}
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="위로"
+                    disabled={busy || !at || at.index === 0}
+                    onClick={() => move(item, -1)}
+                  >
+                    <ArrowUpIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="아래로"
+                    disabled={busy || !at || at.index === at.total - 1}
+                    onClick={() => move(item, 1)}
+                  >
+                    <ArrowDownIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="수정"
+                    disabled={busy}
+                    onClick={() =>
+                      setEditing({
+                        id: item.id,
+                        name: item.name,
+                        categoryId: item.categoryId,
+                        aliases: item.aliases.join(', '),
+                      })
+                    }
+                  >
+                    <PencilIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={item.status === 'ACTIVE' ? '숨기기' : '보이게'}
+                    title={
+                      item.status === 'ACTIVE'
+                        ? '목록에서 내린다. 이미 가진 사람에게는 남는다'
+                        : '다시 목록에 올린다'
+                    }
+                    // 병합된 것은 여기서 되돌리지 않는다. 합치기 기능이 생기면 그쪽에서 다룬다.
+                    disabled={busy || item.status === 'MERGED'}
+                    onClick={() => toggleHidden(item)}
+                  >
+                    {item.status === 'ACTIVE' ? <EyeOffIcon /> : <EyeIcon />}
+                  </Button>
+                  {removing === item.id ? (
+                    <>
+                      <span className="text-[12.5px]">지울까요?</span>
+                      <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => remove(item)}>
+                        삭제
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setRemoving(null)}>
+                        취소
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="삭제"
+                      // 고른 사람이 있으면 지울 수 없다. 그때는 숨김이 답이다.
+                      disabled={busy || item.holderCount > 0}
+                      title={
+                        item.holderCount > 0
+                          ? `${item.holderCount}명이 고르고 있어 지울 수 없습니다. 숨기세요`
+                          : item.postCount > 0
+                            ? `글 ${item.postCount}개가 함께 사라집니다`
+                            : undefined
+                      }
+                      onClick={() => setRemoving(item.id)}
+                    >
+                      <Trash2Icon />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <form className="flex flex-wrap items-center gap-2" onSubmit={add}>
+        <Input
+          value={name}
+          maxLength={INTEREST_NAME_MAX}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="새 관심사 이름"
+          className="max-w-[200px]"
+          required
+        />
+        <Select value={addCategoryId} onValueChange={setCategoryId}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="분류" />
+          </SelectTrigger>
+          <SelectContent>
+            {(categories ?? []).map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="submit" size="sm" disabled={busy || !name.trim() || !addCategoryId}>
+          관심사 추가
         </Button>
       </form>
     </Section>

@@ -99,18 +99,21 @@ export type PostInput = z.infer<typeof postSchema>;
 
 export const INTEREST_NAME_MAX = 20;
 
+/** 관심사 이름의 글자 규칙. 사용자가 추가할 때(D-74)와 운영자가 만질 때(D-88) 같은 것을 쓴다. */
+export const interestNameSchema = z
+  .string()
+  .trim()
+  .min(1, '관심사 이름을 입력해주세요.')
+  .max(INTEREST_NAME_MAX, `관심사 이름은 ${INTEREST_NAME_MAX}자까지 쓸 수 있습니다.`)
+  .regex(/^[가-힣a-zA-Z0-9 .+#·/&-]+$/, '한글, 영문, 숫자와 몇 가지 기호만 쓸 수 있습니다.');
+
 /**
  * 사용자가 관심사를 직접 추가한다 (D-74).
  * confirmSimilar는 "비슷한 것이 있다"는 안내를 보고도 추가하겠다는 확인이다.
  * 같은 뜻(EXACT)이면 확인해도 만들 수 없다.
  */
 export const createInterestSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, '관심사 이름을 입력해주세요.')
-    .max(INTEREST_NAME_MAX, `관심사 이름은 ${INTEREST_NAME_MAX}자까지 쓸 수 있습니다.`)
-    .regex(/^[가-힣a-zA-Z0-9 .+#·/&-]+$/, '한글, 영문, 숫자와 몇 가지 기호만 쓸 수 있습니다.'),
+  name: interestNameSchema,
   categoryId: z.string().uuid(),
   confirmSimilar: z.boolean().optional(),
 });
@@ -171,6 +174,45 @@ export const updateCategorySchema = z
   })
   .refine((value) => value.name !== undefined || value.sortOrder !== undefined, '바꿀 것이 없습니다.');
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+
+/**
+ * 운영자가 직접 만지는 관심사(D-88). 사용자 추가(`createInterestSchema`)와 이름 규칙은 같지만
+ * 하루 3개 제한도, 비슷한 것 확인도 없다 — 목록의 주인은 운영자다.
+ */
+/** 별칭 목록. 화면에서는 쉼표로 나눠 보낸다. 빈 것은 버리고 중복은 합친다 */
+const aliasesSchema = z
+  .array(interestNameSchema)
+  .max(10, '별칭은 10개까지 넣을 수 있습니다.')
+  .transform((values) => [...new Set(values)]);
+
+export const createAdminInterestSchema = z.object({
+  name: interestNameSchema,
+  categoryId: z.string().uuid(),
+  aliases: aliasesSchema.optional(),
+});
+export type CreateAdminInterestInput = z.infer<typeof createAdminInterestSchema>;
+
+export const updateAdminInterestSchema = z
+  .object({
+    name: interestNameSchema.optional(),
+    /** 다른 분류로 옮긴다. 종류(이야깃거리↔속성)가 달라지는 이동은 가진 사람이 없을 때만 */
+    categoryId: z.string().uuid().optional(),
+    aliases: aliasesSchema.optional(),
+    /** 숨기면 이미 가진 사람에게만 남는다. 합치기(MERGED)는 아직 없다 */
+    status: z.enum(['ACTIVE', 'HIDDEN']).optional(),
+    /** 같은 분류 안에서의 순서. 0부터 */
+    sortOrder: z.number().int().min(0).max(999).optional(),
+  })
+  .refine(
+    (value) =>
+      value.name !== undefined ||
+      value.categoryId !== undefined ||
+      value.aliases !== undefined ||
+      value.status !== undefined ||
+      value.sortOrder !== undefined,
+    '바꿀 것이 없습니다.',
+  );
+export type UpdateAdminInterestInput = z.infer<typeof updateAdminInterestSchema>;
 
 /** 네트워킹 질문(D-87). 주제별 질문과 포괄 질문이 같은 본문을 쓴다. */
 export const questionTextSchema = z

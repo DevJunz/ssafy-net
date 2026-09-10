@@ -5,13 +5,15 @@ import { PostsModule } from '../posts/posts.module';
 import { CommonInterestsModule } from '../recommendation/common-interests.module';
 import { CategoriesAdminController } from './categories-admin.controller';
 import { CategoriesService } from './categories.service';
+import { InterestsAdminController } from './interests-admin.controller';
+import { InterestsAdminService } from './interests-admin.service';
 import { InterestsController } from './interests.controller';
 import { InterestsService } from './interests.service';
 
 @Module({
   imports: [CommonInterestsModule, ConnectionsModule, PostsModule, MattermostModule],
-  controllers: [InterestsController, CategoriesAdminController],
-  providers: [InterestsService, CategoriesService],
+  controllers: [InterestsController, CategoriesAdminController, InterestsAdminController],
+  providers: [InterestsService, CategoriesService, InterestsAdminService],
   exports: [InterestsService],
 })
 export class InterestsModule {}

@@ -42,7 +42,12 @@ import {
   fmtTime,
   fmtUptime,
 } from '../features/ops/charts';
-import { CategoriesSection, InviteSwitch, QuestionsSection } from '../features/ops/ContentAdmin';
+import {
+  CategoriesSection,
+  InterestsSection,
+  InviteSwitch,
+  QuestionsSection,
+} from '../features/ops/ContentAdmin';
 
 /**
  * 운영자 대시보드 (D-77). `GET /api/admin/ops?days=N` 하나를 그린다.
@@ -793,6 +798,7 @@ function AdminTab() {
       <OperatorsSection />
       <InviteSwitch />
       <CategoriesSection />
+      <InterestsSection />
       <QuestionsSection />
       <Muted className="text-[12.5px]">
         사용자 정지와 관심사 병합·숨김은 아직 여기 없다. VM 에서 SQL 로 한다(design/23 §8). Network 추천의 켜고 끄기는 제품 탭의

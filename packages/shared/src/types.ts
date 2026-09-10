@@ -93,6 +93,9 @@ export interface OnboardingState {
   codeSent: boolean;
 }
 
+/** HIDDEN 은 이미 가진 사람에게만 보이고, MERGED 는 다른 관심사로 합쳐진 것이다(docs/08 §5). */
+export type InterestStatus = 'ACTIVE' | 'HIDDEN' | 'MERGED';
+
 export interface InterestListItem {
   id: string;
   name: string;
@@ -100,7 +103,7 @@ export interface InterestListItem {
   aliases: string[];
   holderCount: number;
   mine: boolean;
-  status: 'ACTIVE' | 'HIDDEN' | 'MERGED';
+  status: InterestStatus;
 }
 
 /** ATTRIBUTE는 분류당 하나만 고르고 개수·공통 계산에서 빠진다(D-72). */
