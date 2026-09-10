@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { api } from '../api/client';
 import {
   Chips,
@@ -225,38 +232,59 @@ export function ProfilePage() {
           <Muted>
             그래프와 추천의 재료입니다. 저장하면 그래프와 추천이 즉시 바뀝니다.
           </Muted>
-          {editingInterests ? (
-            // 온보딩과 같은 선택 화면(D-24)을 상자에 넣는다. 안에서 스크롤하고 저장·취소는 발에 있다.
-            <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-xs">
-              <InterestPicker
-                embedded
-                submitLabel="저장"
-                onSaved={async (message) => {
-                  await reload();
-                  setEditingInterests(false);
-                  toast.success(message ?? '관심사를 저장했습니다.');
-                }}
-                onCancel={() => setEditingInterests(false)}
-              />
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Chips>
-                {me.interests.map((interest) => (
-                  <ChipTag key={interest.id}>{interest.name}</ChipTag>
-                ))}
-              </Chips>
-              <Button
-                type="button"
-                variant="outline"
-                className="ml-1"
-                onClick={() => setEditingInterests(true)}
-              >
-                관심사 수정
-              </Button>
-            </div>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Chips>
+              {me.interests.map((interest) => (
+                <ChipTag key={interest.id}>{interest.name}</ChipTag>
+              ))}
+            </Chips>
+            <Button
+              type="button"
+              variant="outline"
+              className="ml-1"
+              onClick={() => setEditingInterests(true)}
+            >
+              관심사 수정
+            </Button>
+          </div>
         </div>
+
+        {/*
+         * 온보딩과 같은 선택 화면(D-24)이지만, 본문 폭(760px) 안의 상자에 넣으면
+         * 100개를 좁은 칸에서 스크롤해야 한다. 화면을 거의 다 쓰는 대화상자로 열어
+         * 분류를 여러 단으로 늘어놓으면 한 번에 다 보인다.
+         * ResponsiveDialog(520px)로는 이 폭이 안 나와 Dialog 를 직접 쓴다.
+         */}
+        {editingInterests && (
+          <Dialog
+            open
+            onOpenChange={(open) => {
+              if (!open) setEditingInterests(false);
+            }}
+          >
+            <DialogContent className="flex h-[94dvh] max-w-[min(1440px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1440px,96vw)]">
+              {/* 제목과 안내를 한 줄에 둔다. 목록에 높이를 한 뼘이라도 더 준다. */}
+              <DialogHeader className="flex-row flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-6 py-3 pr-14">
+                <DialogTitle className="text-[17px] leading-snug">관심사 수정</DialogTitle>
+                <DialogDescription className="text-[13px]">
+                  저장하면 그래프와 추천이 즉시 바뀝니다.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1">
+                <InterestPicker
+                  variant="overlay"
+                  submitLabel="저장"
+                  onSaved={async (message) => {
+                    await reload();
+                    setEditingInterests(false);
+                    toast.success(message ?? '관심사를 저장했습니다.');
+                  }}
+                  onCancel={() => setEditingInterests(false)}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </Page>
     </ScrollPage>
   );

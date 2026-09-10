@@ -28,22 +28,25 @@ import { CreateInterest } from './CreateInterest';
  *
  * 찾는 관심사가 없으면 여기서 바로 추가한다(D-74). 별도 제안 화면은 없다.
  *
- * `embedded` 는 My Profile 처럼 다른 화면 안에 상자로 들어갈 때다. 목록이 상자 안에서
- * 스크롤되고(검색은 상자 위에 고정) 저장·취소 버튼은 상자 아래 발에 남는다 —
- * 페이지 하나를 통째로 차지하는 온보딩과 달리, 다른 구역 사이에 얌전히 끼어야 한다.
+ * 두 가지 모양이 있다.
+ *   - page    — 온보딩. 본문 폭(760px)에 한 단으로 늘어놓고 페이지가 스크롤한다
+ *   - overlay — My Profile 의 "관심사 수정". 넓은 대화상자를 가득 채우고 분류를
+ *               여러 단(1440px 에서 5단)으로 흘려 100개 + 층 20개가 스크롤 없이
+ *               한 화면에 들어온다. 좁아지면 단이 줄고 그때는 스크롤한다.
+ *               다 보이므로 분류 바로가기 버튼과 선택 요약 줄은 두지 않는다.
  */
 export function InterestPicker({
   submitLabel,
   onSaved,
   onCancel,
-  embedded = false,
+  variant = 'page',
 }: {
   submitLabel: string;
   onSaved: (notice: string | null) => void;
   /** 있으면 취소 버튼이 생긴다(My Profile) */
   onCancel?: () => void;
-  /** 상자 안에 들어가는 형태. 높이를 제한하고 안에서 스크롤한다 */
-  embedded?: boolean;
+  /** 넓은 대화상자 안에 들어가는 형태. 부모 높이를 채우고 목록을 여러 단으로 나눈다 */
+  variant?: 'page' | 'overlay';
 }) {
   const [catalog, setCatalog] = useState<InterestCatalog | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -52,6 +55,7 @@ export function InterestPicker({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const overlay = variant === 'overlay';
 
   useEffect(() => {
     api
@@ -89,7 +93,7 @@ export function InterestPicker({
 
   if (!catalog) {
     return (
-      <div className={cn(embedded && 'p-5')}>
+      <div className={cn(overlay && 'p-6')}>
         {error ? <ErrorText>{error}</ErrorText> : <SkeletonRows count={4} />}
       </div>
     );
@@ -216,13 +220,48 @@ export function InterestPicker({
         onClick={() => toggle(interest.id)}
         // 사람 수는 "여기 고르면 누가 있을지"의 힌트다.
         count={`${interest.holderCount}명`}
+        // overlay 는 100개가 한 화면에 들어와야 해서 칩을 한 치수 줄인다.
+        className={cn(overlay && 'gap-1 px-2 py-[2px] text-[12px] [&>span]:text-[10.5px]')}
       >
         {interest.name}
       </Chip>
     );
   };
 
-  // 안내와 저장 버튼. 온보딩에서는 목록 끝에, 상자 안에서는 상자의 발에 놓인다.
+  /** 분류 한 덩어리. overlay 에서는 단 중간에서 잘리지 않는다. */
+  const categoryBlock = (
+    category: InterestCatalog['categories'][number],
+    title: string,
+    kind: 'INTEREST' | 'ATTRIBUTE',
+    lede?: string,
+  ) => (
+    <div
+      key={category.id}
+      ref={(node) => {
+        sectionRefs.current[category.id] = node;
+      }}
+      className={cn(overlay && 'mb-3.5 break-inside-avoid')}
+    >
+      <div
+        className={cn(
+          'font-semibold tracking-tight',
+          overlay ? 'mb-1.5 text-[13px]' : 'mt-7 mb-2.5',
+        )}
+      >
+        {title}
+      </div>
+      {lede && (
+        <Muted className={cn('mb-1.5', overlay ? 'text-[11.5px]' : 'mb-2 text-[13px]')}>
+          {lede}
+        </Muted>
+      )}
+      <Chips className={cn(overlay && 'gap-1')}>
+        {category.interests.map((interest) => renderChip(interest, kind))}
+      </Chips>
+    </div>
+  );
+
+  // 안내와 저장 버튼. 온보딩에서는 목록 끝에, 대화상자에서는 상자의 발에 놓인다.
   const footer = (
     <>
       {shortBy > 0 && (
@@ -252,31 +291,37 @@ export function InterestPicker({
   );
 
   return (
-    <div className={cn(embedded && 'flex max-h-[72vh] min-h-0 flex-col')}>
-      <div className={cn(embedded && 'min-h-0 flex-1 overflow-y-auto px-5 pb-6')}>
+    <div className={cn(overlay && 'flex h-full min-h-0 flex-col')}>
+      <div className={cn(overlay && 'min-h-0 flex-1 overflow-y-auto px-6 pb-5')}>
         <div
           className={cn(
-            'sticky top-0 z-[2] flex flex-col gap-4 border-b py-4',
-            embedded ? 'bg-card' : 'bg-background',
+            'sticky top-0 z-[2] flex flex-col border-b bg-background',
+            overlay ? 'gap-3 py-3' : 'gap-4 py-4',
           )}
         >
-          <Input
-            type="text"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setCreating(false);
-            }}
-            placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
-            className={cn('h-11', embedded ? 'bg-secondary/60' : 'bg-card')}
-          />
+          {/* overlay 에서는 검색과 개수가 한 줄에 앉아 목록에 높이를 더 준다. */}
+          <div className={cn(overlay && 'flex flex-wrap items-center gap-x-4 gap-y-2')}>
+            <Input
+              type="text"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setCreating(false);
+              }}
+              placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
+              className={cn('h-11 bg-card', overlay && 'h-10 w-[320px] max-w-full')}
+            />
+            <Muted className={cn(!overlay && 'mt-4')}>
+              {topicCount}개 선택 · 최소 {min} · 최대 {max}
+            </Muted>
+          </div>
 
-          <Muted>
-            {topicCount}개 선택 · 최소 {min} · 최대 {max}
-          </Muted>
-
-          {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다. */}
-          {selected.size > 0 && (
+          {/*
+           * 선택한 것은 스크롤해도 보이도록 상단에 고정한다.
+           * overlay 에서는 목록 전체가 한눈에 있고 고른 것이 그 자리에서 파랗게 보이므로
+           * 이 줄이 없다 — 그만큼의 높이를 목록에 준다.
+           */}
+          {!overlay && selected.size > 0 && (
             <Chips>
               {[...selected].map((id) => (
                 <Chip key={id} selected onClick={() => toggle(id)}>
@@ -286,7 +331,8 @@ export function InterestPicker({
             </Chips>
           )}
 
-          {!normalized && (
+          {/* 분류 바로가기. overlay 는 전부 한눈에 보이므로 필요 없다. */}
+          {!overlay && !normalized && (
             <Chips>
               {catalog.categories.map((category) => (
                 <Button
@@ -309,19 +355,28 @@ export function InterestPicker({
           )}
         </div>
 
-        {visibleTopics.map((category) => (
-          <div
-            key={category.id}
-            ref={(node) => {
-              sectionRefs.current[category.id] = node;
-            }}
-          >
-            <div className="mt-7 mb-2.5 font-semibold tracking-tight">{category.name}</div>
-            <Chips>
-              {category.interests.map((interest) => renderChip(interest, 'INTEREST'))}
-            </Chips>
-          </div>
-        ))}
+        <div
+          className={cn(
+            overlay &&
+              'columns-1 gap-x-5 pt-3 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5',
+          )}
+        >
+          {visibleTopics.map((category) =>
+            categoryBlock(category, category.name, 'INTEREST'),
+          )}
+
+          {!normalized &&
+            attributes.map((category) =>
+              categoryBlock(
+                category,
+                `활동하는 ${category.name}`,
+                'ATTRIBUTE',
+                overlay
+                  ? `하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.`
+                  : `선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다. 같은 ${category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.`,
+              ),
+            )}
+        </div>
 
         {normalized && !exactExists && !creating && (
           <Card className="mt-4 gap-0 rounded-xl py-[22px]">
@@ -352,33 +407,11 @@ export function InterestPicker({
           />
         )}
 
-        {!normalized &&
-          attributes.map((category) => (
-            <div
-              key={category.id}
-              ref={(node) => {
-                sectionRefs.current[category.id] = node;
-              }}
-              className="mt-6"
-            >
-              <div className="mt-7 mb-2.5 font-semibold tracking-tight">
-                활동하는 {category.name}
-              </div>
-              <Muted className="mb-2 text-[13px]">
-                선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.
-                같은 {category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.
-              </Muted>
-              <Chips>
-                {category.interests.map((interest) => renderChip(interest, 'ATTRIBUTE'))}
-              </Chips>
-            </div>
-          ))}
-
-        {!embedded && <div className="mt-8 flex flex-col gap-4">{footer}</div>}
+        {!overlay && <div className="mt-8 flex flex-col gap-4">{footer}</div>}
       </div>
 
-      {embedded && (
-        <div className="flex flex-col gap-3 border-t bg-card px-5 py-4">{footer}</div>
+      {overlay && (
+        <div className="flex flex-col gap-3 border-t bg-background px-6 py-4">{footer}</div>
       )}
     </div>
   );
