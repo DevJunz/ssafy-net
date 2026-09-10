@@ -317,7 +317,7 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | 도메인 | `ssafy-networking.store` | `dev.ssafy-networking.store` |
 | 보안 비밀 | `ssafy-net-env` | `ssafy-net-env-dev` (`APP_ENV=dev` 가 추가로 들어간다) |
 | 데이터 | 실제 사용자 | `prisma:seed` + `seed:dev` 더미(기본 120명, `SEED_USERS=1000` 이면 공개 규모) |
-| Mattermost | 공개 후 `live` | `redirect` 그대로. 더미에게는 아무것도 안 나가고, 인증 코드는 운영자 채널로 온다 |
+| Mattermost | `live` (2026-09-10 부터, 공개 전 시험도 실제 DM 으로) | `live` (사용자 결정 2026-09-10). 더미는 Mattermost 아이디가 가짜라 발송이 400 으로 끝나고, 초대 링크를 아는 사람은 가입할 수 있다. 잠그고 싶으면 `redirect` 로 돌리거나 `MATTERMOST_ALLOWED_RECIPIENTS` 에 시험 인원만 |
 | 배포 알림 | `[deploy] …` | `[deploy:dev] …` |
 | 화면 | | 위에 "개발 서버" 띠(호스트 이름이 `dev.` 로 시작하면) |
 
