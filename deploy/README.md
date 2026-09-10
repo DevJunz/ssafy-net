@@ -134,7 +134,7 @@ git clone https://github.com/DevJunz/ssafy-net.git && cd ssafy-net
 
 빌드는 GitHub Actions 가 하고 VM 은 받기만 한다. 이유: 4GB VM 에서 빌드하지 않는다, 배포가 5분 빌드에서 30초 pull 로 준다, 롤백이 태그 하나로 된다(`IMAGE_TAG=<sha>`), Actions 가 타입 검사·빌드 게이트를 겸한다. Docker Hub 대신 같은 프로젝트의 Artifact Registry 를 쓰는 이유: 저장소가 private 이라 이미지도 private 이어야 하는데 Docker Hub 무료는 private 저장소가 하나뿐이고 VM 에 토큰을 둬야 한다. Artifact Registry 는 VM 서비스 계정이 그대로 pull 하고, 같은 리전이라 전송이 빠르며, 2주 뒤 프로젝트와 함께 지워진다. 저장 0.5GB 까지 무료, 그 뒤 GB 당 월 $0.10.
 
-**한 번만 한다 — 콘솔 오른쪽 위 `>_` (Cloud Shell) 에 붙여 넣기:**
+**한 번만 한다 — 콘솔 오른쪽 위 `>_` (Cloud Shell) 에 붙여 넣기.** VM 의 SSH 터미널이 **아니다**. VM 안의 gcloud 는 VM 서비스 계정으로 돌아서 권한 부여(`add-iam-policy-binding`)가 `PERMISSION_DENIED ... setIamPolicy` 로 거부된다. Cloud Shell 은 본인 계정(프로젝트 소유자)으로 돈다. 이미 만들어진 것이 있으면 `ALREADY_EXISTS` 가 나오는데 무시하면 된다.
 
 ```bash
 PROJECT=$(gcloud config get-value project); echo "project: $PROJECT"   # ssanecting 이어야 한다. 다르면 build.yml 과 compose 의 IMAGE_REPO 를 고친다
@@ -259,6 +259,7 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | 로그인은 되는데 바로 풀림 | `APP_BASE_URL` 이 `https://` 인지. 쿠키가 `secure` 라 http 에서는 안 붙는다 |
 | api 가 `unhealthy` | `logs api`. 대개 `DATABASE_URL`(비밀번호에 특수문자) 또는 migrate 실패 |
 | Mattermost 인증 코드가 안 옴 | redirect 모드면 운영자 채널을 본다. 웹훅 URL 과 "채널로 잠금 해제" 확인(README) |
+| `add-iam-policy-binding` 이 `PERMISSION_DENIED ... setIamPolicy`, 끝에 `authenticated as <번호>-compute@...` | VM SSH 에서 돌린 것이다. VM 서비스 계정은 권한을 못 준다. 같은 명령을 콘솔의 Cloud Shell 에서 |
 | Actions 가 `secret 확인` 에서 실패 | `GCP_SA_KEY` 가 없다. §5-2 의 `gh secret set` |
 | Actions 가 `login` 에서 실패 | 키 JSON 이 통째로 들어갔는지(`gh secret set ... < 파일`). 서비스 계정에 저장소 writer 역할이 있는지 |
 | `deploy.sh` 가 `registry login` 에서 실패 | VM 액세스 범위가 "모든 Cloud API" 인지(§2), gcloud 가 있는지(`gcloud --version`) |
