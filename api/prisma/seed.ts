@@ -5,6 +5,7 @@ import {
   PARAMETER_DEFS,
   PARAMETER_KEYS,
 } from '@ssafy-net/shared';
+import { ICEBREAKER_SEED, templateQuestionsFor } from './seed/icebreakers';
 import { INTEREST_SEED, seedItemAliases, seedItemName } from './seed/interests';
 
 const prisma = new PrismaClient();
@@ -69,6 +70,39 @@ async function seedInterests() {
   );
 }
 
+/** 포괄 아이스브레이킹(D-87). 문장으로 upsert 하므로 운영자가 고친 것은 그대로 남고, 지운 것은 다시 생긴다. */
+async function seedIcebreakers() {
+  let created = 0;
+  for (const [index, text] of ICEBREAKER_SEED.entries()) {
+    const existing = await prisma.icebreakerQuestion.findUnique({ where: { text } });
+    if (existing) continue;
+    await prisma.icebreakerQuestion.create({ data: { text, sortOrder: index } });
+    created += 1;
+  }
+  console.log(`포괄 아이스브레이킹 질문 ${ICEBREAKER_SEED.length}개 확인 (새로 ${created}개)`);
+}
+
+/**
+ * 주제별 질문의 틀(D-87). 질문이 하나도 없는 이야깃거리 관심사에만 틀 문장 3개를 넣는다.
+ * 운영자가 /ops 에서 고친 관심사는 건드리지 않는다. 진짜 질문은 운영자가 채운다.
+ */
+async function seedInterestQuestions() {
+  const interests = await prisma.interest.findMany({
+    where: { category: { kind: 'INTEREST' }, questions: { none: {} } },
+    select: { id: true, name: true },
+  });
+  for (const interest of interests) {
+    await prisma.interestQuestion.createMany({
+      data: templateQuestionsFor(interest.name).map((text, sortOrder) => ({
+        interestId: interest.id,
+        text,
+        sortOrder,
+      })),
+    });
+  }
+  console.log(`주제별 질문 틀: 관심사 ${interests.length}개에 새로 넣음`);
+}
+
 async function seedInviteCode() {
   const existing = await prisma.inviteCode.findFirst({ where: { active: true } });
   if (existing) {
@@ -80,12 +114,15 @@ async function seedInviteCode() {
   await prisma.inviteCode.create({ data: { code, label: '1차 공유용' } });
   console.log(`초대 코드 생성: ${code}`);
   console.log(`  가입 링크: /invite/${code}`);
+  console.log('  (invite_required 플래그가 꺼져 있으면 초대 링크 없이도 가입된다, D-84)');
 }
 
 async function main() {
   await seedParameters();
   await seedFeatureFlags();
   await seedInterests();
+  await seedIcebreakers();
+  await seedInterestQuestions();
   await seedInviteCode();
 }
 

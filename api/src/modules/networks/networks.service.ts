@@ -10,6 +10,7 @@ import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ParametersService } from '../parameters/parameters.service';
+import { QuestionsService } from '../questions/questions.service';
 import { UserPresenter } from '../users/user.presenter';
 
 const DAY_MS = 86_400_000;
@@ -27,6 +28,7 @@ export class NetworksService {
     private readonly parameters: ParametersService,
     private readonly presenter: UserPresenter,
     private readonly notifications: NotificationsService,
+    private readonly questions: QuestionsService,
   ) {}
 
   private async assertEnabled(): Promise<void> {
@@ -141,6 +143,11 @@ export class NetworksService {
         initiator?.userId === me.id ? row.initiatorMarkedAt : mine.markedAt,
       ),
       snapshotNote: '추천 당시 기준',
+      // 대화 재료(D-87)는 성립 뒤 참여자에게만. 실명과 같은 조건이다.
+      questions:
+        activated && iJoined
+          ? await this.questions.forNetwork(row.commonInterestIds, row.icebreakerIds)
+          : null,
     };
   }
 
@@ -194,7 +201,12 @@ export class NetworksService {
       if (nowJoined >= required && row.status !== 'ACTIVATED') {
         await tx.networkRecommendation.update({
           where: { id },
-          data: { status: 'ACTIVATED', activatedAt: new Date() },
+          data: {
+            status: 'ACTIVATED',
+            activatedAt: new Date(),
+            // 성립 순간에 뽑아 고정한다(D-87). 누가 언제 열어도 같은 질문이 보인다.
+            icebreakerIds: await this.questions.pickIcebreakerIds(),
+          },
         });
         activated = true;
         this.logger.log(`네트워크 성립 ${id} (${nowJoined}명)`);
@@ -224,11 +236,16 @@ export class NetworksService {
     if (!row) return;
 
     const joined = row.members.filter((member) => member.decision === 'JOINED');
-    const interests = await this.prisma.interest.findMany({
-      where: { id: { in: row.commonInterestIds } },
-      select: { name: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const [interests, questions] = await Promise.all([
+      this.prisma.interest.findMany({
+        where: { id: { in: row.commonInterestIds } },
+        select: { name: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      this.questions.forNetwork(row.commonInterestIds, row.icebreakerIds),
+    ]);
+    // DM 에는 대화 재료 몇 줄만(D-87). 전부는 성립 화면에 있다.
+    const questionLines = this.questions.flatten(questions);
 
     for (const member of joined) {
       await this.notifications.notify({
@@ -240,6 +257,7 @@ export class NetworksService {
             .filter((other) => other.userId !== member.userId)
             .map((other) => this.presenter.fullRealName(other.user) ?? '이름 없음'),
           commonInterests: interests.map((interest) => interest.name),
+          questions: questionLines,
         },
         targetPath: `/networks?tab=activated&open=${id}`,
       });

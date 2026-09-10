@@ -44,7 +44,7 @@
 | `NICKNAME_CHANGE_TOO_SOON` | 400 | 하루 1회 (12 §3) |
 | `REQUEST_ALREADY_EXISTS` | 409 | 진행 중 요청 |
 | `REQUEST_INCOMING_EXISTS` | 409 | 상대가 먼저 요청함 → 수락 유도 (09 §2) |
-| `REQUEST_COOLDOWN` | 409 | P-07 재요청 대기 |
+| `REQUEST_COOLDOWN` | 409 | 오늘 취소한 요청(내일부터). 거절·만료 뒤 대기는 없다(D-83) |
 | `ALREADY_CONNECTED` | 409 | — |
 | `ALREADY_HANDLED` | 409 | 이미 처리된 요청/추천 (07 §6) |
 | `UNDO_WINDOW_PASSED` | 409 | 거절 되돌리기 5초 경과 |
@@ -311,7 +311,7 @@ POST /api/connection-requests
 3. 이미 연결됨 → `ALREADY_CONNECTED`
 4. 내 PENDING 요청 존재 → `REQUEST_ALREADY_EXISTS`
 5. 상대의 PENDING 요청 존재 → `REQUEST_INCOMING_EXISTS` (수락으로 유도, 09 §2)
-6. 재요청 대기 중 → `REQUEST_COOLDOWN` + `reRequestableAt` (P-07 14일, 취소는 다음 날부터)
+6. 오늘 취소한 요청이 있음 → `REQUEST_COOLDOWN` + `reRequestableAt`(내일). 거절·만료 뒤에는 바로 다시 보낼 수 있고, 옛 거절 표시는 자동으로 지워진다(D-83)
 7. 메시지 1자 이상 `[P-16]` 200자 이하 → 400
 8. 동일 메시지 3회 → 막지 않고 응답에 `warning: "각 사람에게 맞는 메시지를 써보세요"` (09 §3)
 

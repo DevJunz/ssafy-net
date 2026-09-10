@@ -92,6 +92,36 @@ export function transparentOf(color: string): string {
   return `rgba(${match[1]}, ${match[2]}, ${match[3]}, 0)`;
 }
 
+/**
+ * 노드의 모양(docs/06 §2 "나 / 다른 사람 / 관심사"는 색만으로 구분되지 않는다).
+ *   사람 = 원, 나 = 테두리 두 겹의 원(안쪽 흰 띠), 관심사 = 모서리 둥근 사각형, 허브 = 원.
+ * 범례(Panels.tsx LegendDot)가 같은 규칙을 DOM 으로 그린다.
+ */
+export type NodeShape = 'circle' | 'square';
+
+export function shapeOf(node: GraphNode): NodeShape {
+  return node.kind === 'INTEREST' ? 'square' : 'circle';
+}
+
+/** 캔버스에 모양을 따라 경로를 만든다. fill/stroke 는 부르는 쪽이 한다. */
+export function traceShape(
+  ctx: CanvasRenderingContext2D,
+  shape: NodeShape,
+  x: number,
+  y: number,
+  radius: number,
+): void {
+  ctx.beginPath();
+  if (shape === 'square') {
+    // 사각형은 같은 반지름의 원보다 커 보이므로 살짝 줄인다. 모서리는 반지름의 1/3.
+    const half = radius * 0.88;
+    const corner = Math.max(1, radius / 3);
+    ctx.roundRect(x - half, y - half, half * 2, half * 2, corner);
+    return;
+  }
+  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+}
+
 /** 관심사는 사람보다 크고 이름이 항상 보인다(FR-2.2). */
 export function radiusOf(node: GraphNode): number {
   if (node.kind === 'ME') return 9;
@@ -127,6 +157,8 @@ export function relationMark(node: GraphNode): string | null {
       return '요청받음';
     case 'NO_RESPONSE':
       return '응답없음';
+    case 'REJECTED':
+      return '거절됨';
     default:
       return null;
   }

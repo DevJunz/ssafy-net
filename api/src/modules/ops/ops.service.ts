@@ -743,6 +743,11 @@ export class OpsService {
     };
   }
 
+  /** 가입에 초대 링크가 필요한지(D-84). 플래그 하나. 캐시는 setFlag 가 비운다. */
+  async setInviteRequired(required: boolean): Promise<void> {
+    await this.parameters.setFlag('invite_required', required);
+  }
+
   /** 운영자 목록(D-79). 표시명과 이메일뿐이다. 실명은 없다. */
   async operators(actorId: string): Promise<OpsOperator[]> {
     const users = await this.prisma.user.findMany({

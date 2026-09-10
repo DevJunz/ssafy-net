@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { api } from '../api/client';
 import { BrandMark } from '../components/BrandMark';
 import { ErrorText, Muted } from '../components/primitives';
+import { useSession } from '../session';
 
 /**
  * 초대 / 소개 화면 (docs/06 §3.1.1).
@@ -14,13 +15,20 @@ import { ErrorText, Muted } from '../components/primitives';
  *
  * 알림 딥링크가 로그인을 거쳐 여기로 오면(`/login?redirect=…`) 그 목적지를
  * Google 로그인에 실어 보낸다. 서버가 서명된 state로 받아 로그인 뒤 그리로 돌려보낸다(J6).
+ *
+ * 초대 링크는 기본으로 필요 없다(D-84). `invite_required` 플래그가 켜져 있을 때만
+ * 링크 없는 사람에게 "초대 링크가 필요합니다"를 보여준다.
  */
 export function IntroPage() {
   const { code } = useParams<{ code?: string }>();
   const [params] = useSearchParams();
+  const { features } = useSession();
   const [inviteValid, setInviteValid] = useState<boolean | null>(
     code ? null : false,
   );
+  // 플래그를 아직 못 받았으면 열려 있는 쪽으로 본다 — 서버가 어차피 콜백에서 다시 판단한다.
+  const inviteRequired = features?.invite_required ?? false;
+  const canStart = inviteValid || !inviteRequired;
 
   useEffect(() => {
     if (!code) return;
@@ -97,10 +105,15 @@ export function IntroPage() {
             </ErrorText>
           )}
 
-          {inviteValid ? (
-            <Button asChild size="lg" className="h-auto px-[22px] py-3 text-[15.5px] font-semibold max-sm:w-full">
-              <a href={loginHref}>Google로 시작하기</a>
-            </Button>
+          {canStart ? (
+            <>
+              <Button asChild size="lg" className="h-auto px-[22px] py-3 text-[15.5px] font-semibold max-sm:w-full">
+                <a href={loginHref}>Google로 시작하기</a>
+              </Button>
+              <Muted className="m-0">
+                처음이면 가입, 이미 가입했으면 로그인됩니다. 가입 뒤 Mattermost 계정으로 SSAFY 소속을 확인합니다.
+              </Muted>
+            </>
           ) : (
             <>
               {/* 로그인 실패 문장이 이미 빨간색이면 이 줄은 안내로만 둔다 */}

@@ -17,6 +17,7 @@ import {
 import { InterestPicker } from '../features/interests/InterestPicker';
 import { MyPosts } from '../features/posts/MyPosts';
 import { DisplayNameForm } from '../features/profile/DisplayNameForm';
+import { ProfileMessageForm } from '../features/profile/ProfileMessageForm';
 import { RealNameForm } from '../features/profile/RealNameForm';
 import { useSession } from '../session';
 
@@ -44,6 +45,7 @@ export function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [editingInterests, setEditingInterests] = useState(false);
   const [editingRealName, setEditingRealName] = useState(false);
+  const [editingMessage, setEditingMessage] = useState(false);
 
   if (!me) return null;
 
@@ -74,6 +76,11 @@ export function ProfilePage() {
                 {me.displayName}
                 {me.displayNameType === 'REAL' && <Tag tone="real">실명</Tag>}
               </div>
+              {me.profileMessage && (
+                <p className="mt-1 mb-0 text-[13px] leading-snug whitespace-pre-wrap text-foreground/80">
+                  {me.profileMessage}
+                </p>
+              )}
               <Muted className="text-[12.5px]">관심사 {me.interests.length}개</Muted>
             </CardContent>
           </Card>
@@ -132,6 +139,41 @@ export function ProfilePage() {
                 onClick={() => setEditingName(true)}
               >
                 표시명 바꾸기
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle>프로필 메시지</SectionTitle>
+          <Muted>
+            나를 눌렀을 때 표시명 아래에 보이는 한 줄입니다. 무엇을 이야기하고 싶은지
+            적어 두면 상대가 요청 메시지를 쓰기 쉬워집니다.
+          </Muted>
+          {editingMessage ? (
+            <div className="mt-3">
+              <ProfileMessageForm
+                initial={me.profileMessage}
+                onSubmit={async (message) => {
+                  await api.patch('/me/profile-message', { message });
+                  await reload();
+                  setEditingMessage(false);
+                  toast.success(message ? '프로필 메시지를 저장했습니다.' : '프로필 메시지를 지웠습니다.');
+                }}
+                onCancel={() => setEditingMessage(false)}
+              />
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-[15px] whitespace-pre-wrap">
+                {me.profileMessage || <span className="text-muted-foreground">아직 없음</span>}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingMessage(true)}
+              >
+                {me.profileMessage ? '메시지 수정' : '메시지 쓰기'}
               </Button>
             </div>
           )}

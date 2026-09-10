@@ -11,6 +11,10 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 
 const CACHE_MS = 30_000;
 
+const DEFAULT_FLAGS = Object.fromEntries(
+  Object.entries(FEATURE_FLAGS).map(([key, def]) => [key, def.enabled]),
+) as FeatureFlagMap;
+
 /**
  * Product Parameter는 DB에 있다(design/20 §9).
  * 공개 3일째 P-03을 낮추는 판단(docs/13 §3.3)과 Network 게이트에 따른 P-04 조정
@@ -22,7 +26,7 @@ const CACHE_MS = 30_000;
 @Injectable()
 export class ParametersService {
   private parameters: ParameterMap = { ...DEFAULT_PARAMETERS };
-  private flags: FeatureFlagMap = { network_enabled: false };
+  private flags: FeatureFlagMap = { ...DEFAULT_FLAGS };
   private loadedAt = 0;
 
   constructor(private readonly prisma: PrismaService) {}
@@ -40,7 +44,7 @@ export class ParametersService {
       if (row.key in next) next[row.key as ParameterKey] = row.value;
     }
 
-    const nextFlags = { network_enabled: false } as FeatureFlagMap;
+    const nextFlags = { ...DEFAULT_FLAGS };
     for (const flag of flags) {
       if (flag.key in nextFlags) {
         nextFlags[flag.key as FeatureFlagKey] = flag.enabled;

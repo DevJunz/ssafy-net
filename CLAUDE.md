@@ -40,7 +40,19 @@
 
 ### 다음 세션에서 이어서 할 것
 
-**재개 지점(2026-09-10 저녁). 대화록 `history/2026-09-10-registry-autodeploy-ops-dev-server-limits-session.txt`.** 이 파일 하나에 이날 낮부터 밤까지가 다 있다 — Artifact Registry 파이프라인 → 첫 배포 → `/ops`(D-77) → 자동 배포 cron → 개발 서버(`dev` 브랜치) → 운영 레버(D-78·D-79) → 대화창 링크 제거(D-80) → 패널 폭·배지·실명 수정(D-81) → 요청·글 상한 해제(D-82). **운영과 개발 서버 둘 다 커밋 `9704265` 로 떠 있고**, 개발 VM 에도 이날 저녁 crontab 이 들어가 자동 배포가 된다. 열린 일은 없고 로컬 서버는 내려 둔 상태다. 다음에 볼 만한 것: 사용자가 원하면 거절 뒤 14일 재요청 대기(P-07)와 관심사 직접 추가 하루 3개(D-74)도 풀 수 있다 — 아직 그대로다. 공개 전 남은 일은 위 표와 design/23 의 순서(알림 발송 동시성·재시도 → 정지·병합 레버 → UptimeRobot → 백업 cron·복원 리허설 → OAuth 동의 화면 "프로덕션" 확인)다.
+**재개 지점(2026-09-10 밤, 사용자 피드백 10건 → D-83~D-87).** 사용자가 기능 피드백 10건을 줬고 전부 구현해 로컬에서 화면·API 로 확인한 뒤 `dev` 에 올렸다(운영 `main` 에는 아직 안 갔다). **다음에 할 일: 개발 서버 `dev.ssafy-networking.store` 에서 한 번 보고 `git merge --ff-only dev` 로 main.** 새 마이그레이션 `20260910230000_profile_message_reject_visible_questions` 은 컨테이너 시작 때 `migrate deploy` 로 붙고, **시드를 다시 돌려야 질문이 생긴다** — 개발·운영 VM 에서 `docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed`(포괄 질문 30개, 관심사마다 틀 질문 3개. 이미 있는 것은 덮지 않는다). 한 일:
+(1) 비슷한 사람 패널 스크롤 — 그래프 그리드의 행 높이가 `auto` 라 패널이 화면 밖으로 자랐다. `gridTemplateRows: minmax(0,1fr)`(`GraphPage.tsx`).
+(2) 글 삭제 전 확인 대화상자(`MyPosts.tsx`).
+(3) 반 바꾸기 — 이미 프로필의 "실명 수정"(D-81) 에 반 드롭다운이 있다. 새로 만든 것 없음.
+(4) **거절이 바로 보인다(D-83).** `RelationStatus`·`SentRequestStatus` 에 `REJECTED`. 보낸 요청 목록에 "거절됨" + "표시 지우기"(`POST /connection-requests/:id/dismiss` → `requester_dismissed_at`), 사람 패널에 "다시 요청". **P-07(14일 대기)·P-08a 는 삭제.** 다시 요청하면 옛 거절 행은 자동으로 지워진다. 거절 DM 은 없다. `RelationService` 는 이제 파라미터를 안 읽는다.
+(5) **프로필 메시지(D-85).** `user.profile_message`, `PATCH /me/profile-message`, `PublicUser.profileMessage`(presenter 가 넣는다). 사람 패널·받은 요청 상세·내 프로필에 보인다.
+(6) **초대 링크 기본 비활성(D-84).** 플래그 `invite_required`(기본 false). `AuthService.resolveUser` 가 플래그를 본다. 소개 화면은 `features.invite_required` 로 버튼을 정한다. `/ops` 관리 탭 "가입" 구역에서 켜고 끈다(`PUT /admin/ops/invite`). `ParametersService` 의 플래그 기본값은 이제 `FEATURE_FLAGS` 에서 나온다.
+(7) 그래프 노드 모양 — 사람 원, 관심사 모서리 둥근 사각형, 나는 테두리 두 겹 + "나" 글자(`encoding.ts` `shapeOf`/`traceShape`, 범례도 같은 모양).
+(8) **관심사 분류 CRUD(D-86).** `/api/admin/categories`(`interests/categories.service.ts`), `/ops` 관리 탭. 비어 있을 때만 삭제, kind 는 못 바꾼다.
+(9)(10) **네트워킹 질문(D-87).** 모델 `InterestQuestion`·`IcebreakerQuestion`, `NetworkRecommendation.icebreakerIds`(성립 때 2개 뽑아 고정). `api/src/modules/questions/`, `/api/admin/questions/...`, `NetworkDetail.questions`(성립 후 참여자만), 성립 알림 DM 에 "이야깃거리" 몇 줄. 성립 화면의 묶음마다 2개 보이고 "더 보기". 시드 `api/prisma/seed/icebreakers.ts`. 1:1 연결에는 아직 안 붙였다.
+남은 것: 사용자 정지·관심사 병합·숨김 레버는 여전히 없다. `.vercel/` 폴더와 옛 워크트리는 그대로다.
+
+**그 앞 재개 지점(2026-09-10 저녁). 대화록 `history/2026-09-10-registry-autodeploy-ops-dev-server-limits-session.txt`.** 이 파일 하나에 이날 낮부터 밤까지가 다 있다 — Artifact Registry 파이프라인 → 첫 배포 → `/ops`(D-77) → 자동 배포 cron → 개발 서버(`dev` 브랜치) → 운영 레버(D-78·D-79) → 대화창 링크 제거(D-80) → 패널 폭·배지·실명 수정(D-81) → 요청·글 상한 해제(D-82). **운영과 개발 서버 둘 다 커밋 `9704265` 로 떠 있고**, 개발 VM 에도 이날 저녁 crontab 이 들어가 자동 배포가 된다. 열린 일은 없고 로컬 서버는 내려 둔 상태다. 다음에 볼 만한 것: 사용자가 원하면 거절 뒤 14일 재요청 대기(P-07)와 관심사 직접 추가 하루 3개(D-74)도 풀 수 있다 — 아직 그대로다. 공개 전 남은 일은 위 표와 design/23 의 순서(알림 발송 동시성·재시도 → 정지·병합 레버 → UptimeRobot → 백업 cron·복원 리허설 → OAuth 동의 화면 "프로덕션" 확인)다.
 
 **2026-09-10 밤(3) — 요청·글 횟수 상한 해제(D-82).** 사용자 피드백으로 연결 요청의 일 5·주 20 과 수락률 감속, 글의 관심사당 하루 1·전체 하루 3 을 없앴다. `QuotaService` 와 `GET /me/request-quota`, 오류 코드 `REQUEST_LIMIT_REACHED`·`POST_LIMIT_REACHED`, 파라미터 P-06d·P-06w·P-22 가 사라졌다(DB 의 옛 `app_parameter` 행은 무시된다). 남는 것: 메시지 필수, 거절 후 재요청 대기(P-07), 같은 메시지 안내(D-61), 운영자 정지(`requestSuspended`), 관심사 직접 추가 일 3(D-74). `/ops` 의 "상한 도달" 은 **오늘 최다 발송**(한 사람의 최대 건수, 10건부터 붉게)으로, "감속 발동" 은 **수락률 낮은 사용자**(P-20·P-21 은 신호 기준으로만 남는다)로 바뀌었다.
 
@@ -122,12 +134,13 @@ npm run dev:web                               # :5173
 - **알림은 Mattermost + 앱 내 알림함 둘뿐(D-67).** 이메일·브라우저 알림·외부 채널은 만들지 않는다.
 - **온보딩 첫 단계가 Mattermost 계정 인증(D-66).** 이것이 SSAFY 소속 검증을 겸한다.
 - **메신저에서 사람을 찾는 수단은 실명이 아니라 @아이디(D-68).** 실명은 표시용.
-- 로그인은 Google만. 가입은 초대 링크. 운영자 = 사용자 본인. 시드 = 같은 반 26명.
+- 로그인은 Google만. **가입에 초대 링크는 필요 없다(D-84)** — Mattermost 인증이 소속 검증이다. 초대 링크 요구는 플래그 `invite_required`(기본 꺼짐)로 `/ops` 에서 켤 수 있다. 운영자 = 사용자 본인. 시드 = 같은 반 26명.
 - 관심사는 100개 확정본 + 사용자 직접 추가(추가 전 중복·유사 검사, D-74). 층(1~20)은 속성 분류로 하나만 고르고 공통 계산에서 뺀다(D-72). 반은 1~22 드롭다운(D-73).
 - 사용은 공개 후 약 2주에 집중. 시간 파라미터는 하루 단위.
 - 연결/Network 성립 시 시작자를 지정해 구체적으로 안내한다.
 - 그래프 간격·노드 크기·표시 상한은 문서로 확정하지 않는다. 써 보고 조정한다(D-34).
-- **연결 요청과 글에 횟수 상한을 두지 않는다(D-82, 2026-09-10 사용자 피드백).** 남는 안전장치는 메시지 필수, 거절 후 재요청 대기, 운영자 정지다.
+- **연결 요청과 글에 횟수 상한을 두지 않는다(D-82, 2026-09-10 사용자 피드백).** 남는 안전장치는 메시지 필수와 운영자 정지다. **거절은 보낸 사람에게 바로 "거절됨"으로 보이고, 곧바로 다시 요청할 수 있다(D-83).** 거절 뒤 대기(P-07)는 없다. 같은 날 취소한 요청만 내일까지 기다린다.
+- **네트워크가 성립하면 대화 재료를 준다(D-87).** 관심사별 고정 질문 + 포괄 아이스브레이킹 2개. 운영자가 `/ops` 관리 탭에서 채운다. 관심사 분류도 거기서 만들고 고치고 지운다(D-86). 프로필 메시지 한 줄은 본인이 쓴다(D-85).
 
 ## 반드시 지킬 것 두 가지
 

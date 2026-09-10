@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CATEGORY_NAME_MAX, PROFILE_MESSAGE_MAX, QUESTION_TEXT_MAX } from './admin';
 import { CLASS_COUNT } from './campus';
 
 /**
@@ -135,3 +136,61 @@ export const analyticsBatchSchema = z.object({
     .max(50),
 });
 export type AnalyticsBatchInput = z.infer<typeof analyticsBatchSchema>;
+
+/**
+ * 프로필 메시지(D-85). 빈 문자열을 보내면 지운다. 줄바꿈은 두 줄까지만 — 사람 패널의 한 줄 소개다.
+ */
+export const profileMessageSchema = z.object({
+  message: z
+    .string()
+    .trim()
+    .max(PROFILE_MESSAGE_MAX, `프로필 메시지는 ${PROFILE_MESSAGE_MAX}자까지 쓸 수 있습니다.`)
+    .refine((value) => value.split(/\r?\n/).length <= 2, '줄바꿈은 한 번까지만 쓸 수 있습니다.'),
+});
+export type ProfileMessageInput = z.infer<typeof profileMessageSchema>;
+
+/** 관심사 분류(D-86). 이름은 관심사 이름과 같은 글자 규칙을 따른다. */
+export const categoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, '분류 이름을 입력해주세요.')
+  .max(CATEGORY_NAME_MAX, `분류 이름은 ${CATEGORY_NAME_MAX}자까지 쓸 수 있습니다.`)
+  .regex(/^[가-힣a-zA-Z0-9 .+#·/&-]+$/, '한글, 영문, 숫자와 몇 가지 기호만 쓸 수 있습니다.');
+
+export const createCategorySchema = z.object({
+  name: categoryNameSchema,
+  kind: z.enum(['INTEREST', 'ATTRIBUTE']).default('INTEREST'),
+});
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
+export const updateCategorySchema = z
+  .object({
+    name: categoryNameSchema.optional(),
+    /** 순서. 0부터. 같은 값을 가진 것 앞에 들어간다 */
+    sortOrder: z.number().int().min(0).max(999).optional(),
+  })
+  .refine((value) => value.name !== undefined || value.sortOrder !== undefined, '바꿀 것이 없습니다.');
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+
+/** 네트워킹 질문(D-87). 주제별 질문과 포괄 질문이 같은 본문을 쓴다. */
+export const questionTextSchema = z
+  .string()
+  .trim()
+  .min(1, '질문을 입력해주세요.')
+  .max(QUESTION_TEXT_MAX, `질문은 ${QUESTION_TEXT_MAX}자까지 쓸 수 있습니다.`);
+
+export const createQuestionSchema = z.object({ text: questionTextSchema });
+export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
+
+export const updateQuestionSchema = z
+  .object({
+    text: questionTextSchema.optional(),
+    sortOrder: z.number().int().min(0).max(999).optional(),
+    /** 포괄 질문에만 뜻이 있다 */
+    active: z.boolean().optional(),
+  })
+  .refine(
+    (value) => value.text !== undefined || value.sortOrder !== undefined || value.active !== undefined,
+    '바꿀 것이 없습니다.',
+  );
+export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>;

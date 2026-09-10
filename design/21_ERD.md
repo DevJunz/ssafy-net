@@ -331,7 +331,7 @@ enum FollowUpReason  { NOT_FOUND NO_TIME BURDEN OTHER }
 | 같은 방향으로 PENDING 요청은 하나 | `(requesterId, targetId, status)` 유니크. Prisma에서 부분 유니크가 안 되므로 **마이그레이션 SQL로 부분 인덱스**를 만든다: `CREATE UNIQUE INDEX ... ON connection_request (requester_id, target_id) WHERE status = 'PENDING'` |
 | 양방향 동시 PENDING | 애플리케이션에서 막는다(09 §2 "상대가 나에게 보낸 요청이 대기 중이면 새 요청 불가"). 경합으로 뚫리면 수락 시 양쪽을 함께 정리하고 시작자는 먼저 보낸 쪽(07 §3.3) |
 | 자기 자신에게 요청 불가 | `CHECK (requester_id <> target_id)` |
-| 재요청 대기 | 마지막 종료 요청의 `respondedAt`/`expiredAt` + `[P-07]` 14일. 취소는 예외로 **다음 날부터** 가능(09 §8) |
+| 재요청 대기 | **없다(D-83, 2026-09-10).** 거절·만료 뒤 바로 다시 요청할 수 있다. 취소만 **다음 날부터**(09 §8). 거절은 보낸 사람에게 바로 `REJECTED` 로 보이고, `requester_dismissed_at` 이 찍히면 표시가 지워진다(다시 요청하면 자동으로 찍힌다) |
 | 횟수 상한 | **없다(D-82, 2026-09-10).** 일 5·주 20 과 수락률 감속은 사용자 피드백으로 뺐다. 남용은 운영자 화면의 "오늘 최다 발송"·"수락률 낮은 사용자" 로 보고 정지로 대응한다 |
 
 남용 신호(오늘 최다 발송, 낮은 수락률)는 컬럼으로 캐시하지 않고 그때 센다. 카운터가 실제 행과 어긋나면 원인을 찾을 수 없고, 1,000명 규모에서 세는 비용은 무시할 수 있다.
@@ -691,6 +691,9 @@ P-16 200 P-17 300  P-18 2
 |---|---|
 | `..._init` | 모델 23개 전부 |
 | `..._domain_constraints` | Prisma로 표현할 수 없는 제약(아래) |
+| `..._mattermost_verification` · `..._mattermost_channel` | Mattermost 인증(D-66)과 채널 |
+| `..._interest_attributes_and_user_created` | 분류 종류(D-72), 별칭·직접 추가(D-74), 제안 테이블 제거 |
+| `20260910230000_profile_message_reject_visible_questions` | `user.profile_message`(D-85), `connection_request.requester_dismissed_at`(D-83), `network_recommendation.icebreaker_ids` 와 `interest_question`·`icebreaker_question`(D-87) |
 
 Prisma가 만들지 못하는 것은 마이그레이션 SQL로 직접 넣는다.
 

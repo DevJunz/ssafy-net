@@ -11,6 +11,8 @@ import {
   readGraphPalette,
   registerCategories,
   relationMark,
+  shapeOf,
+  traceShape,
   transparentOf,
 } from './encoding';
 
@@ -320,6 +322,8 @@ export function GraphCanvas({
     // hover 하면 살짝 커진다(docs/07 §2.1).
     const radius = radiusOf(n) + (hovered ? 1.5 : 0);
     const color = colorOf(n, palette);
+    // 사람은 원, 관심사는 사각형. 색만으로는 구분이 약했다(docs/06 §2).
+    const shape = shapeOf(n);
 
     ctx.globalAlpha = alpha;
 
@@ -337,28 +341,34 @@ export function GraphCanvas({
     }
 
     if (selected) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, radius + 5, 0, 2 * Math.PI);
+      traceShape(ctx, shape, n.x, n.y, radius + 5);
       ctx.fillStyle = palette.halo;
       ctx.fill();
     }
 
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, radius, 0, 2 * Math.PI);
+    traceShape(ctx, shape, n.x, n.y, radius);
     ctx.fillStyle = color;
     ctx.fill();
+
+    // 나는 사람과 같은 원이지만 테두리가 두 겹이다 — 바깥 색 띠, 안쪽 흰 띠, 다시 색.
+    // 다른 사람과 같은 모양이라 "사람"으로 읽히면서도 하나뿐임이 드러난다.
+    if (n.kind === 'ME') {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius - 2.2, 0, 2 * Math.PI);
+      ctx.strokeStyle = palette.bg;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
 
     // 내 관심사와 인접 관심사를 테두리로 구분한다(docs/06 §2).
     if (n.kind === 'INTEREST' && !n.mine) {
       ctx.fillStyle = palette.bg;
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, Math.max(2, radius - 2.2), 0, 2 * Math.PI);
+      traceShape(ctx, shape, n.x, n.y, Math.max(2, radius - 2.2));
       ctx.fill();
     }
 
     if (selected || hovered) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, radius + 2.5, 0, 2 * Math.PI);
+      traceShape(ctx, shape, n.x, n.y, radius + 2.5);
       ctx.strokeStyle = palette.mark;
       ctx.lineWidth = selected ? 1.8 : 1.2;
       ctx.stroke();
@@ -389,6 +399,12 @@ export function GraphCanvas({
         ctx.font = `500 3.4px ${LABEL_FONT}`;
         ctx.fillStyle = palette.mark;
         ctx.fillText(mark, n.x, n.y + radius + 8);
+      }
+      // 나는 이름 위에 "나" 를 붙인다. 색과 테두리에 더해 글자로도 구분한다.
+      if (n.kind === 'ME') {
+        ctx.font = `700 3.6px ${LABEL_FONT}`;
+        ctx.fillStyle = palette.me;
+        ctx.fillText('나', n.x, n.y - radius - 6);
       }
       // 실명 사용자 표시(FR-0.5). 닉네임 사용자와 혼동되지 않게.
       if (n.kind === 'PERSON' && n.displayNameType === 'REAL') {

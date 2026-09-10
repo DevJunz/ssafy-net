@@ -18,8 +18,11 @@ import type { User } from '@prisma/client';
 import {
   displayNameSchema,
   identitySchema,
+  profileMessageSchema,
+  PROFILE_MESSAGE_MAX,
   type DisplayNameInput,
   type IdentityInput,
+  type ProfileMessageInput,
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
@@ -119,6 +122,32 @@ export class UsersController {
     return this.users.setRealName(user, body);
   }
 
+  /** 프로필 메시지(D-85). 사람 패널에서 표시명 아래에 보이는 한 줄. */
+  @Patch('me/profile-message')
+  @UseGuards(OnboardedGuard)
+  @ApiOperation({
+    summary: '프로필 메시지 저장 (My Profile)',
+    description:
+      `\`{ message }\`. ${PROFILE_MESSAGE_MAX}자까지, 줄바꿈은 한 번까지. 빈 문자열이면 지운다. ` +
+      '연결 전에도 누구에게나 보인다 — 사람 패널·받은 요청 상세의 표시명 아래. 금칙어는 닉네임과 같은 목록. ' +
+      '응답 `{ profileMessage }`(지웠으면 null). `SelfUser.profileMessage` 가 지금 값.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string', maxLength: PROFILE_MESSAGE_MAX, example: '러닝 크루 같이 하실 분 찾아요. 주말 아침 한강.' },
+      },
+    },
+  })
+  setProfileMessage(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(profileMessageSchema)) body: ProfileMessageInput,
+  ) {
+    return this.users.setProfileMessage(user, body);
+  }
+
   @Get('users/:id')
   @UseGuards(OnboardedGuard)
   @ApiOperation({
@@ -127,7 +156,7 @@ export class UsersController {
       '`PublicUser`(연결 전) 또는 `ConnectedUser`(연결됨, `realName` 포함)를 준다. 소속 정보는 없다.\n\n' +
       '`relation.status`에 따라 화면이 행동 하나만 보여준다(docs/06 §3.4): ' +
       '`NONE` 연결 요청 · `REQUEST_SENT` 응답 대기+취소 · `REQUEST_RECEIVED` 수락/거절 · ' +
-      '`CONNECTED` 성립 화면 열기 · `NO_RESPONSE` N일 후 재요청 가능 · `SELF` 관심사 수정.\n\n' +
+      '`CONNECTED` 성립 화면 열기 · `NO_RESPONSE` 응답 없음(바로 다시 요청 가능) · `REJECTED` 거절됨(바로 다시 요청 가능, D-83) · `SELF` 관심사 수정.\n\n' +
       '관심사 전부를 주므로 프론트가 Person Focus의 임시 노드를 그래프에 얹는다(서버 왕복 없음).',
   })
   @ApiParam({ name: 'id', description: '사용자 UUID' })

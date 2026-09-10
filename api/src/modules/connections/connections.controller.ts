@@ -56,7 +56,7 @@ export class ConnectionsController {
       '3. 이미 연결됨 → `409 ALREADY_CONNECTED`\n' +
       '4. 내 PENDING 요청 존재 → `409 REQUEST_ALREADY_EXISTS`\n' +
       '5. 상대가 먼저 보낸 요청 존재 → `409 REQUEST_INCOMING_EXISTS` (수락으로 유도)\n' +
-      '6. 재요청 대기 중(거절 후 P-07 14일) → `409 REQUEST_COOLDOWN` + `reRequestableAt`\n' +
+      '6. 오늘 취소한 요청이 있음 → `409 REQUEST_COOLDOWN` + `reRequestableAt`(내일). 거절·만료 뒤에는 바로 다시 보낼 수 있다(D-83)\n' +
       '7. 메시지 1~200자(P-16)\n' +
       '8. 최근 30일 같은 메시지 3회 → 막지 않고 응답에 `warning`(D-61)\n\n' +
       '성공 시 상대에게 즉시 알림(`CONNECTION_REQUEST_RECEIVED`: 표시명·공통 관심사·메시지 첫 줄).',
@@ -90,7 +90,7 @@ export class ConnectionsController {
     description:
       'Connections 화면의 "받은 요청" · "보낸 요청" 탭.\n\n' +
       '- `box=received`: PENDING만. 거절·만료된 것은 사라진다(docs/09 §7)\n' +
-      '- `box=sent`: 거절된 요청은 최대 하루(D-32) 동안 `PENDING`으로 보이다가 "응답 없음"으로 바뀐다. 거절은 통보하지 않는다(D-07)',
+      '- `box=sent`: 거절된 요청은 바로 `REJECTED`(거절됨)로 보인다(D-83). 만료는 `NO_RESPONSE`. `canDismiss` 인 항목은 `POST /connection-requests/:id/dismiss` 로 목록에서 지운다',
   })
   @ApiQuery({ name: 'box', enum: ['received', 'sent'], description: '필수' })
   list(@CurrentUser() user: User, @Query('box') box: string | undefined) {
@@ -129,7 +129,7 @@ export class ConnectionsController {
     summary: '요청 거절',
     description:
       '수신자만. 확인 대화상자 없이 바로 거절하고 응답에 `undoUntil`(5초)을 준다(docs/07 §3.4). ' +
-      '상대에게 알림은 **없다**(D-07). 상대 화면에서는 최대 하루 뒤 "응답 없음"으로 바뀌고, 14일간 재요청할 수 없다(P-07).',
+      '상대에게 알림(DM)은 없지만 상대의 보낸 요청 목록과 사람 패널에 바로 "거절됨"으로 보인다(D-83). 상대는 곧바로 다시 요청할 수 있다.',
   })
   @ApiParam(REQUEST_ID)
   reject(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
@@ -144,6 +144,18 @@ export class ConnectionsController {
   @ApiParam(REQUEST_ID)
   undoReject(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.connections.undoReject(user, id);
+  }
+
+  @Post('connection-requests/:id/dismiss')
+  @ApiOperation({
+    summary: '보낸 요청의 거절됨 · 응답 없음 · 취소함 표시 지우기 (D-83)',
+    description:
+      '발신자만. 목록에서 사라지고 상대와의 관계는 `NONE` 으로 돌아가 사람 패널이 다시 "연결 요청"을 보여준다. ' +
+      '응답 대기 중이거나 수락된 요청은 지울 수 없다(`409 ALREADY_HANDLED`). 이미 지운 것은 그대로 200.',
+  })
+  @ApiParam(REQUEST_ID)
+  dismiss(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.connections.dismiss(user, id);
   }
 
   @Delete('connection-requests/:id')

@@ -418,6 +418,9 @@ export function GraphPage() {
       className="relative grid h-full overflow-hidden bg-secondary"
       style={{
         gridTemplateColumns: `${panels.widths.left}px 1fr ${panels.widths.right}px`,
+        // 행 높이를 못 박아야 패널이 화면 높이 안에서 스크롤된다. `auto` 면 내용 길이만큼 자라
+        // 화면 밖으로 잘려 나가고 스크롤이 생기지 않는다(비슷한 사람이 많을 때 그랬다).
+        gridTemplateRows: 'minmax(0, 1fr)',
       }}
     >
       <InterestRail

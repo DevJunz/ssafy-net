@@ -53,6 +53,7 @@ export class UserPresenter {
         interests: [],
         commonCount: 0,
         relation: NO_RELATION,
+        profileMessage: null,
         withdrawn: true,
       };
     }
@@ -64,6 +65,8 @@ export class UserPresenter {
       interests,
       commonCount,
       relation,
+      // 본인이 적은 한 줄(D-85). 연결 전에도 보인다 — 실명이 아니라 본인이 고른 말이다.
+      profileMessage: user.profileMessage || null,
     };
   }
 

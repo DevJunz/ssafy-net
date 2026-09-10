@@ -45,13 +45,26 @@ function PanelSection({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('mt-[22px]', className)} {...props} />;
 }
 
-/** 범례 한 항목. 캔버스와 같은 색을 CSS 토큰에서 읽는다 */
-function LegendDot({ color, hollow }: { color?: string; hollow?: boolean }) {
+/**
+ * 범례 한 항목. 캔버스와 같은 색과 **같은 모양**을 쓴다(encoding.ts 의 규칙).
+ *   사람 = 원, 나 = 테두리 두 겹의 원, 관심사 = 모서리 둥근 사각형, 인접 관심사 = 속이 빈 사각형
+ */
+function LegendDot({
+  color,
+  shape = 'circle',
+  hollow,
+}: {
+  color?: string;
+  shape?: 'circle' | 'square' | 'me';
+  hollow?: boolean;
+}) {
   return (
     <i
       className={cn(
-        'inline-block size-2.5 rounded-full',
-        // 인접 관심사는 속이 빈 원이다(docs/06 §2). 캔버스의 표현과 같게
+        'inline-block size-2.5',
+        shape === 'square' ? 'rounded-[3px]' : 'rounded-full',
+        shape === 'me' && 'size-3 ring-2 ring-[var(--graph-me)] ring-offset-1 ring-offset-[var(--graph-bg)]',
+        // 인접 관심사는 속이 빈 것이다(docs/06 §2). 캔버스의 표현과 같게
         hollow && 'border-[1.5px] border-dashed border-muted-foreground bg-[var(--graph-bg)]',
       )}
       style={color ? { background: color } : undefined}
@@ -127,10 +140,10 @@ export function BasePanel({
 
       <PanelSection>
         <Legend>
-          <span><LegendDot color={ME_VAR} /> 나</span>
+          <span><LegendDot color={ME_VAR} shape="me" /> 나</span>
           <span><LegendDot color={PERSON_VAR} /> 사람</span>
-          <span><LegendDot color={INTEREST_VAR} /> 관심사</span>
-          <span><LegendDot hollow /> 인접 관심사</span>
+          <span><LegendDot color={INTEREST_VAR} shape="square" /> 관심사</span>
+          <span><LegendDot shape="square" hollow /> 인접 관심사</span>
         </Legend>
       </PanelSection>
 
@@ -139,7 +152,7 @@ export function BasePanel({
           <Legend>
             {[...categories.keys()].map((id) => (
               <span key={id}>
-                <LegendDot color={categoryVar(id)} />
+                <LegendDot color={categoryVar(id)} shape="square" />
                 {/* Category 이름은 관심사 노드에서 알 수 없으므로 색만 보여준다 */}
               </span>
             ))}
@@ -305,6 +318,13 @@ export function PersonPanel({
         </div>
       </div>
 
+      {/* 본인이 적어 둔 한 줄(D-85). 표시명 바로 아래, 관심사보다 앞에 */}
+      {person.profileMessage && (
+        <p className="mt-3 mb-0 rounded-lg bg-secondary px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground/85">
+          {person.profileMessage}
+        </p>
+      )}
+
       <PanelSection>
         <Muted className="mb-2">
           공통 관심사 {common.length}개 / 상대 관심사 {person.interests.length}개
@@ -385,13 +405,34 @@ function PersonAction({
           이 사람이 먼저 요청했습니다. 연결 화면에서 수락하거나 거절할 수 있습니다.
         </Notice>
       );
-    case 'NO_RESPONSE':
+    case 'REJECTED':
+      // 거절은 바로 보이고, 곧바로 다시 요청할 수 있다(D-83). 표시를 지우는 것은 연결 화면에서 한다.
       return (
-        <Button type="button" variant="outline" disabled className="h-auto whitespace-normal">
-          응답 없음
-          {person.relation.reRequestableAt &&
-            ` · ${new Date(person.relation.reRequestableAt).toLocaleDateString('ko-KR')} 이후 다시 요청 가능`}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Notice className="border-destructive/20">
+            이 사람이 이전 요청을 거절했습니다. 다시 요청할 수 있습니다.
+          </Notice>
+          <Button type="button" variant="outline" onClick={onRequest}>
+            다시 요청
+          </Button>
+        </div>
+      );
+    case 'NO_RESPONSE':
+      // 같은 날 취소한 요청만 내일까지 기다린다(docs/09 §8). 만료는 바로 다시 요청할 수 있다(D-83).
+      if (person.relation.reRequestableAt) {
+        return (
+          <Button type="button" variant="outline" disabled className="h-auto whitespace-normal">
+            오늘 취소한 요청 · 내일 다시 요청 가능
+          </Button>
+        );
+      }
+      return (
+        <div className="flex flex-col gap-2">
+          <Notice>이전 요청에 기한 안에 응답이 없었습니다. 다시 요청할 수 있습니다.</Notice>
+          <Button type="button" variant="outline" onClick={onRequest}>
+            다시 요청
+          </Button>
+        </div>
       );
     default:
       return (

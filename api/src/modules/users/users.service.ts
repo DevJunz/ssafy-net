@@ -5,6 +5,7 @@ import type {
   DisplayNameInput,
   IdentityInput,
   InterestRef,
+  ProfileMessageInput,
   PublicUser,
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
@@ -162,5 +163,33 @@ export class UsersService {
       data: { realName, classNo },
     });
     return { realName: this.presenter.fullRealName(updated) ?? '' };
+  }
+
+  /**
+   * 프로필 메시지 (D-85). 사람 패널에서 표시명 아래에 보이는 한 줄이다.
+   * 빈 문자열이면 지운다. 금칙어는 닉네임과 같은 목록을 본다 — 연결 전 누구에게나 보이는 글이다.
+   */
+  async setProfileMessage(
+    user: User,
+    input: ProfileMessageInput,
+  ): Promise<{ profileMessage: string | null }> {
+    const message = input.message.trim().replace(/[ \t]+/g, ' ');
+
+    if (BANNED_WORDS.some((word) => message.toLowerCase().includes(word))) {
+      throw new AppError(
+        'VALIDATION_FAILED',
+        undefined,
+        '프로필 메시지에 쓸 수 없는 말이 들어 있습니다.',
+      );
+    }
+
+    const next = message.length > 0 ? message : null;
+    if ((user.profileMessage || null) === next) return { profileMessage: next };
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { profileMessage: next },
+    });
+    return { profileMessage: next };
   }
 }

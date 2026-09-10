@@ -57,6 +57,9 @@ model User {
   nickname          String?         @unique
   nicknameChangedAt DateTime?       @map("nickname_changed_at")
 
+  // 프로필 메시지. 사람 패널에서 표시명 아래에 보인다 — "무엇을 이야기하고 싶은지"를 한 줄로(D-85).
+  profileMessage String? @map("profile_message")
+
   status      UserStatus @default(ONBOARDING)
   onboardedAt DateTime?  @map("onboarded_at")
   withdrawnAt DateTime?  @map("withdrawn_at")
@@ -184,9 +187,10 @@ model Interest {
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
 
-  users   UserInterest[]
-  posts   InterestPost[]
-  changes UserInterestChange[]
+  users     UserInterest[]
+  posts     InterestPost[]
+  changes   UserInterestChange[]
+  questions InterestQuestion[]
 
   @@index([categoryId, sortOrder])
   @@index([status])
@@ -220,6 +224,37 @@ model UserInterestChange {
 
   @@index([userId, changedAt])
   @@map("user_interest_change")
+}
+
+// ─────────────────────────────────────────────────────────────
+// 네트워킹 질문 (D-87)
+// ─────────────────────────────────────────────────────────────
+
+// 주제(관심사)마다 고정된 질문. 네트워크가 성립하면 공유 관심사의 질문을 멤버에게 준다.
+// 운영자가 만들고 고치고 지운다. 시드는 관심사마다 틀 문장 몇 개를 넣어 둘 뿐이다.
+model InterestQuestion {
+  id         String   @id @default(uuid())
+  interestId String   @map("interest_id")
+  text       String
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@index([interestId, sortOrder])
+  @@map("interest_question")
+}
+
+// 주제와 무관한 포괄 아이스브레이킹 질문(약 30개). 네트워크 성립 때 2개를 무작위로 뽑아 고정한다.
+model IcebreakerQuestion {
+  id        String   @id @default(uuid())
+  text      String   @unique
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([active, sortOrder])
+  @@map("icebreaker_question")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -261,6 +296,8 @@ model ConnectionRequest {
   cancelledAt    DateTime? @map("cancelled_at")
   expiredAt      DateTime? @map("expired_at")
   rejectUndoneAt DateTime? @map("reject_undone_at")
+  // 보낸 사람이 "거절됨·응답 없음·취소함" 표시를 목록에서 지운 시각(D-83). 지우면 관계도 없던 것이 된다.
+  requesterDismissedAt DateTime? @map("requester_dismissed_at")
 
   requester User @relation("RequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
   target    User @relation("RequestsReceived", fields: [targetId], references: [id], onDelete: Cascade)
@@ -385,6 +422,9 @@ model NetworkRecommendation {
   initiatorId       String?   @map("initiator_id")
   initiatorMarkedAt DateTime? @map("initiator_marked_at")
   reminderSentAt    DateTime? @map("reminder_sent_at")
+
+  // 성립 때 뽑은 포괄 아이스브레이킹 질문(D-87). 고정해 두어야 누가 언제 열어도 같은 질문이 보인다.
+  icebreakerIds String[] @default([]) @map("icebreaker_ids")
 
   members NetworkMember[]
 

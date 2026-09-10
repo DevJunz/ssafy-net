@@ -8,10 +8,11 @@ import type { ConnectedUser, InterestRef, PublicUser } from './types';
  * 연결 수를 남에게 보여주지 않는다(docs/12 §5).
  */
 
-/** 보낸 사람이 보는 상태. REJECTED는 여기 없다 — 거절은 노출되지 않는다(D-07). */
+/** 보낸 사람이 보는 상태. 거절은 바로 `REJECTED` 로 보인다(D-83, D-07 대체). */
 export type SentRequestStatus =
   | 'PENDING'
   | 'NO_RESPONSE'
+  | 'REJECTED'
   | 'CANCELLED'
   | 'ACCEPTED';
 
@@ -46,6 +47,8 @@ export interface SentRequestSummary {
   status: SentRequestStatus;
   reRequestableAt: string | null;
   canCancel: boolean;
+  /** 거절됨·응답 없음·취소함 표시를 목록에서 지울 수 있는지(D-83). 지우면 다시 요청할 수 있는 상태가 된다 */
+  canDismiss: boolean;
 }
 
 export interface ConnectionSummary {

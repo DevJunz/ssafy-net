@@ -34,6 +34,8 @@ type Tab = 'received' | 'sent' | 'connected';
 const SENT_LABEL: Record<SentRequestSummary['status'], string> = {
   PENDING: '응답 대기',
   NO_RESPONSE: '응답 없음',
+  // 거절은 바로 보인다(D-83). 표시를 지울 수 있고, 지우지 않아도 다시 요청할 수 있다.
+  REJECTED: '거절됨',
   CANCELLED: '취소함',
   ACCEPTED: '연결됨',
 };
@@ -97,7 +99,7 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
 
   /** 거절 되돌리기는 서버가 준 시각까지만 열려 있다(docs/07 §3.4, 5초). 토스트가 그만큼만 떠 있다. */
   const offerUndo = (id: string, until: string) => {
-    toast('요청을 거절했습니다. 상대에게는 알려지지 않습니다.', {
+    toast('요청을 거절했습니다. 상대에게 거절됨으로 표시됩니다.', {
       duration: Math.max(1000, new Date(until).getTime() - Date.now()),
       action: {
         label: '되돌리기',
@@ -117,6 +119,12 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
 
   const cancel = async (id: string) => {
     await api.del(`/connection-requests/${id}`);
+    await reload();
+  };
+
+  /** 거절됨·응답 없음·취소함 표시를 목록에서 지운다(D-83). 상대는 다시 "연결 요청" 할 수 있는 사람이 된다. */
+  const dismiss = async (id: string) => {
+    await api.post(`/connection-requests/${id}/dismiss`);
     await reload();
   };
 
@@ -181,17 +189,19 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
             <Notice>아직 보낸 요청이 없습니다.</Notice>
           ) : (
             sent.map((item) => (
-              <CardRow key={item.id}>
+              <CardRow key={item.id} className={item.status === 'REJECTED' ? 'border-destructive/30' : undefined}>
                 <CardRowBody>
                   <CardRowTitle>{item.to.displayName}</CardRowTitle>
                   <CardRowSub>
                     {new Date(item.createdAt).toLocaleDateString('ko-KR')} 보냄
-                    {item.reRequestableAt &&
-                      ` · ${new Date(item.reRequestableAt).toLocaleDateString('ko-KR')} 이후 다시 요청 가능`}
+                    {item.status === 'REJECTED' && ' · 상대가 거절했습니다. 다시 요청할 수 있습니다'}
+                    {item.status === 'NO_RESPONSE' && ' · 기한 안에 응답이 없었습니다. 다시 요청할 수 있습니다'}
                   </CardRowSub>
                 </CardRowBody>
                 <CardRowRight>
-                  {SENT_LABEL[item.status]}
+                  <span className={item.status === 'REJECTED' ? 'font-semibold text-destructive' : undefined}>
+                    {SENT_LABEL[item.status]}
+                  </span>
                   {item.canCancel && (
                     <>
                       <br />
@@ -203,6 +213,20 @@ export function ConnectionsPage({ onChanged }: { onChanged: () => void }) {
                         onClick={() => void cancel(item.id)}
                       >
                         취소
+                      </Button>
+                    </>
+                  )}
+                  {item.canDismiss && (
+                    <>
+                      <br />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        className="mt-1 text-muted-foreground"
+                        onClick={() => void dismiss(item.id)}
+                      >
+                        표시 지우기
                       </Button>
                     </>
                   )}

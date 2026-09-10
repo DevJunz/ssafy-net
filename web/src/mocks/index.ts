@@ -70,6 +70,8 @@ function freshState(): State {
     const [realName = '', campus = '서울', classNo = ''] = String(me.realName ?? '').split('_');
     me.identity = { realName, classNo, campus };
   }
+  // 캡처가 옛 형태라 프로필 메시지(D-85)가 없다.
+  if (me.profileMessage === undefined) me.profileMessage = null;
   return {
     me: scene === 'onboarding' ? { ...me, status: 'ONBOARDING' } : me,
     catalog: clone(fixtures['/interests']),

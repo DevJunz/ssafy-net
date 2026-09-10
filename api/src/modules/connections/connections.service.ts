@@ -57,34 +57,45 @@ export class ConnectionsService {
       throw new AppError('REQUEST_INCOMING_EXISTS', {
         requestId: relation.requestId,
       });
-    if (relation.status === 'NO_RESPONSE') {
+    // 같은 날 취소한 요청만 막는다(docs/09 §8). 거절·만료 뒤에는 바로 다시 보낼 수 있다(D-83).
+    if (relation.status === 'NO_RESPONSE' && relation.reRequestableAt) {
       throw new AppError(
         'REQUEST_COOLDOWN',
         { reRequestableAt: relation.reRequestableAt },
-        relation.reRequestableAt
-          ? `${new Date(relation.reRequestableAt).toLocaleDateString('ko-KR')} 이후에 다시 요청할 수 있습니다.`
-          : undefined,
+        '오늘 취소한 요청입니다. 내일 다시 요청할 수 있습니다.',
       );
     }
 
-    // 횟수 상한과 수락률 감속은 없다(D-82). 받는 쪽을 지키는 것은 메시지 필수,
-    // 거절 뒤 재요청 대기(위 REQUEST_COOLDOWN), 운영자 정지(REQUEST_SUSPENDED)다.
+    // 횟수 상한과 수락률 감속은 없다(D-82). 받는 쪽을 지키는 것은 메시지 필수와
+    // 운영자 정지(REQUEST_SUSPENDED)다. 거절은 상대에게 바로 보이고 다시 요청할 수 있다(D-83).
 
     const [expiryDays, common] = await Promise.all([
       this.parameters.get('P-08'),
       this.commonInterestIds(me.id, target.id),
     ]);
 
-    const request = await this.prisma.connectionRequest.create({
-      data: {
-        requesterId: me.id,
-        targetId: target.id,
-        message: input.message,
-        entryPoint: input.entryPoint,
-        // 요청 당시의 공통 관심사를 고정한다(docs/08 §3).
-        commonInterestIds: common,
-        expiresAt: new Date(Date.now() + expiryDays * DAY_MS),
-      },
+    const request = await this.prisma.$transaction(async (tx) => {
+      // 다시 요청하면 이 사람에게 남아 있던 거절됨·응답 없음 표시는 지운다 — 새 요청이 그 자리를 잇는다(D-83).
+      await tx.connectionRequest.updateMany({
+        where: {
+          requesterId: me.id,
+          targetId: target.id,
+          status: { in: ['REJECTED', 'EXPIRED', 'CANCELLED'] },
+          requesterDismissedAt: null,
+        },
+        data: { requesterDismissedAt: new Date() },
+      });
+      return tx.connectionRequest.create({
+        data: {
+          requesterId: me.id,
+          targetId: target.id,
+          message: input.message,
+          entryPoint: input.entryPoint,
+          // 요청 당시의 공통 관심사를 고정한다(docs/08 §3).
+          commonInterestIds: common,
+          expiresAt: new Date(Date.now() + expiryDays * DAY_MS),
+        },
+      });
     });
 
     // 받는 사람에게 즉시 알림. 앱을 열기 전에 판단할 수 있어야 한다(FR-14.3).
@@ -169,75 +180,59 @@ export class ConnectionsService {
 
   async sent(me: User): Promise<SentRequestSummary[]> {
     const requests = await this.prisma.connectionRequest.findMany({
-      where: { requesterId: me.id },
+      // 표시를 지운 것은 목록에서 빠진다(D-83). 수락된 것은 지울 수 없어 늘 남는다.
+      where: { requesterId: me.id, requesterDismissedAt: null },
       orderBy: { createdAt: 'desc' },
       include: { target: true },
     });
 
-    const [revealDays, cooldownDays] = await Promise.all([
-      this.parameters.get('P-08a'),
-      this.parameters.get('P-07'),
-    ]);
     const now = Date.now();
 
     return requests.map((request) => {
-      const { status, reRequestableAt } = this.visibleSentStatus(
-        request,
-        revealDays,
-        cooldownDays,
-        now,
-      );
+      const status = this.visibleSentStatus(request, now);
 
       return {
         id: request.id,
         to: this.presenter.toPublicUser(request.target),
         createdAt: request.createdAt.toISOString(),
         status,
-        reRequestableAt,
-        canCancel: status === 'PENDING' && request.status === 'PENDING',
+        reRequestableAt: null,
+        canCancel: status === 'PENDING',
+        canDismiss: status === 'REJECTED' || status === 'NO_RESPONSE' || status === 'CANCELLED',
       };
     });
   }
 
   /**
-   * 보낸 사람에게 보이는 상태 (docs/09 §6, §11).
-   *
-   * 거절은 통보되지 않는다. `min(거절 시각 + [P-08a], 만료 시각)`이 되기 전까지
-   * 대기 중으로 보이고, 그 뒤에 만료와 구분되지 않는 "응답 없음"이 된다.
+   * 보낸 사람에게 보이는 상태 (docs/09 §6, D-83).
+   * 거절은 바로 `REJECTED` 다. 만료는 `NO_RESPONSE`. 배치가 아직 안 돌아 PENDING 인 채 기한이 지난 것도 만료다.
    */
-  private visibleSentStatus(
-    request: ConnectionRequest,
-    revealDays: number,
-    cooldownDays: number,
-    now: number,
-  ): { status: SentRequestStatus; reRequestableAt: string | null } {
-    if (request.status === 'ACCEPTED') {
-      return { status: 'ACCEPTED', reRequestableAt: null };
-    }
-    if (request.status === 'CANCELLED') {
-      return { status: 'CANCELLED', reRequestableAt: null };
-    }
-    if (request.status === 'PENDING') {
-      return now < request.expiresAt.getTime()
-        ? { status: 'PENDING', reRequestableAt: null }
-        : { status: 'NO_RESPONSE', reRequestableAt: null };
-    }
+  private visibleSentStatus(request: ConnectionRequest, now: number): SentRequestStatus {
+    if (request.status === 'ACCEPTED') return 'ACCEPTED';
+    if (request.status === 'CANCELLED') return 'CANCELLED';
+    if (request.status === 'REJECTED') return 'REJECTED';
+    if (request.status === 'PENDING' && now < request.expiresAt.getTime()) return 'PENDING';
+    return 'NO_RESPONSE';
+  }
 
-    const terminalAt =
-      request.respondedAt ?? request.expiredAt ?? request.expiresAt;
-    const revealAt = Math.min(
-      terminalAt.getTime() + revealDays * DAY_MS,
-      request.expiresAt.getTime(),
-    );
+  /**
+   * 보낸 요청의 거절됨·응답 없음·취소함 표시를 지운다(D-83). 상대와의 관계는 없던 것이 되어
+   * 사람 패널이 다시 "연결 요청" 을 보여준다. 수락된 요청은 연결이라 지울 수 없다.
+   */
+  async dismiss(me: User, requestId: string) {
+    const request = await this.prisma.connectionRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request || request.requesterId !== me.id) throw new AppError('NOT_FOUND');
+    if (request.requesterDismissedAt) return { ok: true };
+    const status = this.visibleSentStatus(request, Date.now());
+    if (status === 'PENDING' || status === 'ACCEPTED') throw new AppError('ALREADY_HANDLED');
 
-    if (now < revealAt) return { status: 'PENDING', reRequestableAt: null };
-
-    const reRequestableAt = new Date(terminalAt.getTime() + cooldownDays * DAY_MS);
-    return {
-      status: 'NO_RESPONSE',
-      reRequestableAt:
-        reRequestableAt.getTime() > now ? reRequestableAt.toISOString() : null,
-    };
+    await this.prisma.connectionRequest.update({
+      where: { id: request.id },
+      data: { requesterDismissedAt: new Date() },
+    });
+    return { ok: true };
   }
 
   // ─────────────────────────────────────────────────────────
@@ -382,7 +377,7 @@ export class ConnectionsService {
     return this.connectionDetail(me, connection.id);
   }
 
-  /** 거절 (docs/09 §6). 상대에게 알리지 않는다. 5초 안에 되돌릴 수 있다. */
+  /** 거절 (docs/09 §6, D-83). 상대의 보낸 요청 목록에 바로 "거절됨" 으로 보인다. 5초 안에 되돌릴 수 있다. */
   async reject(me: User, requestId: string) {
     const request = await this.prisma.connectionRequest.findUnique({
       where: { id: requestId },
@@ -403,7 +398,8 @@ export class ConnectionsService {
 
     return {
       undoUntil: new Date(now.getTime() + UNDO_WINDOW_MS).toISOString(),
-      notice: '요청을 거절했습니다. 상대에게는 알려지지 않습니다.',
+      // 거절은 상대에게 "거절됨" 으로 보인다(D-83). 알림(DM)은 따로 보내지 않는다.
+      notice: '요청을 거절했습니다. 상대의 보낸 요청 목록에 거절됨으로 표시됩니다.',
     };
   }
 

@@ -275,6 +275,16 @@ export function RequestDetailOverlay({
         <Quote>{detail.message}</Quote>
       </OverlaySection>
 
+      {/* 본인이 적어 둔 한 줄(D-85). 요청 메시지와 구분되게 흐리게 */}
+      {detail.from.profileMessage && (
+        <OverlaySection>
+          <Muted className="mb-1">{detail.from.displayName}님의 프로필 메시지</Muted>
+          <p className="m-0 text-sm whitespace-pre-wrap text-foreground/80">
+            {detail.from.profileMessage}
+          </p>
+        </OverlaySection>
+      )}
+
       <OverlaySection>
         <Muted className="mb-1.5">{detail.from.displayName}님의 관심사</Muted>
         <Chips>
@@ -314,8 +324,10 @@ export function RequestDetailOverlay({
           거절
         </Button>
       </OverlayActions>
-      {/* 거절 버튼 옆에 상시 표시한다(docs/07 §3.4) */}
-      <Muted className="mt-2 text-right">거절은 상대에게 알려지지 않습니다.</Muted>
+      {/* 거절 버튼 옆에 상시 표시한다(docs/07 §3.4). 거절은 상대에게 보인다(D-83) */}
+      <Muted className="mt-2 text-right">
+        거절하면 상대에게 거절됨으로 표시됩니다. 5초 안에 되돌릴 수 있습니다.
+      </Muted>
     </ResponsiveDialog>
   );
 }

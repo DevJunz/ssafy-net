@@ -24,6 +24,8 @@ export interface NotificationPayload {
   memberNames?: string[];
   daysLeft?: number;
   reason?: string;
+  /** 성립 알림에 붙는 대화 재료(D-87). 앱의 성립 화면에 전부 있고 DM 에는 앞의 몇 개만 */
+  questions?: string[];
   [key: string]: unknown;
 }
 
@@ -127,6 +129,10 @@ export const NOTIFICATION_RULES: Record<NotificationType, Rule> = {
         '**네트워크가 성립되었습니다.**',
         p.memberNames?.length ? `멤버: ${p.memberNames.join(', ')}` : '',
         interests(p),
+        // 대화 재료(D-87). 첫 발언의 부담을 줄이는 것이 목적이라 DM 에도 몇 개는 싣는다.
+        ...(p.questions?.length
+          ? ['이야깃거리:', ...p.questions.slice(0, 4).map((q) => `- ${q}`)]
+          : []),
       ]
         .filter(Boolean)
         .join('\n'),

@@ -33,6 +33,15 @@ export interface NetworkSummary {
   daysLeft: number;
 }
 
+/**
+ * 성립된 네트워크의 대화 재료(D-87). 공유 관심사마다 고정된 질문과, 성립 때 뽑아 고정한
+ * 포괄 아이스브레이킹 질문 2개. 참여자에게만 준다.
+ */
+export interface NetworkQuestions {
+  byInterest: { interestId: string; interestName: string; questions: string[] }[];
+  icebreakers: string[];
+}
+
 export interface NetworkDetail extends NetworkSummary {
   members: NetworkMemberView[];
   /** 지금 참여하면 시작자가 되는지. 참여 전 안내에 쓴다(docs/07 §4.1) */
@@ -47,4 +56,6 @@ export interface NetworkDetail extends NetworkSummary {
   started: boolean;
   /** 노출 시점 기준임을 카드에 작게 표시한다(docs/10 §2a) */
   snapshotNote: string;
+  /** 성립 후 참여자에게만. 그 전에는 null */
+  questions: NetworkQuestions | null;
 }

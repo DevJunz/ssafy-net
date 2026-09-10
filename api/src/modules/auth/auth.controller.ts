@@ -33,8 +33,8 @@ export class AuthController {
     summary: '초대 링크 유효성 확인',
     description:
       '비로그인. 유효하면 `{ valid: true }`와 함께 서명된 초대 쿠키(`sn_invite`, 10분)를 심는다. ' +
-      '신규 사용자는 Google 콜백에서 이 쿠키가 없으면 가입이 거부된다(FR-0.2, D-20). ' +
-      '초대 코드는 `prisma:seed`가 출력한다.',
+      '`invite_required` 플래그가 켜져 있을 때만 신규 사용자가 Google 콜백에서 이 쿠키 없이 거부된다(FR-0.2, D-84). ' +
+      '기본은 꺼짐이라 초대 링크 없이 가입한다. 초대 코드는 `prisma:seed`가 출력한다.',
   })
   @ApiParam({ name: 'code', description: '초대 코드' })
   async checkInvite(
@@ -76,7 +76,7 @@ export class AuthController {
       'Google이 호출한다. 직접 호출하지 않는다. 코드를 교환해 사용자를 찾거나 만들고 세션 쿠키(`sn_session`)를 발급한다.\n\n' +
       '- 기존 사용자(ACTIVE): state의 redirect 경로로\n' +
       '- 온보딩 미완료: `/onboarding`으로 (어디로 가려 했든 온보딩부터, J0)\n' +
-      '- 신규인데 초대 쿠키 없음: `/invite-required`로\n' +
+      '- 신규인데 초대 쿠키 없음(`invite_required` 가 켜진 경우만): `/invite-required`로\n' +
       '- 취소·실패: `/login?error=cancelled|failed`로',
   })
   @ApiQuery({ name: 'code', required: false, description: 'Google 인가 코드' })

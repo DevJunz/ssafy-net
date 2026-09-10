@@ -6,19 +6,24 @@
 
 export type DisplayNameType = 'NICKNAME' | 'REAL';
 
-/** design/22 §7. REJECTED는 이 목록에 없다 — 거절은 보낸 사람에게 노출되지 않는다. */
+/**
+ * design/22 §7. `REJECTED` 는 거절당한 요청이 보낸 사람에게 보이는 상태다(D-83, D-07 대체).
+ * 거절돼도 곧바로 다시 요청할 수 있다 — 표시를 지우면(`dismiss`) `NONE` 으로 돌아간다.
+ * `NO_RESPONSE` 는 만료(응답 없음)와 같은 날 취소한 요청에 남는다.
+ */
 export type RelationStatus =
   | 'NONE'
   | 'REQUEST_SENT'
   | 'REQUEST_RECEIVED'
   | 'CONNECTED'
   | 'NO_RESPONSE'
+  | 'REJECTED'
   | 'SELF';
 
 export interface Relation {
   status: RelationStatus;
   requestId: string | null;
-  /** NO_RESPONSE일 때만 채워진다 (P-07). */
+  /** 같은 날 취소한 요청에만 채워진다(docs/09 §8). 거절·만료 뒤 대기(P-07)는 없어졌다(D-83). */
   reRequestableAt: string | null;
 }
 
@@ -49,6 +54,8 @@ export interface PublicUser {
   interests: InterestRef[];
   commonCount: number;
   relation: Relation;
+  /** 본인이 적어 둔 한 줄. 사람 패널에서 표시명 아래에 보인다(D-85). 없으면 null */
+  profileMessage: string | null;
   recentPosts?: PostSummary[];
   withdrawn?: boolean;
 }

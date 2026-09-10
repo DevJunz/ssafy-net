@@ -23,6 +23,7 @@ const DEFAULT_DAYS = 14;
 const MAX_DAYS = 90;
 
 const networkSwitchSchema = z.object({ enabled: z.boolean({ message: 'enabled 는 true 또는 false 여야 합니다.' }) });
+const inviteSwitchSchema = z.object({ required: z.boolean({ message: 'required 는 true 또는 false 여야 합니다.' }) });
 const addOperatorSchema = z.object({ email: z.string().trim().email('이메일 형식이 아닙니다.') });
 
 /**
@@ -68,6 +69,24 @@ export class OpsController {
     @Body(new ZodValidationPipe(networkSwitchSchema)) body: { enabled: boolean },
   ): Promise<OpsNetworkSwitchResult> {
     return this.ops.setNetworkEnabled(body.enabled);
+  }
+
+  @Put('invite')
+  @ApiOperation({
+    summary: '가입에 초대 링크 필요 켜기 / 끄기 (D-84)',
+    description:
+      '기본은 꺼짐 — 누구나 Google 로 바로 가입하고 온보딩의 Mattermost 인증(D-66)이 소속 검증이다. ' +
+      '켜면 옛 규칙대로 초대 링크(`/invite/<code>`)를 연 사람만 가입한다. 이미 가입한 사람에게는 영향이 없다. ' +
+      '소개 화면은 `GET /api/parameters` 의 `features.invite_required` 를 본다.',
+  })
+  @ApiBody({
+    schema: { type: 'object', required: ['required'], properties: { required: { type: 'boolean' } } },
+  })
+  async setInvite(
+    @Body(new ZodValidationPipe(inviteSwitchSchema)) body: { required: boolean },
+  ): Promise<{ required: boolean }> {
+    await this.ops.setInviteRequired(body.required);
+    return { required: body.required };
   }
 
   @Get('operators')

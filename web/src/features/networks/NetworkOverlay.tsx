@@ -17,6 +17,37 @@ import {
 } from '../../components/ResponsiveDialog';
 import { ActionBox, ActionHeadline, CopyRow } from '../connections/Overlays';
 
+/** 묶음마다 처음 보이는 질문 수. 공유 관심사가 많으면 전부 펼쳐 놓았을 때 화면이 너무 길다. */
+const QUESTIONS_SHOWN = 2;
+
+/** 질문 묶음 하나. 관심사 이름이 제목이고, 포괄 질문은 "가볍게" 다. */
+function QuestionGroup({ title, questions }: { title: string; questions: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? questions : questions.slice(0, QUESTIONS_SHOWN);
+  const hidden = questions.length - shown.length;
+  return (
+    <div className="rounded-[9px] border bg-card px-[11px] py-[9px]">
+      <div className="mb-1 text-[12px] font-semibold text-accent-foreground">{title}</div>
+      <ul className="m-0 flex list-disc flex-col gap-0.5 pl-4 text-[13.5px] leading-relaxed">
+        {shown.map((question) => (
+          <li key={question}>{question}</li>
+        ))}
+      </ul>
+      {hidden > 0 && (
+        <Button
+          type="button"
+          variant="link"
+          size="xs"
+          className="mt-0.5 h-auto p-0 text-xs"
+          onClick={() => setExpanded(true)}
+        >
+          {hidden}개 더 보기
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /**
  * Network 상세와 성립 화면 (docs/06 §3.6, §3.12).
  *
@@ -80,6 +111,26 @@ export function NetworkOverlay({
           </ActionBox>
         </OverlaySection>
       )}
+
+      {/* 대화 재료(D-87). 첫 발언의 부담을 줄이는 장치라 Action 바로 아래에 둔다. 성립 후 참여자에게만 온다 */}
+      {detail.questions &&
+        (detail.questions.byInterest.length > 0 || detail.questions.icebreakers.length > 0) && (
+          <OverlaySection>
+            <Muted className="mb-2">이야깃거리 · 메신저에서 하나씩 꺼내 보세요</Muted>
+            <div className="flex flex-col gap-2">
+              {detail.questions.byInterest.map((group) => (
+                <QuestionGroup
+                  key={group.interestId}
+                  title={`#${group.interestName}`}
+                  questions={group.questions}
+                />
+              ))}
+              {detail.questions.icebreakers.length > 0 && (
+                <QuestionGroup title="가볍게" questions={detail.questions.icebreakers} />
+              )}
+            </div>
+          </OverlaySection>
+        )}
 
       <OverlaySection>
         <Muted className="mb-2">

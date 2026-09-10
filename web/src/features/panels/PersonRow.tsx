@@ -7,6 +7,7 @@ const RELATION_LABEL: Partial<Record<RelationStatus, string>> = {
   REQUEST_SENT: '요청 보냄',
   REQUEST_RECEIVED: '요청 받음',
   NO_RESPONSE: '응답 없음',
+  REJECTED: '거절됨',
 };
 
 /**
@@ -26,7 +27,8 @@ export function PersonRow({
   const handled =
     user.relation.status === 'CONNECTED' ||
     user.relation.status === 'REQUEST_SENT' ||
-    user.relation.status === 'NO_RESPONSE';
+    user.relation.status === 'NO_RESPONSE' ||
+    user.relation.status === 'REJECTED';
 
   return (
     <button
