@@ -316,7 +316,7 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | VM | `ssafy-net` | `ssafy-net-dev`. 같은 사양이 편하다. 아끼려면 e2-small 도 된다 — 빌드는 여기서 안 하니 2GB 면 돈다 |
 | 도메인 | `ssafy-networking.store` | `dev.ssafy-networking.store` |
 | 보안 비밀 | `ssafy-net-env` | `ssafy-net-env-dev` (`APP_ENV=dev` 가 추가로 들어간다) |
-| 데이터 | 실제 사용자 | `prisma:seed` + `seed:dev` 더미(기본 120명, `SEED_USERS=1000` 이면 공개 규모) |
+| 데이터 | 실제 사용자 | `prisma:seed` + `seed:dev` 더미 100명(`SEED_USERS=100`, 상태를 보기에 이 정도가 좋다. 공개 규모를 보려면 1000) |
 | Mattermost | `live` (2026-09-10 부터, 공개 전 시험도 실제 DM 으로) | `live` (사용자 결정 2026-09-10). 더미는 Mattermost 아이디가 가짜라 발송이 400 으로 끝나고, 초대 링크를 아는 사람은 가입할 수 있다. 잠그고 싶으면 `redirect` 로 돌리거나 `MATTERMOST_ALLOWED_RECIPIENTS` 에 시험 인원만 |
 | 배포 알림 | `[deploy] …` | `[deploy:dev] …` |
 | 화면 | | 위에 "개발 서버" 띠(호스트 이름이 `dev.` 로 시작하면) |
@@ -371,8 +371,9 @@ docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed   
 # 운영자 플래그
 docker compose -f deploy/docker-compose.prod.yml exec db \
   psql -U ssafynet -d ssafynet -c "update \"user\" set is_operator = true where email = '<내 Google 이메일>';"
-# 더미 — 가중치 있는 관심사 분포 + 내 주변 클러스터 5명. 본인 가입 뒤에 돌려야 클러스터가 붙는다. 다시 돌리면 더미만 갈아엎는다
-docker compose -f deploy/docker-compose.prod.yml exec -e SEED_USERS=1000 api npm run seed:dev
+# 더미 100명 — 가중치 있는 관심사 분포 + 내 주변 클러스터 5명. 본인 가입 뒤에 돌려야 클러스터가 붙는다.
+# 다시 돌리면 더미만 갈아엎는다(본인 계정은 그대로). 공개 규모를 보고 싶으면 SEED_USERS=1000
+docker compose -f deploy/docker-compose.prod.yml exec -e SEED_USERS=100 api npm run seed:dev
 # 자동 배포
 ( crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/ssafy-net/deploy/auto-deploy.sh >> $HOME/deploy.log 2>&1" ) | crontab -
 ```
