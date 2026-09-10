@@ -5,11 +5,13 @@
 #   --target api   NestJS + Prisma. 시작할 때 migrate deploy 를 돌린다(deploy/api-entrypoint.sh).
 #   --target web   Caddy 가 정적 번들을 서빙하고 /api, /n 을 api 로 넘긴다(deploy/Caddyfile).
 #
-# 빌드는 deploy/docker-compose.prod.yml 이 한다. 직접 하려면:
+# 빌드는 GitHub Actions(.github/workflows/build.yml)가 main 푸시마다 하고 Artifact Registry 에 올린다.
+# VM 은 deploy/deploy.sh 로 받기만 한다. 직접 하려면:
 #   docker build --target api -t ssafy-net-api .
 #   docker build --target web -t ssafy-net-web .
+# VM 에서 빌드해야 할 때는 deploy/docker-compose.build.yml 을 겹친다(deploy/README.md §8).
 #
-# 이미지는 x86-64 다(GCP e2-medium). ARM VM 을 쓰게 되면 그 VM 위에서 빌드하면 된다.
+# 이미지는 x86-64 다(GCP e2-medium, Actions 러너도 같다). ARM VM 을 쓰게 되면 Actions 에 platforms 를 추가한다.
 
 # ── 의존성 ─────────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS deps

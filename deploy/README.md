@@ -14,13 +14,19 @@ Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 
 | 도메인 | `ssafy-networking.store` → A 레코드 `35.216.40.235` |
 | 환경 변수 | Secret Manager `ssafy-net-env` (§5-1). 로컬 `deploy/.env` 와 같은 내용 |
 | OAuth 리디렉션 URI | `https://ssafy-networking.store/api/auth/google/callback` (추가됨) |
+| 이미지 | Artifact Registry `asia-northeast3-docker.pkg.dev/ssanecting/ssafy-net/{api,web}` (§5-2). GitHub Actions 가 올리고 VM 은 `deploy.sh` 로 받는다 |
+
+**흐름.** `git push` → GitHub Actions 가 이미지 둘을 빌드해 Artifact Registry 에 올린다 → VM 에서 `./deploy/deploy.sh` 가 받아 띄운다. VM 에서는 빌드하지 않는다(2026-09-10 채택, design/20 §13).
 
 이 폴더에 있는 것:
 
 | 파일 | 역할 |
 |---|---|
 | `../Dockerfile` | `api`(NestJS + Prisma)와 `web`(Caddy + 정적 번들) 두 이미지 |
-| `docker-compose.prod.yml` | db + api + web. 이 파일 옆의 `.env` 를 읽는다 |
+| `../.github/workflows/build.yml` | main 푸시마다 두 이미지를 빌드해 Artifact Registry 에 `<짧은 sha>`·`latest` 로 올린다 |
+| `docker-compose.prod.yml` | db + api + web. 이미지는 레지스트리에서. 이 파일 옆의 `.env` 를 읽는다 |
+| `docker-compose.build.yml` | 비상용. VM 에서 직접 빌드할 때 prod 파일 위에 겹친다(§8) |
+| `deploy.sh` | 배포. 로그인 → pull → up → healthy 대기. `IMAGE_TAG=<sha>` 로 롤백 |
 | `.env.example` | 채워야 할 값. 복사해서 `.env` 로 |
 | `Caddyfile` | TLS 자동 발급, `/api`·`/n` 은 api 로, 나머지는 정적 파일 |
 | `api-entrypoint.sh` | 컨테이너 시작 때 `prisma migrate deploy` |
@@ -54,7 +60,7 @@ Compute Engine → VM 인스턴스 → 만들기.
 | 머신 | **e2-medium** (2 vCPU, 4GB) | design/20 §13 권장 사양. 월 약 $30, 크레딧으로 충당 |
 | 부팅 디스크 | **Ubuntu 24.04 LTS x86/64**, 균형 영구 디스크 **40GB** | ARM 이 아니다. 이미지가 x86-64 |
 | 방화벽 | **HTTP 트래픽 허용, HTTPS 트래픽 허용** 체크 | 80·443. Let's Encrypt 발급에 80 이 필요하다 |
-| 액세스 범위 | **"모든 Cloud API 에 대한 전체 액세스 허용"** | §5-1 Secret Manager 와 `backup.sh` 의 `gcloud storage cp` 가 이 범위를 요구한다. 기본 액세스로 만들었으면 중지 → 수정 → 변경 |
+| 액세스 범위 | **"모든 Cloud API 에 대한 전체 액세스 허용"** | §5-1 Secret Manager, §5-2 의 이미지 pull, `backup.sh` 의 `gcloud storage cp` 가 이 범위를 요구한다. 기본 액세스로 만들었으면 중지 → 수정 → 변경 |
 
 만든 뒤 **외부 IP 를 고정**한다: VPC 네트워크 → IP 주소 → 임시 IP 옆 "고정 IP 로 승격". 안 하면 재시작 때 IP 가 바뀌어 DNS 가 끊긴다.
 
@@ -86,12 +92,15 @@ sudo apt-get update && sudo apt-get install -y ca-certificates curl git
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER && newgrp docker
 
-# 코드
+# 코드 (compose 파일과 스크립트 때문에 필요하다. 빌드는 여기서 하지 않는다)
 git clone https://github.com/DevJunz/ssafy-net.git && cd ssafy-net
 
 # 환경 변수 — 둘 중 하나
 ./deploy/fetch-env.sh   # (a) Secret Manager 에서 내려받는다. §5-1 을 먼저 해 둔다
 # cp deploy/.env.example deploy/.env && nano deploy/.env   # (b) 손으로 채운다
+
+# 배포 — 레지스트리에서 이미지를 받아 띄운다. §5-2 를 먼저 해 두고, Actions 가 한 번 초록불이어야 한다
+./deploy/deploy.sh
 ```
 
 ### 5-1. 환경 변수를 Secret Manager 에서 관리 (2026-09-10 채택)
@@ -121,11 +130,46 @@ git clone https://github.com/DevJunz/ssafy-net.git && cd ssafy-net
 | `GOOGLE_CALLBACK_URL` | `https://<도메인>/api/auth/google/callback` |
 | `MATTERMOST_*` | 로컬 `api/.env` 와 같은 값. **`MATTERMOST_DELIVERY_MODE=redirect` 그대로** |
 
-```bash
-# 빌드하고 띄운다 (첫 빌드 5분 안팎)
-docker compose -f deploy/docker-compose.prod.yml up -d --build
+### 5-2. 이미지를 Artifact Registry 로 (2026-09-10 채택)
 
-# 상태. api 가 healthy 가 될 때까지 30~40초
+빌드는 GitHub Actions 가 하고 VM 은 받기만 한다. 이유: 4GB VM 에서 빌드하지 않는다, 배포가 5분 빌드에서 30초 pull 로 준다, 롤백이 태그 하나로 된다(`IMAGE_TAG=<sha>`), Actions 가 타입 검사·빌드 게이트를 겸한다. Docker Hub 대신 같은 프로젝트의 Artifact Registry 를 쓰는 이유: 저장소가 private 이라 이미지도 private 이어야 하는데 Docker Hub 무료는 private 저장소가 하나뿐이고 VM 에 토큰을 둬야 한다. Artifact Registry 는 VM 서비스 계정이 그대로 pull 하고, 같은 리전이라 전송이 빠르며, 2주 뒤 프로젝트와 함께 지워진다. 저장 0.5GB 까지 무료, 그 뒤 GB 당 월 $0.10.
+
+**한 번만 한다 — 콘솔 오른쪽 위 `>_` (Cloud Shell) 에 붙여 넣기:**
+
+```bash
+PROJECT=$(gcloud config get-value project); echo "project: $PROJECT"   # ssanecting 이어야 한다. 다르면 build.yml 과 compose 의 IMAGE_REPO 를 고친다
+REGION=asia-northeast3
+gcloud services enable artifactregistry.googleapis.com
+gcloud artifacts repositories create ssafy-net --repository-format=docker --location=$REGION --description="SSAFY Connection images"
+
+# GitHub Actions 가 올릴 때 쓰는 서비스 계정 — 이 저장소에 쓰기만
+gcloud iam service-accounts create gh-actions --display-name="GitHub Actions image push"
+gcloud artifacts repositories add-iam-policy-binding ssafy-net --location=$REGION \
+  --member="serviceAccount:gh-actions@$PROJECT.iam.gserviceaccount.com" --role=roles/artifactregistry.writer
+gcloud iam service-accounts keys create ~/gh-actions-key.json --iam-account="gh-actions@$PROJECT.iam.gserviceaccount.com"
+
+# VM 서비스 계정 — 읽기만
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+gcloud artifacts repositories add-iam-policy-binding ssafy-net --location=$REGION \
+  --member="serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" --role=roles/artifactregistry.reader
+```
+
+그 다음 키를 GitHub 에 넣는다. Cloud Shell 에서 `cloudshell download ~/gh-actions-key.json` 으로 내려받고, **로컬에서**:
+
+```bash
+gh secret set GCP_SA_KEY < gh-actions-key.json    # 저장소 secret. gh 가 로그인돼 있어야 한다
+rm gh-actions-key.json                            # 로컬 사본 삭제. Cloud Shell 의 것도 rm ~/gh-actions-key.json
+```
+
+키는 2주 뒤 정리 때 서비스 계정과 함께 지운다(§10). 이제 main 에 푸시하면 Actions 탭에 `build-images` 가 돈다. 문서만 바뀐 커밋은 돌지 않는다. 손으로 돌리려면 `gh workflow run build.yml`.
+
+이미지 이름은 `asia-northeast3-docker.pkg.dev/ssanecting/ssafy-net/api:<짧은 sha>` 와 `.../web:<짧은 sha>`. 둘 다 `latest` 태그도 받는다. Actions 실행 요약(Summary)에 배포 명령이 sha 와 함께 찍힌다.
+
+```bash
+# 첫 배포. 로그인(VM 서비스 계정 토큰) → pull → up → api 가 healthy 가 될 때까지 최대 2분 기다린다
+./deploy/deploy.sh
+
+# 상태와 로그
 docker compose -f deploy/docker-compose.prod.yml ps
 docker compose -f deploy/docker-compose.prod.yml logs -f api
 
@@ -164,15 +208,26 @@ crontab -e
 
 VM 밖에도 두려면 Cloud Storage 버킷 하나(서울, Standard)를 만들고 `deploy/.env` 의 `BACKUP_BUCKET` 에 이름을 적는다. **복원을 공개 전에 한 번 해 본다**(`backup.sh` 머리의 명령).
 
-## 8. 갱신
+## 8. 갱신과 롤백
 
 ```bash
-cd ~/ssafy-net && git pull
-docker compose -f deploy/docker-compose.prod.yml up -d --build
+# 갱신 — 로컬에서 main 에 푸시 → Actions 초록불 확인 → VM 에서
+cd ~/ssafy-net && ./deploy/deploy.sh            # git pull 도 스크립트가 한다
+
+# 특정 커밋으로 (Actions 요약에 찍힌 짧은 sha). 롤백도 같은 명령이다
+IMAGE_TAG=1a2b3c4 ./deploy/deploy.sh
 ```
 
-api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마이그레이션은 따로 하지 않는다.
+api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마이그레이션은 따로 하지 않는다. 롤백할 때 마이그레이션은 되돌아가지 않는다 — 옛 코드가 새 스키마 위에서 돌 수 있는지 보고 한다(컬럼 추가 정도는 문제없다).
 `packages/shared` 를 고쳤어도 이미지 안에서 처음부터 다시 빌드하니 로컬의 dist 함정은 없다.
+
+**비상 — Actions 가 안 될 때 VM 에서 직접 빌드:**
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.build.yml up -d --build
+```
+
+5분 안팎이고 4GB 에서 메모리가 빠듯할 수 있다. 다음 `deploy.sh` 가 레지스트리 이미지로 덮는다.
 
 ## 9. 공개하는 날
 
@@ -186,7 +241,7 @@ api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마
 docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 볼륨까지 삭제
 ```
 
-그 다음 GCS 백업 버킷과 VM 을 콘솔에서 지운다. 무료 체험 계정은 90일에 자동으로 닫히지만, 지우지 않으면 그때까지 크레딧을 먹는다.
+그 다음 GCS 백업 버킷과 VM 을 콘솔에서 지운다. 무료 체험 계정은 90일에 자동으로 닫히지만, 지우지 않으면 그때까지 크레딧을 먹는다. Artifact Registry 저장소와 서비스 계정 `gh-actions`(키 포함)도 지우고, GitHub 의 `GCP_SA_KEY` secret 을 삭제한다. 프로젝트째 지우면 GitHub secret 만 남는다.
 
 ## 트러블슈팅
 
@@ -197,3 +252,8 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | 로그인은 되는데 바로 풀림 | `APP_BASE_URL` 이 `https://` 인지. 쿠키가 `secure` 라 http 에서는 안 붙는다 |
 | api 가 `unhealthy` | `logs api`. 대개 `DATABASE_URL`(비밀번호에 특수문자) 또는 migrate 실패 |
 | Mattermost 인증 코드가 안 옴 | redirect 모드면 운영자 채널을 본다. 웹훅 URL 과 "채널로 잠금 해제" 확인(README) |
+| Actions 가 `secret 확인` 에서 실패 | `GCP_SA_KEY` 가 없다. §5-2 의 `gh secret set` |
+| Actions 가 `login` 에서 실패 | 키 JSON 이 통째로 들어갔는지(`gh secret set ... < 파일`). 서비스 계정에 저장소 writer 역할이 있는지 |
+| `deploy.sh` 가 `registry login` 에서 실패 | VM 액세스 범위가 "모든 Cloud API" 인지(§2), gcloud 가 있는지(`gcloud --version`) |
+| `deploy.sh` 의 pull 이 `denied` 또는 `permission` | VM 서비스 계정(`<번호>-compute@`)에 저장소 reader 역할(§5-2 마지막 명령) |
+| pull 이 `manifest unknown` | 그 sha 로 이미지가 없다. 문서만 바뀐 커밋이거나 Actions 가 아직 안 끝났다. `latest` 나 Actions 요약의 sha 를 쓴다 |

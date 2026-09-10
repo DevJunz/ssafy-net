@@ -1,0 +1,16 @@
+# 비상용 — VM 에서 직접 빌드할 때만 prod 파일 위에 겹친다 (README §8).
+# 평소에는 GitHub Actions 가 만든 이미지를 deploy.sh 로 받는다. 4GB VM 에서 빌드는 느리고 메모리가 빠듯하다.
+#
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.build.yml up -d --build
+#
+# 이미지 이름은 prod 파일의 것을 그대로 쓴다. 나중에 deploy.sh 로 pull 하면 레지스트리 것으로 덮인다.
+
+services:
+  api:
+    build:
+      context: ..
+      target: api
+  web:
+    build:
+      context: ..
+      target: web
