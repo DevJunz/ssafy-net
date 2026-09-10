@@ -40,12 +40,21 @@
 
 ### 다음 세션에서 이어서 할 것
 
-**재개 지점(2026-09-11 새벽).** 두 가지를 했다.
+**재개 지점(2026-09-11 새벽). 대화록 `history/2026-09-10-feedback-10-deploy-fix-interest-admin-session.txt`.**
+
+> **내일 첫 할 일 — 사용자가 운영용 내용(분류·관심사·질문) 파일을 준다.** 받으면 `prisma/content.example.json` 형태의 JSON 으로 옮겨 `npm run content:import -- <파일> --dry-run` 으로 먼저 보여 주고, 로컬 → 개발 → 운영 순으로 넣는다. **DB 를 완전히 초기화하고 다시 넣는 것으로 합의했다**(사용자 결정) — 기존 관심사·선택·글·네트워크 추천은 사라지고 계정·연결·알림은 남는다. JSON 이 번거로우면 표나 글로 받아 내가 옮긴다.
+>
+> **답을 못 들은 것 하나:** 아래 커밋 둘(`2bb97f2`·`d426fc9`)을 지금 dev 에 올릴지, 내용 파일까지 묶어 한 번에 올릴지 물었는데 답을 듣기 전에 세션이 끝났다. **아직 푸시하지 않았다.** 로컬 `main` 이 `origin/dev`(`44d4ae9`)보다 두 커밋 앞선다.
+
+네 가지를 했다.
+
+3. **그래프 노드를 전부 원으로 되돌리고 분류 색을 12가지로 늘렸다(`2bb97f2`).** 사각형·별을 시험해 봤지만(별은 스크린샷까지 보고 사용자가 물렀다) 작은 노드에서 뭉개지고 별은 아래 두 꼭짓점이 이름표를 찔렀다. `encoding.ts` 의 `shapeOf`/`traceShape` 는 `traceNode` 하나로 줄었다. **회색은 사람만 쓴다** — 옛 `--cat-8`(#495057)이 사람 색과 같아 관심사가 사람처럼 보였다. 분류가 11개라 8자리로는 색이 돌아 겹치기도 했다. 새 팔레트는 `index.css` 의 `--cat-1`~`--cat-12`, 전부 유채색이고 빨강(나)도 피했다. 같은 커밋에서 **관심사 수정을 대화상자로** 옮겼다(줄 안 칸이 좁다는 피드백. 이름 큰 칸 + 분류 목록 + 별칭 여러 줄, 한 줄에 하나).
+4. **내용을 파일 하나로 갈아 끼우는 도구(`d426fc9`).** `npm run content:import -- <파일.json> [--dry-run]`(`api/prisma/content-import.ts`). zod 로 형태·이름 중복을 먼저 잡고, `--dry-run` 이 "넣을 것 / 지금 있는 것 / 사라지는 선택(누가 고르고 있는데 파일에 없는 관심사)"을 보여 준다. 실행은 한 트랜잭션 — `category`·`interest`(선택·글·이력·주제별 질문이 cascade)·`icebreaker_question`·`network_recommendation` 을 비우고 파일대로 채운다. **계정·연결 요청·알림·파라미터는 남는다.** 로컬에서 실제로 비우고 채우는 것까지 확인한 뒤 시드로 되돌려 놨다. 형태 예시는 `api/prisma/content.example.json`.
 
 1. **자동 배포에서 api·web 이 어긋나던 것을 고쳤다.** 개발 서버가 "새 api + 옛 web" 으로 떠 있었다 — `auto-deploy.sh` 가 api 이미지의 지문만 보는데 Actions 가 api 를 먼저, web 을 13초 뒤에 올려, 그 틈에 낀 cron 이 옛 web 을 받아 띄우고는 api 지문이 같아져 다시 돌지 않았다. 이제 **빌드는 sha 태그만 붙이고 두 이미지가 다 올라간 뒤 마지막 "이동 태그" 단계에서 latest·dev 를 한꺼번에 붙인다**(build.yml). `auto-deploy.sh` 도 api·web 지문을 둘 다 본다. **배포 확인은 `/api/parameters` 만 보지 말고 `curl -s https://<도메인>/ | grep assets` 로 번들 이름도 본다.** 커밋 `f6653e9`. 운영·개발 둘 다 이 커밋으로 떠 있고 D-83~D-87 도 함께 올라갔다.
 2. **관심사 자체를 운영 화면에서 관리한다(D-88).** `/api/admin/interests` GET/POST/PATCH/:id/DELETE/:id (`interests-admin.service.ts`·`interests-admin.controller.ts`), `/ops` 관리 탭의 "관심사 목록" 구역. 이름·별칭·분류·순서·숨김. **지우기는 고른 사람이 0명일 때만**이고 사람이 있으면 숨김을 권한다. 종류(이야깃거리↔속성)가 달라지는 분류 이동도 0명일 때만. 마이그레이션은 없다(status·aliases·sortOrder 가 이미 있었다).
 
-**아직 안 한 것:** 운영·개발 VM 에서 `prisma:seed` 를 돌려야 D-87 질문이 생긴다(`docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed`). 관심사 **합치기(병합)** 와 **사용자 정지** 레버는 여전히 없다.
+**아직 안 한 것:** 운영·개발 VM 의 질문 데이터 — 내용 파일을 넣을 것이므로 이제 `prisma:seed` 대신 `content:import` 로 한 번에 해결된다. 관심사 **합치기(병합)** 와 **사용자 정지** 레버는 여전히 없다. 로컬 서버(3000·5173)는 켜 둔 채로 끝났다.
 
 **재개 지점(2026-09-10 밤, 사용자 피드백 10건 → D-83~D-87).** 사용자가 기능 피드백 10건을 줬고 전부 구현해 로컬에서 화면·API 로 확인한 뒤 `dev` 에 올렸다(운영 `main` 에는 아직 안 갔다). **다음에 할 일: 개발 서버 `dev.ssafy-networking.store` 에서 한 번 보고 `git merge --ff-only dev` 로 main.** 새 마이그레이션 `20260910230000_profile_message_reject_visible_questions` 은 컨테이너 시작 때 `migrate deploy` 로 붙고, **시드를 다시 돌려야 질문이 생긴다** — 개발·운영 VM 에서 `docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed`(포괄 질문 30개, 관심사마다 틀 질문 3개. 이미 있는 것은 덮지 않는다). 한 일:
 (1) 비슷한 사람 패널 스크롤 — 그래프 그리드의 행 높이가 `auto` 라 패널이 화면 밖으로 자랐다. `gridTemplateRows: minmax(0,1fr)`(`GraphPage.tsx`).
