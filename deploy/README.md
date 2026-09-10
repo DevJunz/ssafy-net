@@ -218,14 +218,42 @@ docker compose -f deploy/docker-compose.prod.yml exec db \
 
 ## 7. 백업
 
+VM 에서. 첫 줄은 손으로 한 번 돌려 보는 것이고, 둘째는 매일 04:00 에 돌게 cron 에 거는 것이다(편집기 없이 붙여 넣기만으로 된다).
+
 ```bash
-chmod +x deploy/backup.sh
-crontab -e
-# 매일 04:00
-0 4 * * * /home/$USER/ssafy-net/deploy/backup.sh >> /home/$USER/backup.log 2>&1
+cd ~/ssafy-net && ./deploy/backup.sh          # deploy/backups/ssafynet-<stamp>.sql.gz 가 생긴다
+( crontab -l 2>/dev/null; echo "PATH=/usr/local/bin:/usr/bin:/bin:/snap/bin"; echo "0 4 * * * $HOME/ssafy-net/deploy/backup.sh >> $HOME/backup.log 2>&1" ) | crontab -
+crontab -l                                    # 두 줄이 보이면 된 것
 ```
 
-VM 밖에도 두려면 Cloud Storage 버킷 하나(서울, Standard)를 만들고 `deploy/.env` 의 `BACKUP_BUCKET` 에 이름을 적는다. **복원을 공개 전에 한 번 해 본다**(`backup.sh` 머리의 명령).
+`PATH` 줄은 cron 의 기본 PATH 에 `/snap/bin`(gcloud)이 없어서 넣는다. 없으면 버킷 업로드만 조용히 실패한다.
+
+**복원 리허설 — 공개 전에 한 번.** 운영 DB 는 건드리지 않고 빈 DB 를 만들어 거기에 풀어 본다.
+
+```bash
+C="docker compose -f deploy/docker-compose.prod.yml"
+$C exec db createdb -U ssafynet ssafynet_restore
+gunzip -c deploy/backups/ssafynet-*.sql.gz | $C exec -T db psql -q -U ssafynet -d ssafynet_restore
+$C exec db psql -U ssafynet -d ssafynet_restore -c 'select (select count(*) from "user") as users, (select count(*) from interest) as interests;'
+$C exec db dropdb -U ssafynet ssafynet_restore
+```
+
+`interests` 가 100 이상이고 `users` 가 가입자 수와 맞으면 백업이 살아 있는 것이다. 파일이 둘 이상이면 `ssafynet-*` 대신 하나를 고른다.
+
+**실제 복원(사고 때).** api 를 멈추고 DB 를 비운 뒤 풀고 다시 띄운다. 덤프에 마이그레이션 이력표가 들어 있어 api 가 시작할 때 `migrate deploy` 는 할 일이 없다.
+
+```bash
+$C stop api
+$C exec db psql -U ssafynet -d postgres -c 'drop database ssafynet; create database ssafynet;'
+gunzip -c deploy/backups/ssafynet-<stamp>.sql.gz | $C exec -T db psql -q -U ssafynet -d ssafynet
+$C start api
+```
+
+**VM 밖에도 두려면(권장, 5분).** VM 디스크가 죽으면 `deploy/backups/` 도 같이 죽는다. Cloud Shell 에서 버킷을 만들고, 보안 비밀에 `BACKUP_BUCKET=<버킷 이름>` 한 줄을 더한 새 버전을 올린 뒤 VM 에서 `./deploy/fetch-env.sh`. 다음 백업부터 `gs://` 에도 올라간다.
+
+```bash
+gcloud storage buckets create gs://ssanecting-backups --location=asia-northeast3 --uniform-bucket-level-access
+```
 
 ## 8. 갱신과 롤백
 
