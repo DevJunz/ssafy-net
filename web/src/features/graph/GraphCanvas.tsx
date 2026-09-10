@@ -11,8 +11,7 @@ import {
   readGraphPalette,
   registerCategories,
   relationMark,
-  shapeOf,
-  traceShape,
+  traceNode,
   transparentOf,
 } from './encoding';
 
@@ -322,8 +321,6 @@ export function GraphCanvas({
     // hover 하면 살짝 커진다(docs/07 §2.1).
     const radius = radiusOf(n) + (hovered ? 1.5 : 0);
     const color = colorOf(n, palette);
-    // 사람은 원, 관심사는 사각형. 색만으로는 구분이 약했다(docs/06 §2).
-    const shape = shapeOf(n);
 
     ctx.globalAlpha = alpha;
 
@@ -341,12 +338,12 @@ export function GraphCanvas({
     }
 
     if (selected) {
-      traceShape(ctx, shape, n.x, n.y, radius + 5);
+      traceNode(ctx, n.x, n.y, radius + 5);
       ctx.fillStyle = palette.halo;
       ctx.fill();
     }
 
-    traceShape(ctx, shape, n.x, n.y, radius);
+    traceNode(ctx, n.x, n.y, radius);
     ctx.fillStyle = color;
     ctx.fill();
 
@@ -363,12 +360,12 @@ export function GraphCanvas({
     // 내 관심사와 인접 관심사를 테두리로 구분한다(docs/06 §2).
     if (n.kind === 'INTEREST' && !n.mine) {
       ctx.fillStyle = palette.bg;
-      traceShape(ctx, shape, n.x, n.y, Math.max(2, radius - 2.2));
+      traceNode(ctx, n.x, n.y, Math.max(2, radius - 2.2));
       ctx.fill();
     }
 
     if (selected || hovered) {
-      traceShape(ctx, shape, n.x, n.y, radius + 2.5);
+      traceNode(ctx, n.x, n.y, radius + 2.5);
       ctx.strokeStyle = palette.mark;
       ctx.lineWidth = selected ? 1.8 : 1.2;
       ctx.stroke();

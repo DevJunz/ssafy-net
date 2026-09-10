@@ -46,8 +46,9 @@ function PanelSection({ className, ...props }: ComponentProps<'div'>) {
 }
 
 /**
- * 범례 한 항목. 캔버스와 같은 색과 **같은 모양**을 쓴다(encoding.ts 의 규칙).
- *   사람 = 원, 나 = 테두리 두 겹의 원, 관심사 = 모서리 둥근 사각형, 인접 관심사 = 속이 빈 사각형
+ * 범례 한 항목. 캔버스와 같은 색을 쓴다(encoding.ts 의 규칙). 노드는 전부 원이고
+ * 구분은 색이 한다 — 사람은 회색, 나는 빨강 + 테두리 두 겹, 관심사는 분류 색,
+ * 인접 관심사는 속이 빈 원.
  */
 function LegendDot({
   color,
@@ -55,14 +56,13 @@ function LegendDot({
   hollow,
 }: {
   color?: string;
-  shape?: 'circle' | 'square' | 'me';
+  shape?: 'circle' | 'me';
   hollow?: boolean;
 }) {
   return (
     <i
       className={cn(
-        'inline-block size-2.5',
-        shape === 'square' ? 'rounded-[3px]' : 'rounded-full',
+        'inline-block size-2.5 rounded-full',
         shape === 'me' && 'size-3 ring-2 ring-[var(--graph-me)] ring-offset-1 ring-offset-[var(--graph-bg)]',
         // 인접 관심사는 속이 빈 것이다(docs/06 §2). 캔버스의 표현과 같게
         hollow && 'border-[1.5px] border-dashed border-muted-foreground bg-[var(--graph-bg)]',
@@ -142,8 +142,8 @@ export function BasePanel({
         <Legend>
           <span><LegendDot color={ME_VAR} shape="me" /> 나</span>
           <span><LegendDot color={PERSON_VAR} /> 사람</span>
-          <span><LegendDot color={INTEREST_VAR} shape="square" /> 관심사</span>
-          <span><LegendDot shape="square" hollow /> 인접 관심사</span>
+          <span><LegendDot color={INTEREST_VAR} /> 관심사</span>
+          <span><LegendDot hollow /> 인접 관심사</span>
         </Legend>
       </PanelSection>
 
@@ -152,7 +152,7 @@ export function BasePanel({
           <Legend>
             {[...categories.keys()].map((id) => (
               <span key={id}>
-                <LegendDot color={categoryVar(id)} shape="square" />
+                <LegendDot color={categoryVar(id)} />
                 {/* Category 이름은 관심사 노드에서 알 수 없으므로 색만 보여준다 */}
               </span>
             ))}

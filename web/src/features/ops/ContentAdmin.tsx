@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -26,8 +27,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '../../api/client';
-import { Muted } from '../../components/primitives';
+import { Muted, Notice } from '../../components/primitives';
+import {
+  OverlayActions,
+  OverlaySection,
+  ResponsiveDialog,
+} from '../../components/ResponsiveDialog';
 import { useSession } from '../../session';
 import { Section } from './charts';
 
@@ -308,7 +315,125 @@ function matchesTerm(item: AdminInterest, term: string): boolean {
   );
 }
 
-type InterestDraft = { id: string; name: string; categoryId: string; aliases: string };
+/**
+ * 관심사 수정 — 줄 안에서 고치기에는 칸이 좁아 대화상자로 연다.
+ * 별칭은 쉼표 한 줄이 아니라 **한 줄에 하나**다. 열 개까지 들어가는데 한 줄로는 읽히지 않는다.
+ */
+function InterestEditDialog({
+  item,
+  categories,
+  busy,
+  onSave,
+  onClose,
+}: {
+  item: AdminInterest;
+  categories: AdminCategory[];
+  busy: boolean;
+  onSave: (patch: { name: string; categoryId: string; aliases: string[] }) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(item.name);
+  const [categoryId, setCategoryId] = useState(item.categoryId);
+  const [aliases, setAliases] = useState(item.aliases.join('\n'));
+
+  const category = categories.find((row) => row.id === categoryId);
+  const kindChanges = category && category.kind !== item.categoryKind;
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      categoryId,
+      aliases: aliases
+        .split('\n')
+        .map((alias) => alias.trim())
+        .filter(Boolean),
+    });
+  };
+
+  return (
+    <ResponsiveDialog
+      title="관심사 수정"
+      description={
+        item.holderCount > 0
+          ? `${item.holderCount}명이 고르고 있습니다. 이름을 바꾸면 그 사람들의 그래프에도 새 이름이 보입니다`
+          : '아직 아무도 고르지 않았습니다'
+      }
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        <OverlaySection>
+          <Label htmlFor="interest-name" className="mb-1.5">
+            이름
+          </Label>
+          <Input
+            id="interest-name"
+            value={name}
+            maxLength={INTEREST_NAME_MAX}
+            autoFocus
+            onChange={(event) => setName(event.target.value)}
+            className="h-11 text-base"
+          />
+          <Muted className="mt-1 text-[12px]">
+            {name.trim().length} / {INTEREST_NAME_MAX}자
+          </Muted>
+        </OverlaySection>
+
+        <OverlaySection>
+          <Label className="mb-1.5">분류</Label>
+          <Select value={categoryId} onValueChange={setCategoryId}>
+            <SelectTrigger className="h-11 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((row) => (
+                <SelectItem key={row.id} value={row.id}>
+                  {row.name}
+                  <span className="ml-1 text-muted-foreground">
+                    {row.kind === 'ATTRIBUTE' ? '· 속성' : '· 이야깃거리'}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* 종류가 달라지는 이동은 서버가 막는다. 누르기 전에 알려 준다 */}
+          {kindChanges && item.holderCount > 0 && (
+            <Notice className="mt-2">
+              종류가 다른 분류입니다. 고른 사람이 {item.holderCount}명 있어 이 이동은 저장되지 않습니다.
+            </Notice>
+          )}
+        </OverlaySection>
+
+        <OverlaySection>
+          <Label htmlFor="interest-aliases" className="mb-1.5">
+            별칭
+          </Label>
+          <Textarea
+            id="interest-aliases"
+            value={aliases}
+            rows={5}
+            onChange={(event) => setAliases(event.target.value)}
+            placeholder={'리액트\nreactjs'}
+            className="min-h-[124px] text-base"
+          />
+          <Muted className="mt-1 text-[12px]">
+            한 줄에 하나. 검색과 중복 검사가 이 표기도 함께 본다(D-74). 10개까지.
+          </Muted>
+        </OverlaySection>
+
+        <OverlayActions>
+          <Button type="submit" className="flex-1" disabled={busy || !name.trim()}>
+            저장
+          </Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
+            취소
+          </Button>
+        </OverlayActions>
+      </form>
+    </ResponsiveDialog>
+  );
+}
 
 /**
  * 관심사 목록 관리 (D-88).
@@ -323,7 +448,7 @@ export function InterestsSection() {
   const [filter, setFilter] = useState<string>(ALL_CATEGORIES);
   const [term, setTerm] = useState('');
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<InterestDraft | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -386,6 +511,9 @@ export function InterestsSection() {
   /** 고른 것이 없으면 첫 분류. 목록이 늦게 오거나 고른 분류가 사라져도 비어 있지 않다 */
   const addCategoryId = categoryId || categories?.[0]?.id || '';
 
+  /** 목록을 다시 받아도 같은 관심사를 계속 고치고 있게, id 로 찾는다 */
+  const editingItem = editingId ? (items ?? []).find((row) => row.id === editingId) : undefined;
+
   const add = (event: FormEvent) => {
     event.preventDefault();
     const value = name.trim();
@@ -396,19 +524,10 @@ export function InterestsSection() {
     }, `"${value}" 관심사를 추가했습니다`);
   };
 
-  const save = () => {
-    if (!editing) return;
-    const draft = editing;
+  const save = (id: string, patch: { name: string; categoryId: string; aliases: string[] }) => {
     void run(async () => {
-      await api.patch(`/admin/interests/${draft.id}`, {
-        name: draft.name.trim(),
-        categoryId: draft.categoryId,
-        aliases: draft.aliases
-          .split(',')
-          .map((alias) => alias.trim())
-          .filter(Boolean),
-      });
-      setEditing(null);
+      await api.patch(`/admin/interests/${id}`, patch);
+      setEditingId(null);
     }, '관심사를 고쳤습니다');
   };
 
@@ -483,67 +602,22 @@ export function InterestsSection() {
             const at = position.get(item.id);
             return (
               <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
-                {editing?.id === item.id ? (
-                  <form
-                    className="flex flex-1 flex-wrap items-center gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      save();
-                    }}
-                  >
-                    <Input
-                      value={editing.name}
-                      maxLength={INTEREST_NAME_MAX}
-                      autoFocus
-                      onChange={(event) => setEditing({ ...editing, name: event.target.value })}
-                      className="h-8 max-w-[180px]"
-                    />
-                    <Select
-                      value={editing.categoryId}
-                      onValueChange={(value) => setEditing({ ...editing, categoryId: value })}
-                    >
-                      <SelectTrigger className="h-8 w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={editing.aliases}
-                      onChange={(event) => setEditing({ ...editing, aliases: event.target.value })}
-                      placeholder="별칭 (쉼표로 구분)"
-                      className="h-8 min-w-[160px] flex-1"
-                    />
-                    <Button type="submit" size="sm" disabled={busy || !editing.name.trim()}>
-                      저장
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(null)}>
-                      취소
-                    </Button>
-                  </form>
-                ) : (
-                  <>
-                    <span className={`font-medium ${item.status === 'ACTIVE' ? '' : 'text-muted-foreground line-through'}`}>
-                      {item.name}
-                    </span>
-                    <Badge variant="secondary">{item.categoryName}</Badge>
-                    {item.status !== 'ACTIVE' && (
-                      <Badge variant="outline">{item.status === 'HIDDEN' ? '숨김' : '병합됨'}</Badge>
-                    )}
-                    {item.userAdded && <Badge variant="outline">사용자 추가</Badge>}
-                    <Muted className="text-[12.5px]">
-                      {item.holderCount}명
-                      {item.postCount > 0 && ` · 글 ${item.postCount}`}
-                      {item.questionCount > 0 && ` · 질문 ${item.questionCount}`}
-                      {item.aliases.length > 0 && ` · ${item.aliases.join(', ')}`}
-                    </Muted>
-                  </>
+                <span
+                  className={`font-medium ${item.status === 'ACTIVE' ? '' : 'text-muted-foreground line-through'}`}
+                >
+                  {item.name}
+                </span>
+                <Badge variant="secondary">{item.categoryName}</Badge>
+                {item.status !== 'ACTIVE' && (
+                  <Badge variant="outline">{item.status === 'HIDDEN' ? '숨김' : '병합됨'}</Badge>
                 )}
+                {item.userAdded && <Badge variant="outline">사용자 추가</Badge>}
+                <Muted className="text-[12.5px]">
+                  {item.holderCount}명
+                  {item.postCount > 0 && ` · 글 ${item.postCount}`}
+                  {item.questionCount > 0 && ` · 질문 ${item.questionCount}`}
+                  {item.aliases.length > 0 && ` · ${item.aliases.join(', ')}`}
+                </Muted>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
                     type="button"
@@ -571,14 +645,7 @@ export function InterestsSection() {
                     variant="ghost"
                     aria-label="수정"
                     disabled={busy}
-                    onClick={() =>
-                      setEditing({
-                        id: item.id,
-                        name: item.name,
-                        categoryId: item.categoryId,
-                        aliases: item.aliases.join(', '),
-                      })
-                    }
+                    onClick={() => setEditingId(item.id)}
                   >
                     <PencilIcon />
                   </Button>
@@ -660,6 +727,16 @@ export function InterestsSection() {
           관심사 추가
         </Button>
       </form>
+
+      {editingItem && categories && (
+        <InterestEditDialog
+          item={editingItem}
+          categories={categories}
+          busy={busy}
+          onSave={(patch) => save(editingItem.id, patch)}
+          onClose={() => setEditingId(null)}
+        />
+      )}
     </Section>
   );
 }

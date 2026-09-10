@@ -13,10 +13,12 @@ import type { GraphInterestNode, GraphNode } from '@ssafy-net/shared';
  * 그대로 쓰고, 캔버스는 처음 그릴 때 readGraphPalette()로 계산된 값을 읽는다.
  */
 
-const CATEGORY_SLOTS = 8;
+// 분류 색 자리. 운영자가 분류를 만들 수 있으므로(D-86) 지금 있는 11개보다 넉넉히 둔다.
+// 전부 유채색이다 — 회색은 사람의 것이라 여기에 넣지 않는다.
+const CATEGORY_SLOTS = 12;
 const categorySlots = new Map<string, number>();
 
-/** Category마다 색 자리(1~8)를 준다. 처음 본 순서대로 배정하고, 넘치면 돌려 쓴다. */
+/** Category마다 색 자리(1~12)를 준다. 처음 본 순서대로 배정하고, 넘치면 돌려 쓴다. */
 export function categorySlot(categoryId: string): number {
   let slot = categorySlots.get(categoryId);
   if (slot === undefined) {
@@ -93,32 +95,19 @@ export function transparentOf(color: string): string {
 }
 
 /**
- * 노드의 모양(docs/06 §2 "나 / 다른 사람 / 관심사"는 색만으로 구분되지 않는다).
- *   사람 = 원, 나 = 테두리 두 겹의 원(안쪽 흰 띠), 관심사 = 모서리 둥근 사각형, 허브 = 원.
+ * 노드는 전부 원이다. 사각형·별도 만들어 봤지만 작은 노드에서 뭉개지고 이름표를 찌른다.
+ * 구분은 **색과 크기**가 한다(docs/06 §2):
+ *   사람 = 회색, 나 = 빨강 + 테두리 두 겹, 관심사 = 분류 색, 허브 = 주황.
+ * **회색은 사람의 것이다** — 분류 색에 회색을 넣지 않는다. 그래야 "색이 있으면 관심사"가 성립한다.
  * 범례(Panels.tsx LegendDot)가 같은 규칙을 DOM 으로 그린다.
  */
-export type NodeShape = 'circle' | 'square';
-
-export function shapeOf(node: GraphNode): NodeShape {
-  return node.kind === 'INTEREST' ? 'square' : 'circle';
-}
-
-/** 캔버스에 모양을 따라 경로를 만든다. fill/stroke 는 부르는 쪽이 한다. */
-export function traceShape(
+export function traceNode(
   ctx: CanvasRenderingContext2D,
-  shape: NodeShape,
   x: number,
   y: number,
   radius: number,
 ): void {
   ctx.beginPath();
-  if (shape === 'square') {
-    // 사각형은 같은 반지름의 원보다 커 보이므로 살짝 줄인다. 모서리는 반지름의 1/3.
-    const half = radius * 0.88;
-    const corner = Math.max(1, radius / 3);
-    ctx.roundRect(x - half, y - half, half * 2, half * 2, corner);
-    return;
-  }
   ctx.arc(x, y, radius, 0, 2 * Math.PI);
 }
 
