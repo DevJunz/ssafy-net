@@ -1,10 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import type { ConnectedUser, InterestRef, PublicUser } from '@ssafy-net/shared';
+import type {
+  ConnectedUser,
+  DisplayNameInput,
+  InterestRef,
+  PublicUser,
+} from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { RelationService } from '../connections/relation.service';
 import { PostsService } from '../posts/posts.service';
+import { nextDisplayNameChangeAt } from './display-name-policy';
+import { NicknameService } from './nickname.service';
 import { UserPresenter } from './user.presenter';
 
 @Injectable()
@@ -14,6 +21,7 @@ export class UsersService {
     private readonly relations: RelationService,
     private readonly presenter: UserPresenter,
     private readonly posts: PostsService,
+    private readonly nickname: NicknameService,
   ) {}
 
   /**
@@ -77,5 +85,50 @@ export class UsersService {
         : this.presenter.toPublicUser(target, refs, relation, commonCount);
 
     return { ...view, recentPosts };
+  }
+
+  /**
+   * 표시명 변경 (docs/06 §3.10, docs/12 §3).
+   *
+   * 온보딩의 첫 선택(`initial`)과 프로필에서의 변경이 같은 길을 쓴다. 다른 점은 둘이다 —
+   * 프로필에서는 하루 1회(`NICKNAME_CHANGE_TOO_SOON`)이고, 같은 값을 다시 저장하면 아무것도
+   * 하지 않는다. 닉네임 규칙(중복·실명 유사·부적절 표현, D-49)은 두 경우 모두 검사한다.
+   * 온보딩에서 고른 첫 표시명은 변경으로 세지 않는다(display-name-policy.ts).
+   */
+  async setDisplayName(
+    user: User,
+    input: DisplayNameInput,
+    options: { initial?: boolean } = {},
+  ): Promise<{ displayName: string }> {
+    const nickname = input.type === 'NICKNAME' ? input.nickname.trim() : null;
+
+    if (!options.initial) {
+      const unchanged =
+        user.displayNameType === input.type &&
+        (input.type === 'REAL' || user.nickname === nickname);
+      if (unchanged) return { displayName: this.presenter.displayName(user) };
+
+      const nextAt = nextDisplayNameChangeAt(user);
+      if (nextAt) {
+        throw new AppError('NICKNAME_CHANGE_TOO_SOON', {
+          nextChangeAt: nextAt.toISOString(),
+        });
+      }
+    }
+
+    if (nickname !== null) {
+      const verdict = await this.nickname.check(nickname, user.id);
+      if (!verdict.ok) throw new AppError(verdict.code);
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        displayNameType: input.type,
+        nickname,
+        nicknameChangedAt: new Date(),
+      },
+    });
+    return { displayName: this.presenter.displayName(updated) };
   }
 }

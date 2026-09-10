@@ -190,7 +190,7 @@ export class ConnectionsController {
     description:
       '`{ id, counterpart(ConnectedUser), commonInterests, requestMessage, establishedAt, myRole, action, started }`.\n\n' +
       '- `action.text`는 서버가 완성한 문장이다("○○님, 메신저에서 @아이디를 찾아 첫 메시지를 보내주세요"). 화면마다 "누가 누구에게"가 달라지면 안 된다(FR-11.3)\n' +
-      '- `action.mattermostUsername` / `action.mattermostLink`: 상대 `@아이디`와 Mattermost 대화창 링크(D-68). 실명은 표시용이다\n' +
+      '- `action.mattermostUsername`: 상대 `@아이디`(D-68). 메신저에서 이것으로 검색한다. 실명은 표시용이고, 대화창을 바로 여는 링크는 없다(D-80)\n' +
       '- 시작자(`myRole=INITIATOR`)에게는 "먼저 메시지를 보내주세요", 상대(`COUNTERPART`)에게는 "○○님이 먼저 연락할 예정입니다"\n' +
       '- 첫 메시지 문안은 만들지 않는다(L5). 소재(공통 관심사, 상대 최근 글)만 준다',
   })

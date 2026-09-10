@@ -143,6 +143,8 @@ function handleGet(path: string): unknown {
       return state.connections;
     case '/me/posts':
       return state.myPosts;
+    case '/onboarding/nickname-check':
+      return { ok: true };
     case '/onboarding/state':
       return {
         step: state.onboardingStep,
@@ -482,6 +484,14 @@ function handleMutation(method: string, path: string, body: Json): unknown {
   if (method === 'POST' && base === '/onboarding/display-name') {
     state.onboardingStep = 'INTERESTS';
     return { displayName: body.type === 'REAL' ? state.onboardingName : body.nickname };
+  }
+  if (method === 'PATCH' && base === '/me/display-name') {
+    state.me = {
+      ...state.me,
+      displayNameType: body.type,
+      displayName: body.type === 'REAL' ? state.me.realName : body.nickname,
+    };
+    return { displayName: state.me.displayName };
   }
   if (method === 'POST' && base === '/onboarding/complete') {
     state.onboardingStep = 'DONE';

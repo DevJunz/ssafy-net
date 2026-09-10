@@ -64,6 +64,8 @@ export interface SelfUser extends ConnectedUser {
   isOperator: boolean;
   status: 'ONBOARDING' | 'ACTIVE' | 'WITHDRAWN';
   requestSuspended: boolean;
+  /** 표시명을 다음에 바꿀 수 있는 시각(ISO). 지금 바꿀 수 있으면 null. 하루 1회(docs/12 §3) */
+  displayNameChangeableAt: string | null;
 }
 
 export type OnboardingStep =

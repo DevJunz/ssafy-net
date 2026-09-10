@@ -499,9 +499,11 @@ POST   /api/me/external-channels             (S3a, B-4 확인 후)
 DELETE /api/me                               탈퇴
 ```
 
+`PATCH /me/display-name` 은 구현했다(2026-09-10). 온보딩의 `POST /onboarding/display-name` 과 같은 입력이고, 입력 중 검사도 온보딩의 `GET /onboarding/nickname-check` 를 그대로 쓴다. 나머지(`preview`·`real-name`·알림 설정·탈퇴)는 아직 없다 — 프로필 화면의 미리보기는 `GET /me` 로 그린다.
+
 | 규칙 | 근거 |
 |---|---|
-| 표시명 변경은 하루 1회 | 12 §3 |
+| 표시명 변경은 하루 1회 → `NICKNAME_CHANGE_TOO_SOON`(`details.nextChangeAt`). 온보딩의 첫 선택은 세지 않고, 같은 값을 다시 저장하는 것은 변경이 아니다. `SelfUser.displayNameChangeableAt` 이 다음 가능 시각 | 12 §3 |
 | 관심사 저장 응답에 "그래프와 추천이 바뀝니다" 신호 | 07 §5, NFR-5 |
 | 받은 요청 알림을 모든 채널에서 끄려 하면 거부 | FR-14.5 → `NOTIFICATION_CHANNEL_REQUIRED` |
 | 탈퇴는 21 §11의 트랜잭션 | 12 §10 |
@@ -603,7 +605,7 @@ PUT  /api/admin/parameters/:key              { "value": 2, "reason": "추천 0�
 | Connections 3탭 | `GET /api/connection-requests?box=`, `GET /api/connections` |
 | Networks 3탭 | `GET /api/networks?tab=` |
 | Notifications | `GET /api/notifications` |
-| My Profile | `GET /api/me/preview`, `PUT /api/me/interests` |
+| My Profile | `GET /api/me`, `PATCH /api/me/display-name`, `PUT /api/me/interests` |
 | Settings | `GET/PUT /api/me/notification-settings` |
 | Overlay 요청 작성 | `GET /api/me/request-quota` → `POST /api/connection-requests` |
 | Overlay 요청 상세 | `GET /api/connection-requests/:id` → accept/reject |

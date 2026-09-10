@@ -169,13 +169,6 @@ export class MattermostService {
       return { ok: false, error: timedOut ? 'timeout' : 'network' };
     }
   }
-
-  /** 대화창을 바로 여는 링크. 연결 성립 화면에서 "메신저에서 찾기"를 대체한다. */
-  directMessageLink(username: string): string | null {
-    const base = this.config.get<string>('MATTERMOST_URL');
-    if (!base) return null;
-    return `${base.replace(/\/$/, '')}/_redirect/messages/@${normalize(username)}`;
-  }
 }
 
 /** 아이디는 소문자와 일부 기호만 쓴다. 입력값을 다듬어 오타 하나를 줄인다. */

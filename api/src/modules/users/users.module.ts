@@ -10,6 +10,6 @@ import { UsersService } from './users.service';
   imports: [InterestsModule, ConnectionsModule, PostsModule],
   controllers: [UsersController],
   providers: [NicknameService, UsersService],
-  exports: [NicknameService],
+  exports: [NicknameService, UsersService],
 })
 export class UsersModule {}

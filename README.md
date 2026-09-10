@@ -55,7 +55,6 @@ npm run prisma:seed                           # 관심사 100개 + 층 20개 · 
 3. `api/.env`에 넣는다.
 
 ```
-MATTERMOST_URL="https://meeting.ssafy.com"
 MATTERMOST_WEBHOOK_URL="https://.../hooks/xxxxxxxx"
 MATTERMOST_OPERATOR_USERNAME="내_아이디"   # 웹훅 생성자는 자기 자신에게 DM을 받을 수 없다
 MATTERMOST_DELIVERY_MODE="redirect"        # 공개할 때만 live

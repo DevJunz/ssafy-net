@@ -360,15 +360,8 @@ export function ConnectionOverlay({
       <OverlaySection>
         <ActionBox>
           <ActionHeadline>{detail.action.text}</ActionHeadline>
+          {/* 아이디를 복사해 메신저에서 검색한다. 대화창을 바로 여는 링크는 뺐다(D-80). */}
           <CopyRow text={detail.action.copyText} label="복사" copiedLabel="복사됨" />
-          {/* 아이디를 알면 대화창을 바로 연다. 찾는 단계 자체가 사라진다(D-66). */}
-          {detail.action.mattermostLink && (
-            <Button asChild className="mt-2.5 w-full">
-              <a href={detail.action.mattermostLink} target="_blank" rel="noreferrer">
-                Mattermost에서 대화 열기
-              </a>
-            </Button>
-          )}
         </ActionBox>
       </OverlaySection>
 

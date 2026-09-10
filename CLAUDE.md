@@ -40,6 +40,8 @@
 
 ### 다음 세션에서 이어서 할 것
 
+**2026-09-10 밤 — 대화창 링크 제거(D-80)와 프로필 표시명 변경.** 연결 성립 화면의 "Mattermost에서 대화 열기" 버튼은 SSAFY Mattermost 가 대화창으로 이어 주지 않아 없앴다. `@아이디` 복사만 남는다. `ConnectionAction.mattermostLink` 와 `MATTERMOST_URL` 은 사라졌다(보안 비밀에 남아 있어도 읽지 않는다). My Profile 에 **표시명 바꾸기**(`PATCH /api/me/display-name`, `UsersService.setDisplayName`)가 생겼고 온보딩 2단계도 같은 서비스와 같은 폼(`web/src/features/profile/DisplayNameForm.tsx`)을 쓴다. **하루 1회 규칙(docs/12 §3)이 여기서부터 실제로 걸린다** — 온보딩의 첫 선택은 세지 않고(`display-name-policy.ts`), 같은 값 저장은 변경이 아니다. `SelfUser.displayNameChangeableAt` 로 화면이 미리 잠근다. 시험할 때 하루에 두 번 바꾸면 막히는 것이 정상이다.
+
 **2026-09-10 저녁 — 운영 레버 둘(D-78·D-79).** `/ops` 제품 탭의 Network 구역에 **켜고 지금 노출** 스위치(`PUT /api/admin/ops/network`: `ParametersService.setFlag` → `JobsService.runNow('network.recompute')` → 처음이면 전원에게 `NETWORK_ENABLED`, dedupeKey 로 1회). `/ops` 에 **관리 탭**이 생겨 운영자를 이메일로 추가·해제한다(`/api/admin/ops/operators`). 기능 플래그는 이제 `SessionProvider` 가 들고 있어(`features`·`reloadFeatures`) 스위치를 켜면 새로고침 없이 Network 탭이 나타난다. 개발 서버에서 처음 확인할 때: 관리 탭 → 제품 탭 Network → 켜기.
 
 **2026-09-10 저녁 — 개발 서버(`dev` 브랜치 → `dev.ssafy-networking.store`).** 운영과 같은 VM 을 하나 더 두고 더미 사용자를 채워 배포 전에 본다. `dev` 에 푸시하면 Actions 가 태그 `dev` 로 올리고 개발 VM 의 cron 이 받는다. **VM 은 체크아웃한 브랜치를 따라간다** — `deploy.sh`·`auto-deploy.sh`·`fetch-env.sh` 가 브랜치를 보고 이동 태그와 보안 비밀 이름을 고른다(main → `latest`·`ssafy-net-env`, dev → `dev`·`ssafy-net-env-dev`). `deploy.sh` 는 이제 `git pull` 대신 `origin/<브랜치>` 에 `reset --hard` 한다. `seed:dev` 는 운영 컨테이너(`NODE_ENV=production` 이면서 `APP_ENV=dev` 가 아님)에서는 멈춘다. 화면 위 "개발 서버" 띠는 호스트 이름 `dev.` 로 판단한다(`web/src/components/DevServerBanner.tsx`). 디자이너용 Vercel 데모 배포는 없앴다(`vercel.json` 삭제. Vercel 대시보드의 프로젝트는 사용자가 지운다). **사용자가 아직 할 것(README §11):** VM `ssafy-net-dev` → 고정 IP → DNS `dev` A 레코드 → OAuth 리디렉션 URI → 보안 비밀 `ssafy-net-env-dev`(교육장 컴퓨터에 만들어 둔 `deploy/.env.dev` 를 올린다. git 에 없다) → Cloud Shell 접근자 한 줄 → 개발 VM 에서 `-b dev` clone → fetch-env → deploy → `prisma:seed` → 가입 → 운영자 플래그 → `seed:dev` → crontab. 흐름은 dev 에 푸시 → 확인 → `git merge --ff-only dev` 로 main. **발송 모드는 운영·개발 둘 다 `live` 로 하기로 했다(사용자 결정, 같은 날).** 개발 서버는 `redirect` 를 자물쇠로 두자고 권했으나 시험하는 사람에게 실제 DM 이 가야 해서 바꿨다. 교육장 컴퓨터의 `deploy/.env`·`deploy/.env.dev` 사본도 `live` 로 맞춰 두었다.
@@ -93,7 +95,6 @@ npm run dev:web                               # :5173
 |---|---|
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | [Google Cloud Console](https://console.cloud.google.com/auth/clients). 리디렉션 URI `http://localhost:3000/api/auth/google/callback` |
 | `MATTERMOST_WEBHOOK_URL` | Mattermost ⋮ → 통합 → 들어오는 웹후크. **"이 채널로 잠금" 반드시 해제** |
-| `MATTERMOST_URL` | `https://meeting.ssafy.com` |
 | `MATTERMOST_OPERATOR_USERNAME` | 웹훅을 만든 계정. 이 계정만 DM을 못 받아 인증을 우회한다 |
 | `SESSION_SECRET` | 아무 문자열 |
 

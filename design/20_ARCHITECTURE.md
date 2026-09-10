@@ -423,7 +423,6 @@ web:  npm run dev  (5173, /api → 3000 프록시)
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_CALLBACK_URL` | OAuth |
 | `SESSION_SECRET` | 쿠키 JWT 서명 |
 | `APP_BASE_URL` | 알림 링크 생성 |
-| `MATTERMOST_URL` | 서버 주소. 대화창 링크 생성에 쓴다 |
 | `MATTERMOST_WEBHOOK_URL` | 들어오는 웹훅. 비어 있으면 채널이 꺼진다 |
 | `MATTERMOST_OPERATOR_USERNAME` | 웹훅 생성자. 이 계정만 DM을 받을 수 없어 인증을 우회한다 |
 | `TZ=Asia/Seoul` | 모든 하루 단위 파라미터의 기준 |

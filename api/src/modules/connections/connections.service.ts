@@ -489,8 +489,8 @@ export class ConnectionsService {
 
     // 메신저에서 찾는 수단은 실명이 아니라 아이디다(D-66).
     // 실제 Mattermost 표시명은 "최준환[서울_18반]" 형식이라 실명으로는 검색되지 않는다.
+    // 대화창을 바로 여는 링크는 SSAFY Mattermost 가 열어 주지 않아 뺐다(D-80). 아이디만 준다.
     const username = counterpart.mattermostUsername;
-    const link = username ? this.mattermost.directMessageLink(username) : null;
     const target = username ? `@${username}` : `${counterpartName}님`;
 
     // "누가, 누구에게, 무엇을"을 서버가 완성해서 준다(FR-11.3, NFR-3a).
@@ -502,14 +502,12 @@ export class ConnectionsService {
             copyText: username ? `@${username}` : counterpartName,
             buttonLabel: '메신저에서 메시지를 보냈어요',
             mattermostUsername: username,
-            mattermostLink: link,
           }
         : {
             text: `${counterpartName.split('_')[0]}님이 먼저 연락할 예정입니다. 먼저 연락하셔도 좋습니다.`,
             copyText: username ? `@${username}` : counterpartName,
             buttonLabel: '연락을 받았어요',
             mattermostUsername: username,
-            mattermostLink: link,
           };
 
     return {

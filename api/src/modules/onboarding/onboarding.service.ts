@@ -5,8 +5,8 @@ import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { InterestsService } from '../interests/interests.service';
 import { ParametersService } from '../parameters/parameters.service';
-import { NicknameService } from '../users/nickname.service';
 import { UserPresenter } from '../users/user.presenter';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class OnboardingService {
@@ -14,7 +14,7 @@ export class OnboardingService {
     private readonly prisma: PrismaService,
     private readonly parameters: ParametersService,
     private readonly interests: InterestsService,
-    private readonly nickname: NicknameService,
+    private readonly users: UsersService,
     private readonly presenter: UserPresenter,
   ) {}
 
@@ -62,27 +62,12 @@ export class OnboardingService {
     return { ...base, step: 'DONE' };
   }
 
-  async setDisplayName(user: User, input: DisplayNameInput) {
-    if (input.type === 'REAL') {
-      const updated = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { displayNameType: 'REAL', nickname: null },
-      });
-      return { displayName: this.presenter.displayName(updated) };
-    }
-
-    const verdict = await this.nickname.check(input.nickname, user.id);
-    if (!verdict.ok) throw new AppError(verdict.code);
-
-    const updated = await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        displayNameType: 'NICKNAME',
-        nickname: input.nickname.trim(),
-        nicknameChangedAt: new Date(),
-      },
+  /** 온보딩의 첫 표시명. 하루 1회 규칙은 여기서 세지 않는다(UsersService.setDisplayName). */
+  setDisplayName(user: User, input: DisplayNameInput) {
+    // ACTIVE 사용자가 이 엔드포인트로 하루 1회를 피해 가지 못하게 한다.
+    return this.users.setDisplayName(user, input, {
+      initial: user.status === 'ONBOARDING',
     });
-    return { displayName: this.presenter.displayName(updated) };
   }
 
   /**

@@ -1,7 +1,23 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { User } from '@prisma/client';
+import { displayNameSchema, type DisplayNameInput } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
+import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { InterestsService } from '../interests/interests.service';
@@ -31,6 +47,44 @@ export class UsersController {
   async me(@CurrentUser() user: User) {
     const interests = await this.interests.refsFor(user.id);
     return this.presenter.toSelfUser(user, interests);
+  }
+
+  /** 표시명 변경(닉네임 ↔ 실명, docs/06 §3.10). 입력 중 검사는 온보딩의 `GET /onboarding/nickname-check` 를 그대로 쓴다. */
+  @Patch('me/display-name')
+  @UseGuards(OnboardedGuard)
+  @ApiOperation({
+    summary: '표시명 변경 (My Profile)',
+    description:
+      '온보딩의 `POST /onboarding/display-name` 과 같은 입력이다. `type=REAL` 이면 닉네임을 비운다. ' +
+      '하루 1회(`NICKNAME_CHANGE_TOO_SOON`, `details.nextChangeAt`). 온보딩에서 고른 첫 표시명은 변경으로 세지 않는다. ' +
+      '같은 값을 다시 보내면 아무것도 바꾸지 않고 200. 바꾸면 진행 중인 요청의 상대와 추천 목록에 새 표시명이 보인다(docs/12 §3). ' +
+      '닉네임 규칙은 온보딩과 같다(`NICKNAME_TAKEN` · `NICKNAME_LOOKS_LIKE_REAL_NAME` · `NICKNAME_INVALID`). ' +
+      '입력 중 검사는 `GET /onboarding/nickname-check` 를 쓴다. `SelfUser.displayNameChangeableAt` 이 다음 변경 가능 시각이다(지금 되면 null).',
+  })
+  @ApiBody({
+    schema: {
+      oneOf: [
+        {
+          type: 'object',
+          required: ['type', 'nickname'],
+          properties: {
+            type: { type: 'string', enum: ['NICKNAME'] },
+            nickname: { type: 'string', minLength: 2, maxLength: 12, example: '달리기왕' },
+          },
+        },
+        {
+          type: 'object',
+          required: ['type'],
+          properties: { type: { type: 'string', enum: ['REAL'] } },
+        },
+      ],
+    },
+  })
+  setDisplayName(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(displayNameSchema)) body: DisplayNameInput,
+  ) {
+    return this.users.setDisplayName(user, body);
   }
 
   @Get('users/:id')

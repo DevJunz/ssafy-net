@@ -75,14 +75,14 @@ export interface ConnectionAction {
   copyText: string;
   buttonLabel: string;
   /**
-   * 상대의 Mattermost 아이디와 대화창 링크 (D-66).
+   * 상대의 Mattermost 아이디 (D-66, D-68).
    *
    * 실명(이름_캠퍼스_반)은 표시용이고, **메신저에서 찾는 수단은 아이디다**.
    * 실제 Mattermost 표시명은 "최준환[서울_18반]" 형식이라 실명으로 검색하면
    * 찾지 못한다 — R-14가 여기서 사라진다.
+   * 대화창을 바로 여는 링크는 서버가 열어 주지 않아 뺐다(D-80). 아이디를 복사해 검색한다.
    */
   mattermostUsername: string | null;
-  mattermostLink: string | null;
 }
 
 export interface ConnectionDetail extends ConnectionSummary {

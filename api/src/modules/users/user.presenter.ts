@@ -7,6 +7,7 @@ import type {
   Relation,
   SelfUser,
 } from '@ssafy-net/shared';
+import { nextDisplayNameChangeAt } from './display-name-policy';
 
 const NO_RELATION: Relation = {
   status: 'NONE',
@@ -91,6 +92,8 @@ export class UserPresenter {
       isOperator: user.isOperator,
       status: user.status,
       requestSuspended: user.requestSuspended,
+      displayNameChangeableAt:
+        nextDisplayNameChangeAt(user)?.toISOString() ?? null,
     };
   }
 }
