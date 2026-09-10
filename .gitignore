@@ -9,7 +9,6 @@ Thumbs.db
 !.env.example
 *.tsbuildinfo
 
-.vercel
 
 # backup.sh 가 만드는 덤프
 deploy/backups/

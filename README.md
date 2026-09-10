@@ -124,17 +124,9 @@ npm run build:demo --workspace=web    # web/dist 에 정적 번들
 npm run preview:demo --workspace=web  # localhost:4173 에서 확인
 ```
 
-Vercel에 올릴 때는 저장소를 연결하고 **Root Directory를 저장소 루트로 둔다.**
-`vercel.json`이 빌드와 SPA 라우팅을 지정한다.
-
-> **2026-09-09 현재 배포되어 있다.** 처음에는 로그인 없이 올린 임시 배포였고(`vercel deploy --temporary`),
-> 사용자가 클레임해 계정으로 가져갔다. 주소는 배포에 자동으로 붙은 것이라
-> 공유 전에 대시보드에서 깔끔한 도메인을 붙이는 편이 낫다.
->
-> **갱신하려면 CLI 로그인이 필요하다.** 로그인하지 않은 채 `--temporary`로 다시 올리면
-> 기존 프로젝트가 갱신되는 것이 아니라 **새 익명 배포가 하나 더 생긴다.**
-> `vercel login` 후 `vercel link`로 프로젝트에 연결하거나, GitHub 저장소를 연결해
-> 푸시할 때마다 자동 배포되게 둔다.
+> **Vercel 데모 배포는 없앴다(2026-09-10).** 디자이너에게 보여 주려고 잠깐 쓴 것이다.
+> 배포 전 미리보기는 이제 더미 데이터가 든 **개발 서버**(`dev.ssafy-networking.store`,
+> [`deploy/README.md` §11](deploy/README.md))가 맡는다. 데모 번들은 로컬에서 화면만 볼 때 쓰라고 남긴다.
 
 데이터는 지어낸 것이 아니라 **실제 API 응답을 캡처한 것**이다. 그래프 밀도, 공통 관심사
 개수, 정렬 순서가 실제와 같다. 서버를 띄운 상태에서 다시 뜨면 갱신된다.
@@ -151,15 +143,11 @@ node web/scripts/capture-fixtures.cjs   # api·db 가 떠 있어야 한다
 
 ## 운영 배포
 
-**Google Cloud VM 한 대**(서울, e2-medium)에 Docker Compose 로 올린다. 절차는 [`deploy/README.md`](deploy/README.md)에
-처음부터 끝까지 있다 — GCP 계정·VM·도메인·OAuth 리디렉션·첫 배포·모니터·백업·공개일 스위치·2주 뒤 정리.
+**Google Cloud VM 한 대**(서울, e2-medium)에 Docker Compose 로 올라가 있다(`https://ssafy-networking.store`, 2026-09-10).
+절차는 [`deploy/README.md`](deploy/README.md)에 처음부터 끝까지 있다 — GCP 계정·VM·도메인·OAuth 리디렉션·첫 배포·모니터·백업·공개일 스위치·2주 뒤 정리.
 
-```bash
-cp deploy/.env.example deploy/.env                          # 값 채우기
-docker compose -f deploy/docker-compose.prod.yml up -d --build
-docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed
-curl https://<도메인>/api/health
-```
+**푸시가 곧 배포다.** `main` 에 올리면 GitHub Actions 가 `api`·`web` 이미지를 빌드해 Artifact Registry 에 올리고, VM 의 cron 이 2분 안에 받아 띄운다.
+`dev` 에 올리면 더미 데이터가 든 **개발 서버**(`dev.ssafy-networking.store`)에 뜬다 — 거기서 보고 main 에 합친다(deploy/README §11).
 
 `Dockerfile` 하나가 `api`(NestJS + Prisma, 시작할 때 migrate deploy)와 `web`(Caddy + 정적 번들, TLS 자동) 두 이미지를 만든다.
 API 인스턴스는 하나여야 한다(배치가 인프로세스 cron).
@@ -169,7 +157,7 @@ API 인스턴스는 하나여야 한다(배치가 인프로세스 cron).
 | 항목 | 상태 |
 |---|---|
 | 디자인 | 화면이 다 나온 상태 |
-| 배포 묶음 | 만들어짐 (`deploy/`). VM 을 만들고 올리는 일이 남았다 |
+| 배포 | 운영 서버 배포됨(2026-09-10). 개발 서버는 만드는 중(`deploy/README.md` §11) |
 | 알림 발송 동시성·재시도, 운영자 레버 | design/23 "공개 전에 닫을 것" |
 
 B-3(이메일)·B-4(외부 채널)는 Mattermost 도입(D-66~D-68)으로 더 이상 확인할 필요가 없다.

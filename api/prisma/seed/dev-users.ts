@@ -1,5 +1,5 @@
 /**
- * 개발용 더미 사용자 (로컬 전용).
+ * 개발용 더미 사용자 (로컬과 개발 서버용. 운영 컨테이너에서는 아래 빗장에서 멈춘다).
  *
  * 목적은 "사람 수를 채우는 것"이 아니라 **실제와 비슷한 관심사 분포를 만드는 것**이다.
  * 그래야 다음 두 리스크를 앱을 만드는 중에 눈으로 볼 수 있다.
@@ -13,6 +13,17 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { CLASS_COUNT, FLOOR_OPTIONS } from '@ssafy-net/shared';
+
+/**
+ * 운영 DB 를 지키는 빗장. 컨테이너는 NODE_ENV=production 이라, 개발 서버의 .env 에만 있는 APP_ENV=dev 가 없으면 멈춘다.
+ * 운영 VM 과 개발 VM 의 SSH 창은 프롬프트만 다르다 — 잘못 붙여 넣어도 여기서 선다(deploy/README.md §11).
+ */
+if (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'dev') {
+  console.error(
+    'seed:dev 는 로컬이나 개발 서버(APP_ENV=dev)에서만 돌린다. 이 DB 는 운영으로 보인다 — 아무것도 바꾸지 않았다.',
+  );
+  process.exit(1);
+}
 
 const prisma = new PrismaClient();
 

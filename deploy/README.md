@@ -15,23 +15,24 @@ Oracle Cloud 무료 티어는 가입이 막혀 접었다. GCP 는 신규 계정 
 | 환경 변수 | Secret Manager `ssafy-net-env` (§5-1). 로컬 `deploy/.env` 와 같은 내용 |
 | OAuth 리디렉션 URI | `https://ssafy-networking.store/api/auth/google/callback` (추가됨) |
 | 이미지 | Artifact Registry `asia-northeast3-docker.pkg.dev/ssanecting/ssafy-net/{api,web}` (§5-2). GitHub Actions 가 올리고 VM 은 `deploy.sh` 로 받는다 |
+| 개발 서버 | VM `ssafy-net-dev` · `dev.ssafy-networking.store` · 보안 비밀 `ssafy-net-env-dev` · 브랜치 `dev` → 이미지 태그 `dev` (§11). 고정 IP 는 만든 뒤 여기에 적는다 |
 
-**흐름.** `git push` → GitHub Actions 가 이미지 둘을 빌드해 Artifact Registry 에 올린다 → VM 의 cron(`auto-deploy.sh`)이 2분 안에 알아채고 `deploy.sh` 로 받아 띄운다 → 운영자 채널에 한 줄. VM 에서는 빌드하지 않고, 손으로 할 것도 없다(2026-09-10 채택, design/20 §13, §8).
+**흐름.** `git push` → GitHub Actions 가 이미지 둘을 빌드해 Artifact Registry 에 올린다 → VM 의 cron(`auto-deploy.sh`)이 2분 안에 알아채고 `deploy.sh` 로 받아 띄운다 → 운영자 채널에 한 줄. VM 에서는 빌드하지 않고, 손으로 할 것도 없다(2026-09-10 채택, design/20 §13, §8). **개발 서버도 같은 길이다(§11).** `dev` 브랜치에 푸시하면 태그 `dev` 로 올라가고 개발 VM 이 받는다. VM 은 체크아웃한 브랜치를 따라간다 — main 이면 latest, dev 면 dev.
 
 이 폴더에 있는 것:
 
 | 파일 | 역할 |
 |---|---|
 | `../Dockerfile` | `api`(NestJS + Prisma)와 `web`(Caddy + 정적 번들) 두 이미지 |
-| `../.github/workflows/build.yml` | main 푸시마다 두 이미지를 빌드해 Artifact Registry 에 `<짧은 sha>`·`latest` 로 올린다 |
+| `../.github/workflows/build.yml` | main·dev 푸시마다 두 이미지를 빌드해 Artifact Registry 에 `<짧은 sha>` 와 이동 태그(main → `latest`, dev → `dev`)로 올린다 |
 | `docker-compose.prod.yml` | db + api + web. 이미지는 레지스트리에서. 이 파일 옆의 `.env` 를 읽는다 |
 | `docker-compose.build.yml` | 비상용. VM 에서 직접 빌드할 때 prod 파일 위에 겹친다(§8) |
-| `deploy.sh` | 배포. 로그인 → pull → up → healthy 대기 → 운영자 채널에 한 줄. `IMAGE_TAG=<sha>` 로 롤백(고정) |
-| `auto-deploy.sh` | VM cron 이 2분마다. 레지스트리 latest 가 바뀌었으면 `deploy.sh`. `deploy/.pin` 이 있으면 쉰다(§8) |
+| `deploy.sh` | 배포. 로그인 → pull → up → healthy 대기 → 운영자 채널에 한 줄. VM 이 체크아웃한 브랜치의 이동 태그를 받는다. `IMAGE_TAG=<sha>` 로 롤백(고정) |
+| `auto-deploy.sh` | VM cron 이 2분마다. 레지스트리의 이동 태그(latest 또는 dev)가 바뀌었으면 `deploy.sh`. `deploy/.pin` 이 있으면 쉰다(§8) |
 | `.env.example` | 채워야 할 값. 복사해서 `.env` 로 |
 | `Caddyfile` | TLS 자동 발급, `/api`·`/n` 은 api 로, 나머지는 정적 파일 |
 | `api-entrypoint.sh` | 컨테이너 시작 때 `prisma migrate deploy` |
-| `fetch-env.sh` | Secret Manager 의 `ssafy-net-env` 를 `deploy/.env` 로 내려받는다 (§5-1) |
+| `fetch-env.sh` | Secret Manager 의 `ssafy-net-env`(main) 또는 `ssafy-net-env-dev`(dev 브랜치)를 `deploy/.env` 로 내려받는다 (§5-1, §11) |
 | `backup.sh` | 하루 1회 `pg_dump`. cron 에 건다 |
 
 ## 0. 계정 문제 — Google OAuth 와 GCP 계정은 달라도 된다
@@ -258,9 +259,9 @@ gcloud storage buckets create gs://ssanecting-backups --location=asia-northeast3
 
 ## 8. 갱신과 롤백 — 자동 배포
 
-**main 에 푸시하면 끝이다.** Actions 가 이미지를 올리면 VM 의 cron 이 2분 안에 알아채고 `deploy.sh` 를 돌린다(`auto-deploy.sh`, 2026-09-10 채택). 끝나면 운영자 채널에 "[deploy] 배포됨 — 커밋 …" 한 줄이 온다. 실패해도 한 줄이 온다.
+**main 에 푸시하면 끝이다.** Actions 가 이미지를 올리면 VM 의 cron 이 2분 안에 알아채고 `deploy.sh` 를 돌린다(`auto-deploy.sh`, 2026-09-10 채택). 끝나면 운영자 채널에 "[deploy] 배포됨 — 커밋 …" 한 줄이 온다. 실패해도 한 줄이 온다. 개발 서버(§11)는 `dev` 브랜치로 같은 일을 하고 "[deploy:dev]" 로 온다.
 
-밖에서 VM 으로 들어오는 길(SSH 키를 GitHub 에 두는 방식)을 열지 않고 VM 이 스스로 당겨온다. 인증은 이미 있는 VM 서비스 계정(§5-2 리더 역할)뿐이다. 레지스트리의 `api:latest` 지문을 지금 받아 둔 것과 비교하므로 문서만 바뀐 커밋(이미지가 안 만들어진다)은 아무 일도 하지 않는다.
+밖에서 VM 으로 들어오는 길(SSH 키를 GitHub 에 두는 방식)을 열지 않고 VM 이 스스로 당겨온다. 인증은 이미 있는 VM 서비스 계정(§5-2 리더 역할)뿐이다. 레지스트리의 이동 태그(`api:latest`, 개발 VM 은 `api:dev`) 지문을 지금 받아 둔 것과 비교하므로 문서만 바뀐 커밋(이미지가 안 만들어진다)은 아무 일도 하지 않는다. 배포 때 저장소는 `git pull` 이 아니라 `origin/<브랜치>` 에 맞춘다(`reset --hard`) — VM 에서 파일을 만졌어도 배포가 서지 않는다. `deploy/.env`·`.pin`·`backups/` 는 git 밖이라 그대로다.
 
 **설치 — VM 에서 한 번:**
 
@@ -281,7 +282,7 @@ IMAGE_TAG=1a2b3c4 ./deploy/deploy.sh   # 이 커밋으로. 자동 배포 멈춤
 api 컨테이너가 시작하면서 `prisma migrate deploy` 를 돌리므로 마이그레이션은 따로 하지 않는다. 롤백할 때 마이그레이션은 되돌아가지 않는다 — 옛 코드가 새 스키마 위에서 돌 수 있는지 보고 한다(컬럼 추가 정도는 문제없다).
 `packages/shared` 를 고쳤어도 이미지 안에서 처음부터 다시 빌드하니 로컬의 dist 함정은 없다.
 
-**뜻하는 것.** main 의 초록불 커밋은 전부 몇 분 안에 실제 서비스가 된다. 공개 뒤에는 main 에 올리는 것이 곧 배포임을 알고 올린다. 시험이 필요한 것은 브랜치에서 하고, 잠깐 멈추고 싶으면 `touch deploy/.pin`.
+**뜻하는 것.** main 의 초록불 커밋은 전부 몇 분 안에 실제 서비스가 된다. 공개 뒤에는 main 에 올리는 것이 곧 배포임을 알고 올린다. 시험이 필요한 것은 `dev` 에 올려 개발 서버(§11)에서 보고, 잠깐 멈추고 싶으면 그 VM 에서 `touch deploy/.pin`.
 
 **비상 — Actions 가 안 될 때 VM 에서 직접 빌드:**
 
@@ -303,7 +304,94 @@ docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.build.
 docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 볼륨까지 삭제
 ```
 
-그 다음 GCS 백업 버킷과 VM 을 콘솔에서 지운다. 무료 체험 계정은 90일에 자동으로 닫히지만, 지우지 않으면 그때까지 크레딧을 먹는다. Artifact Registry 저장소와 서비스 계정 `gh-actions`(키 포함)도 지우고, GitHub 의 `GCP_SA_KEY` secret 을 삭제한다. 프로젝트째 지우면 GitHub secret 만 남는다.
+그 다음 GCS 백업 버킷과 VM 을 콘솔에서 지운다(개발 VM `ssafy-net-dev` 와 그 고정 IP, 보안 비밀 `ssafy-net-env-dev` 도). 무료 체험 계정은 90일에 자동으로 닫히지만, 지우지 않으면 그때까지 크레딧을 먹는다. Artifact Registry 저장소와 서비스 계정 `gh-actions`(키 포함)도 지우고, GitHub 의 `GCP_SA_KEY` secret 을 삭제한다. 프로젝트째 지우면 GitHub secret 만 남는다.
+
+## 11. 개발 서버 — 더미 데이터로 배포 전에 본다 (2026-09-10 채택)
+
+운영 VM 과 똑같은 VM 을 하나 더 두고, 더미 사용자를 채워 놓고, `dev` 브랜치를 올리면 거기에 뜬다. 확인이 끝나면 main 에 합쳐 운영으로 보낸다. 운영 DB 는 건드리지 않는다. (디자이너용 Vercel 데모 배포는 이것으로 대신하고 없앴다.)
+
+| | 운영 | 개발 |
+|---|---|---|
+| 브랜치 → 이미지 태그 | `main` → `latest` | `dev` → `dev` |
+| VM | `ssafy-net` | `ssafy-net-dev`. 같은 사양이 편하다. 아끼려면 e2-small 도 된다 — 빌드는 여기서 안 하니 2GB 면 돈다 |
+| 도메인 | `ssafy-networking.store` | `dev.ssafy-networking.store` |
+| 보안 비밀 | `ssafy-net-env` | `ssafy-net-env-dev` (`APP_ENV=dev` 가 추가로 들어간다) |
+| 데이터 | 실제 사용자 | `prisma:seed` + `seed:dev` 더미(기본 120명, `SEED_USERS=1000` 이면 공개 규모) |
+| Mattermost | 공개 후 `live` | `redirect` 그대로. 더미에게는 아무것도 안 나가고, 인증 코드는 운영자 채널로 온다 |
+| 배포 알림 | `[deploy] …` | `[deploy:dev] …` |
+| 화면 | | 위에 "개발 서버" 띠(호스트 이름이 `dev.` 로 시작하면) |
+
+**VM 은 체크아웃한 브랜치를 따라간다.** `deploy.sh`·`auto-deploy.sh`·`fetch-env.sh` 가 현재 브랜치를 보고 이동 태그와 보안 비밀 이름을 고른다(main → `latest`·`ssafy-net-env`, dev → `dev`·`ssafy-net-env-dev`). 개발 VM 에 `-b dev` 로 clone 하는 것이 설정의 전부다.
+
+### 만들기 — 한 번
+
+**콘솔(브라우저)에서**
+
+1. §2 와 같은 VM 을 이름만 `ssafy-net-dev` 로 만든다(액세스 범위 "모든 Cloud API", HTTP·HTTPS 허용). 외부 IP 를 고정으로 승격하고 위 표에 적는다.
+2. DNS: A 레코드 `dev` → 그 IP.
+3. OAuth(§4 의 계정): 승인된 리디렉션 URI 에 `https://dev.ssafy-networking.store/api/auth/google/callback` 추가. 같은 클라이언트에 둘이 있어도 된다.
+4. Secret Manager: 보안 비밀 `ssafy-net-env-dev` 를 만든다. 내용은 운영 것에서 셋을 `dev.` 주소로 바꾸고(`SITE_ADDRESS`·`APP_BASE_URL`·`GOOGLE_CALLBACK_URL`), 둘을 새 값으로(`POSTGRES_PASSWORD`·`SESSION_SECRET`), 하나를 더한 것이다(`APP_ENV=dev`). 로컬에 운영 `deploy/.env` 가 있으면 아래 한 줄(Git Bash)이 `deploy/.env.dev` 를 만든다. git 에는 안 들어간다. 그 파일을 업로드하거나 내용을 붙여 넣는다.
+
+   ```bash
+   tr -d '\r' < deploy/.env | sed -e 's#ssafy-networking\.store#dev.ssafy-networking.store#g' \
+       -e "s#^POSTGRES_PASSWORD=.*#POSTGRES_PASSWORD=$(openssl rand -hex 16)#" \
+       -e "s#^SESSION_SECRET=.*#SESSION_SECRET=$(openssl rand -hex 32)#" > deploy/.env.dev \
+     && printf '\n# 개발 서버 표시. seed:dev 가 이 값을 본다(README §11)\nAPP_ENV=dev\n' >> deploy/.env.dev
+   ```
+
+   웹훅은 운영과 같은 것을 써도 된다. 알림이 섞이는 것이 싫으면 Mattermost 에서 웹훅을 하나 더 만들어(다른 채널로) `MATTERMOST_WEBHOOK_URL` 만 바꾼다.
+
+**Cloud Shell(`@cloudshell` 프롬프트)에서** — VM 서비스 계정에 새 보안 비밀의 접근 권한. 레지스트리 reader 는 같은 서비스 계정이라 이미 있다.
+
+```bash
+gcloud secrets add-iam-policy-binding ssafy-net-env-dev \
+  --member="serviceAccount:543998929768-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
+```
+
+**개발 VM 의 SSH(`@ssafy-net-dev` 프롬프트)에서** — §5 와 같고 clone 에 `-b dev` 가 붙는다. 그 전에 `dev` 브랜치로 Actions 가 한 번은 초록불이어야 태그 `dev` 가 있다.
+
+```bash
+sudo apt-get update && sudo apt-get install -y ca-certificates curl git
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER && newgrp docker
+
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -C "ssafy-net-dev-vm"
+cat ~/.ssh/id_ed25519.pub        # → GitHub Deploy keys 에 추가 (Title: ssafy-net-dev-vm, 쓰기 없이). 운영 VM 의 키와 별개다
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+git clone -b dev git@github.com:DevJunz/ssafy-net.git && cd ssafy-net
+
+./deploy/fetch-env.sh            # dev 브랜치라 ssafy-net-env-dev 를 받는다
+./deploy/deploy.sh               # 태그 dev 를 받아 띄운다
+docker compose -f deploy/docker-compose.prod.yml exec api npm run prisma:seed   # 관심사·파라미터·초대 코드(출력된다)
+```
+
+브라우저에서 `https://dev.ssafy-networking.store/invite/<초대코드>` 로 본인 가입·온보딩(인증 코드는 운영자 채널로). 그 뒤 다시 개발 VM 에서:
+
+```bash
+# 운영자 플래그
+docker compose -f deploy/docker-compose.prod.yml exec db \
+  psql -U ssafynet -d ssafynet -c "update \"user\" set is_operator = true where email = '<내 Google 이메일>';"
+# 더미 — 가중치 있는 관심사 분포 + 내 주변 클러스터 5명. 본인 가입 뒤에 돌려야 클러스터가 붙는다. 다시 돌리면 더미만 갈아엎는다
+docker compose -f deploy/docker-compose.prod.yml exec -e SEED_USERS=1000 api npm run seed:dev
+# 자동 배포
+( crontab -l 2>/dev/null; echo "*/2 * * * * $HOME/ssafy-net/deploy/auto-deploy.sh >> $HOME/deploy.log 2>&1" ) | crontab -
+```
+
+`seed:dev` 는 `APP_ENV=dev` 가 없으면 "운영으로 보인다" 며 멈춘다. 운영 VM 창에 잘못 붙여 넣어도 아무 일이 없다.
+
+### 쓰기 — 매번
+
+```bash
+git checkout dev && git merge main     # main 에 직접 올린 것이 있으면 먼저 가져온다
+# ... 작업, 커밋 ...
+git push origin dev                    # → Actions → 2분 안에 개발 서버
+# dev.ssafy-networking.store 에서 확인한 뒤
+git checkout main && git merge --ff-only dev && git push origin main   # → 운영
+```
+
+마이그레이션이 든 커밋은 개발 서버에서 먼저 돌아 보는 셈이다(api 가 시작하면서 `migrate deploy`). 운영에 올리기 전에 개발 VM 의 `~/deploy.log` 에 오류가 없는지 본다.
+
+개발 서버의 데이터를 처음부터 다시 만들려면 개발 VM 에서 `docker compose -f deploy/docker-compose.prod.yml down -v && ./deploy/deploy.sh` 뒤에 위의 시드 순서. **운영 VM 에서는 치지 않는다** — `-v` 가 DB 를 지운다.
 
 ## 트러블슈팅
 
@@ -322,4 +410,6 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | `fetch-env.sh` 가 `PERMISSION_DENIED: Permission 'secretmanager.versions.access'` | VM 서비스 계정에 접근자 역할이 없다. §5-1 3번의 Cloud Shell 한 줄. 보안 비밀이 없으면 `gcloud secrets list` 로 이름부터 확인 |
 | `deploy.sh` 가 `registry login` 에서 실패 | VM 액세스 범위가 "모든 Cloud API" 인지(§2), gcloud 가 있는지(`gcloud --version`) |
 | `deploy.sh` 의 pull 이 `denied` 또는 `permission` | VM 서비스 계정(`<번호>-compute@`)에 저장소 reader 역할(§5-2 마지막 명령) |
-| pull 이 `manifest unknown` | 그 sha 로 이미지가 없다. 문서만 바뀐 커밋이거나 Actions 가 아직 안 끝났다. `latest` 나 Actions 요약의 sha 를 쓴다 |
+| pull 이 `manifest unknown` | 그 sha 로 이미지가 없다. 문서만 바뀐 커밋이거나 Actions 가 아직 안 끝났다. `latest` 나 Actions 요약의 sha 를 쓴다. 개발 VM 에서 태그 `dev` 가 없다면 `dev` 브랜치로 Actions 가 아직 한 번도 안 돈 것이다 |
+| 개발 서버가 운영 이미지를 받거나 운영 서버가 `dev` 를 받는다 | VM 이 체크아웃한 브랜치가 다르다. `git branch --show-current` 가 운영은 `main`, 개발은 `dev` 여야 한다. 개발 VM 은 `git checkout dev && ./deploy/deploy.sh` |
+| `seed:dev` 가 "운영으로 보인다" 며 멈춤 | 개발 VM 이면 보안 비밀 `ssafy-net-env-dev` 에 `APP_ENV=dev` 가 있는지 → `./deploy/fetch-env.sh && docker compose -f deploy/docker-compose.prod.yml up -d api`. 운영 VM 이면 멈춘 것이 맞다 |

@@ -1,9 +1,10 @@
 #!/bin/sh
-# Secret Manager 의 보안 비밀(기본 ssafy-net-env) 최신 버전을 deploy/.env 로 내려받는다.
+# Secret Manager 의 보안 비밀 최신 버전을 deploy/.env 로 내려받는다.
 #
-#   준비:  README §5-1. 보안 비밀 ssafy-net-env 에 .env 내용 통째로. VM 서비스 계정에
+#   준비:  README §5-1. 보안 비밀에 .env 내용 통째로. VM 서비스 계정에
 #          "Secret Manager 보안 비밀 접근자" 역할, VM 의 Cloud API 액세스 범위는 "모든 Cloud API".
-#   실행:  ./deploy/fetch-env.sh            → deploy/.env 갱신
+#   실행:  ./deploy/fetch-env.sh            → deploy/.env 갱신. 이름은 체크아웃된 브랜치가 정한다:
+#                                            main → ssafy-net-env(운영), dev → ssafy-net-env-dev(개발 서버, README §11)
 #          ./deploy/fetch-env.sh other-name → 다른 이름의 보안 비밀을 쓸 때
 #   갱신:  콘솔에서 새 버전을 올린 뒤 이 스크립트를 다시 돌리고
 #          docker compose -f deploy/docker-compose.prod.yml up -d api
@@ -12,7 +13,9 @@
 set -eu
 cd "$(dirname "$0")"
 
-secret="${1:-ssafy-net-env}"
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+if [ "$branch" = "main" ]; then default=ssafy-net-env; else default="ssafy-net-env-$branch"; fi
+secret="${1:-$default}"
 
 gcloud secrets versions access latest --secret="$secret" > .env.tmp
 if ! grep -q '^SITE_ADDRESS=' .env.tmp; then
@@ -22,4 +25,4 @@ if ! grep -q '^SITE_ADDRESS=' .env.tmp; then
 fi
 chmod 600 .env.tmp
 mv .env.tmp .env
-echo "[fetch-env] deploy/.env ← $secret ($(grep -c '=' .env) 항목)"
+echo "[fetch-env] deploy/.env ← $secret ($(grep -c '=' .env) 항목, 브랜치 $branch)"

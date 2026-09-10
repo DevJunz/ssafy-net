@@ -11,6 +11,7 @@ import { api } from './api/client';
 import { Page } from './components/primitives';
 import { Shell } from './components/Shell';
 import { FollowUpOverlay } from './features/connections/Overlays';
+import { DEV_SERVER, DevServerBanner } from './components/DevServerBanner';
 import { DEMO_MODE } from './mocks';
 import { DemoBanner } from './mocks/DemoBanner';
 import { ConnectionsPage } from './pages/ConnectionsPage';
@@ -138,6 +139,8 @@ export function App() {
     <SessionProvider>
       <TooltipProvider delayDuration={300}>
         {DEMO_MODE && <DemoBanner />}
+        {/* 개발 서버(dev.<도메인>)에서만. 운영과 화면이 같아 헷갈리지 않게 한다(deploy/README.md §11) */}
+        {DEV_SERVER && !DEMO_MODE && <DevServerBanner />}
         <Routing />
         {/* 토스트는 화면 아래 가운데 하나. 닫기 버튼을 둔다 — 되돌리기 같은 행동이 붙는다 */}
         <Toaster position="bottom-center" closeButton />

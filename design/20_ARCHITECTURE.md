@@ -406,6 +406,8 @@ web:  npm run dev  (5173, /api → 3000 프록시)
 
 **이미지는 어디서 만드나(2026-09-10).** GitHub Actions 가 main 푸시마다 두 이미지를 빌드해 같은 GCP 프로젝트의 **Artifact Registry**(서울)에 `<짧은 sha>`·`latest` 로 올리고, VM 은 `deploy/deploy.sh` 로 받기만 한다. VM 에서 빌드하는 안을 먼저 만들었다가 바꿨다 — 4GB 에서 빌드하지 않고, 배포가 5분 빌드에서 30초 pull 로 줄며, 롤백이 `IMAGE_TAG` 하나로 되고, Actions 의 빌드가 타입 검사 게이트를 겸한다. Docker Hub 는 저장소가 private 이라 이미지도 private 이어야 하는데 무료 private 저장소가 하나뿐이고 VM 에 토큰을 둬야 해서 접었다. GHCR 은 private 저장 한도(500MB)가 api 이미지 하나보다 작다. Artifact Registry 는 VM 서비스 계정이 그대로 pull 하고 2주 뒤 프로젝트와 함께 지워진다. Actions → 레지스트리 인증은 서비스 계정 키 하나(2주짜리, 정리 때 삭제). VM 에서 직접 빌드하는 길은 `deploy/docker-compose.build.yml` 로 비상용으로 남겼다.
 
+**개발 서버(2026-09-10).** 같은 구성의 VM 을 하나 더 두고 더미 사용자를 채워 배포 전에 본다. 브랜치가 환경이다 — `dev` 푸시는 태그 `dev` 로 올라가 개발 VM 이, `main` 푸시는 `latest` 로 올라가 운영 VM 이 받는다. VM 은 체크아웃한 브랜치로 자기 역할을 안다(`deploy/*.sh`). 같은 이미지가 두 곳에 올라가므로 환경 차이는 `deploy/.env`(Secret Manager 의 `ssafy-net-env` / `ssafy-net-env-dev`)에만 있고, 더미 시드는 `APP_ENV=dev` 가 없는 운영 컨테이너에서 스스로 멈춘다. 디자이너용 Vercel 데모 배포는 이것으로 대신하고 없앴다. 절차는 `deploy/README.md` §11.
+
 | 항목 | 기본안 |
 |---|---|
 | 구성 | VM 1대에 `api` + `postgres` + 리버스 프록시(Caddy: TLS 자동) |
