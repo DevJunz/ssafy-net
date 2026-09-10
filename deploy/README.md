@@ -413,4 +413,5 @@ git checkout main && git merge --ff-only dev && git push origin main   # → 운
 | `deploy.sh` 의 pull 이 `denied` 또는 `permission` | VM 서비스 계정(`<번호>-compute@`)에 저장소 reader 역할(§5-2 마지막 명령) |
 | pull 이 `manifest unknown` | 그 sha 로 이미지가 없다. 문서만 바뀐 커밋이거나 Actions 가 아직 안 끝났다. `latest` 나 Actions 요약의 sha 를 쓴다. 개발 VM 에서 태그 `dev` 가 없다면 `dev` 브랜치로 Actions 가 아직 한 번도 안 돈 것이다 |
 | 개발 서버가 운영 이미지를 받거나 운영 서버가 `dev` 를 받는다 | VM 이 체크아웃한 브랜치가 다르다. `git branch --show-current` 가 운영은 `main`, 개발은 `dev` 여야 한다. 개발 VM 은 `git checkout dev && ./deploy/deploy.sh` |
+| **API 는 새 코드인데 화면만 옛것**(`/api/parameters` 는 바뀌었는데 새 버튼이 없다) | api·web 이 어긋났다. `./deploy/deploy.sh` 를 한 번 돌리면 맞는다. 2026-09-10 개발 서버가 그랬다 — `auto-deploy.sh` 가 api 지문만 봤고 Actions 가 api 를 먼저 올려, 그 13초 사이에 낀 cron 이 새 api + 옛 web 으로 띄운 뒤 지문이 같아져 다시 돌지 않았다. 지금은 두 이미지를 다 만든 뒤 이동 태그를 붙이고(build.yml "이동 태그"), `auto-deploy.sh` 도 둘 다 본다 |
 | `seed:dev` 가 "운영으로 보인다" 며 멈춤 | 개발 VM 이면 보안 비밀 `ssafy-net-env-dev` 에 `APP_ENV=dev` 가 있는지 → `./deploy/fetch-env.sh && docker compose -f deploy/docker-compose.prod.yml up -d api`. 운영 VM 이면 멈춘 것이 맞다 |

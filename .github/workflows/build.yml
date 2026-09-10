@@ -67,6 +67,10 @@ jobs:
 
       # 두 타깃이 deps·build 단계를 공유한다. 캐시(type=gha) 덕에 두 번째부터는 2분 안팎.
       # 라벨의 커밋은 VM 의 deploy.sh 가 "무엇이 올라갔나"를 적는 데 쓴다.
+      #
+      # 빌드 단계에서는 sha 태그만 붙인다. 이동 태그(latest·dev)는 둘 다 만들어진 뒤 마지막에 한꺼번에 붙인다 —
+      # VM 의 cron 이 이동 태그의 지문을 보고 배포하는데, api 에만 먼저 붙이면 그 사이에 낀 cron 이
+      # 새 api + 옛 web 으로 띄우고 만다(2026-09-10 개발 서버가 그랬다).
       - name: api image
         uses: docker/build-push-action@v6
         with:
@@ -74,9 +78,7 @@ jobs:
           target: api
           push: true
           provenance: false
-          tags: |
-            ${{ env.IMAGE_REPO }}/api:${{ steps.meta.outputs.sha }}
-            ${{ env.IMAGE_REPO }}/api:${{ steps.meta.outputs.channel }}
+          tags: ${{ env.IMAGE_REPO }}/api:${{ steps.meta.outputs.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -90,14 +92,26 @@ jobs:
           target: web
           push: true
           provenance: false
-          tags: |
-            ${{ env.IMAGE_REPO }}/web:${{ steps.meta.outputs.sha }}
-            ${{ env.IMAGE_REPO }}/web:${{ steps.meta.outputs.channel }}
+          tags: ${{ env.IMAGE_REPO }}/web:${{ steps.meta.outputs.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # 두 이미지가 다 올라간 뒤에 이동 태그를 붙인다. 레지스트리에 매니페스트만 하나 더 가리키게 하는 것이라
+      # 받아 올리지 않고 1초 안에 끝나, VM 의 cron 이 그 틈에 낄 여지가 사실상 없다.
+      # 그래도 어긋나면 VM 쪽에서 잡는다 — auto-deploy.sh 가 api·web 지문을 둘 다 본다.
+      - name: 이동 태그
+        env:
+          REPO: ${{ env.IMAGE_REPO }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+        run: |
+          for name in api web; do
+            docker buildx imagetools create \
+              --tag "$REPO/$name:$CHANNEL" "$REPO/$name:$SHA"
+          done
 
       - name: 요약
         env:
