@@ -348,7 +348,7 @@ gcloud secrets add-iam-policy-binding ssafy-net-env-dev \
   --member="serviceAccount:543998929768-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
 ```
 
-**개발 VM 의 SSH(`@ssafy-net-dev` 프롬프트)에서** — §5 와 같고 clone 에 `-b dev` 가 붙는다. 그 전에 `dev` 브랜치로 Actions 가 한 번은 초록불이어야 태그 `dev` 가 있다.
+**개발 VM 의 SSH(`@ssafy-net-dev` 프롬프트)에서** — §5 와 같고 clone 에 `-b dev` 가 붙는다. 그 전에 `dev` 브랜치로 Actions 가 한 번은 초록불이어야 태그 `dev` 가 있다. 브랜치를 새로 만든 첫 푸시는 `paths-ignore` 때문에 Actions 가 안 돈다(비교할 앞 커밋이 없다) — 그때는 로컬에서 `gh workflow run build.yml --ref dev`. 2026-09-10 에 그렇게 했고, 이후 푸시는 저절로 돈다.
 
 ```bash
 sudo apt-get update && sudo apt-get install -y ca-certificates curl git
