@@ -28,6 +28,9 @@ if [ "${SKIP_GIT_PULL:-}" != "1" ]; then
   git pull --ff-only
 fi
 
+# compose 가 deploy/backups 를 api 에 마운트한다. 없으면 Docker 가 root 소유로 만들어 backup.sh 가 못 쓴다.
+mkdir -p deploy/backups
+
 echo "[deploy] registry login ($REGISTRY)"
 gcloud auth print-access-token \
   | docker login -u oauth2accesstoken --password-stdin "https://$REGISTRY" >/dev/null
