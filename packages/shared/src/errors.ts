@@ -26,8 +26,6 @@ export const ERROR_MESSAGES = {
   NICKNAME_INVALID: '사용할 수 없는 닉네임입니다.',
   NICKNAME_CHANGE_TOO_SOON: '표시명은 하루에 한 번 바꿀 수 있습니다.',
 
-  REQUEST_LIMIT_REACHED:
-    '오늘 보낼 수 있는 요청을 모두 사용했습니다. 내일 다시 보낼 수 있습니다.',
   REQUEST_ALREADY_EXISTS: '이미 보낸 요청이 있습니다.',
   REQUEST_INCOMING_EXISTS:
     '이 사람이 먼저 요청했습니다. 수락 또는 거절로 응답해주세요.',
@@ -36,7 +34,6 @@ export const ERROR_MESSAGES = {
   ALREADY_HANDLED: '이미 처리된 항목입니다.',
   UNDO_WINDOW_PASSED: '되돌릴 수 있는 시간이 지났습니다.',
 
-  POST_LIMIT_REACHED: '오늘 이 관심사에 남길 수 있는 글을 모두 썼습니다.',
   POST_INTEREST_NOT_OWNED:
     '이 관심사를 추가하면 글을 남길 수 있습니다.',
 

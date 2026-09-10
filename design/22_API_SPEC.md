@@ -28,7 +28,7 @@
 ### 1.2 오류 형식
 
 ```json
-{ "code": "REQUEST_LIMIT_REACHED", "message": "오늘 보낼 수 있는 요청을 모두 사용했습니다.", "details": { "resetAt": "2026-09-09T00:00:00+09:00" } }
+{ "code": "REQUEST_COOLDOWN", "message": "아직 다시 요청할 수 없습니다.", "details": { "reRequestableAt": "2026-09-23T00:00:00+09:00" } }
 ```
 
 `message`는 **화면에 그대로 쓸 수 있는 한국어**다. 06 §4의 문구를 서버가 갖는다. 프론트가 코드별로 문구를 다시 만들면 문구가 갈라진다.
@@ -42,14 +42,12 @@
 | `INTEREST_COUNT_MIN` / `INTEREST_COUNT_MAX` | 400 | P-01 / P-02 위반 |
 | `NICKNAME_TAKEN` / `NICKNAME_LOOKS_LIKE_REAL_NAME` / `NICKNAME_INVALID` | 400 | 12 §3 |
 | `NICKNAME_CHANGE_TOO_SOON` | 400 | 하루 1회 (12 §3) |
-| `REQUEST_LIMIT_REACHED` | 429 | P-06 일/주 상한 |
 | `REQUEST_ALREADY_EXISTS` | 409 | 진행 중 요청 |
 | `REQUEST_INCOMING_EXISTS` | 409 | 상대가 먼저 요청함 → 수락 유도 (09 §2) |
 | `REQUEST_COOLDOWN` | 409 | P-07 재요청 대기 |
 | `ALREADY_CONNECTED` | 409 | — |
 | `ALREADY_HANDLED` | 409 | 이미 처리된 요청/추천 (07 §6) |
 | `UNDO_WINDOW_PASSED` | 409 | 거절 되돌리기 5초 경과 |
-| `POST_LIMIT_REACHED` | 429 | 관심사당 하루 1 / 전체 하루 3 (11 §2) |
 | `POST_INTEREST_NOT_OWNED` | 403 | 관심사 미보유자 작성 (FR-6.1) |
 | `NETWORK_SLOT_FULL` | 409 | 동시 노출 3개 (10 §2a) |
 | `NETWORK_DISABLED` | 404 | 게이트 미통과 (10 §4) |
@@ -298,19 +296,12 @@ GET /api/users/:id/posts      그 사람의 글 (S1, 최신 3)
 ### 8.1 요청 보내기
 
 ```
-GET  /api/me/request-quota
 POST /api/connection-requests
 ```
 
 ```json
 // POST 본문
 { "targetId": "u_1", "message": "러닝 얘기 나누고 싶어서요.", "entryPoint": "SIMILAR" }
-```
-
-```json
-// GET /api/me/request-quota
-{ "dailyLimit": 5, "dailyUsed": 2, "weeklyLimit": 20, "weeklyUsed": 7,
-  "throttled": false, "resetAt": "2026-09-09T00:00:00+09:00" }
 ```
 
 서버가 순서대로 확인한다.
@@ -321,10 +312,10 @@ POST /api/connection-requests
 4. 내 PENDING 요청 존재 → `REQUEST_ALREADY_EXISTS`
 5. 상대의 PENDING 요청 존재 → `REQUEST_INCOMING_EXISTS` (수락으로 유도, 09 §2)
 6. 재요청 대기 중 → `REQUEST_COOLDOWN` + `reRequestableAt` (P-07 14일, 취소는 다음 날부터)
-7. 상한 → `REQUEST_LIMIT_REACHED` (KST 달력 하루 5 / 달력 주 20, 취소 포함)
-8. 감속 조건 → 일 상한 2로 낮춰 다시 7번 (09 §3)
-9. 메시지 1자 이상 `[P-16]` 200자 이하 → 400
-10. 동일 메시지 3회 → 막지 않고 응답에 `warning: "각 사람에게 맞는 메시지를 써보세요"` (09 §3)
+7. 메시지 1자 이상 `[P-16]` 200자 이하 → 400
+8. 동일 메시지 3회 → 막지 않고 응답에 `warning: "각 사람에게 맞는 메시지를 써보세요"` (09 §3)
+
+**횟수 상한은 없다(D-82, 2026-09-10).** 일 5 / 주 20 과 수락률 감속, `GET /api/me/request-quota` 는 사용자 피드백으로 뺐다. 남용은 §15 의 "오늘 최다 발송" 으로 보고 정지로 대응한다.
 
 **공통 관심사 0개여도 통과한다**(09 §2). 요청 시점의 공통 관심사를 `commonInterestIds`에 고정한다(08 §3).
 
@@ -457,7 +448,7 @@ DELETE /api/posts/:id
 
 - 작성 자격: 그 관심사 보유자만(FR-6.1). 아니면 `POST_INTEREST_NOT_OWNED`.
 - 길이 `[P-17]` 300자, 관심사 하나(11 §2).
-- 횟수: 관심사당 하루 1개, 전체 하루 3개 → `POST_LIMIT_REACHED`.
+- 횟수 상한 없음(D-82, 2026-09-10). 관심사당 하루 1·전체 하루 3 은 사용자 피드백으로 뺐다.
 - 수정 없음(11 §3). 삭제는 작성자와 운영자.
 - 목록은 §4(관심사 상세)와 §7(사람)에만 있다. **전체 피드와 검색 엔드포인트를 만들지 않는다**(D-46).
 
@@ -608,7 +599,7 @@ PUT  /api/admin/parameters/:key              { "value": 2, "reason": "추천 0�
 | Notifications | `GET /api/notifications` |
 | My Profile | `GET /api/me`, `PATCH /api/me/display-name`, `PATCH /api/me/real-name`, `PUT /api/me/interests` |
 | Settings | `GET/PUT /api/me/notification-settings` |
-| Overlay 요청 작성 | `GET /api/me/request-quota` → `POST /api/connection-requests` |
+| Overlay 요청 작성 | `POST /api/connection-requests` |
 | Overlay 요청 상세 | `GET /api/connection-requests/:id` → accept/reject |
 | Overlay 연결 성립 | `GET /api/connections/:id` → `mark-started` |
 | Overlay Network 성립 | `GET /api/networks/:id` → `mark-invited` |

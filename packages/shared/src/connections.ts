@@ -8,16 +8,6 @@ import type { ConnectedUser, InterestRef, PublicUser } from './types';
  * 연결 수를 남에게 보여주지 않는다(docs/12 §5).
  */
 
-export interface RequestQuota {
-  dailyLimit: number;
-  dailyUsed: number;
-  weeklyLimit: number;
-  weeklyUsed: number;
-  /** 수락률이 낮아 일일 상한이 낮춰진 상태인지(docs/09 §3) */
-  throttled: boolean;
-  resetAt: string;
-}
-
 /** 보낸 사람이 보는 상태. REJECTED는 여기 없다 — 거절은 노출되지 않는다(D-07). */
 export type SentRequestStatus =
   | 'PENDING'

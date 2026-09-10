@@ -179,7 +179,7 @@ export class OpsService {
       days,
       product: {
         northStar,
-        requests: { ...requestsOut, byEntry, capReachedToday: abuse.capReachedToday },
+        requests: { ...requestsOut, byEntry, maxSentToday: abuse.maxSentToday },
         guardrail,
         onboarding,
         interests,
@@ -919,8 +919,7 @@ export class OpsService {
   }
 
   private async abuse(ctx: Ctx): Promise<OpsMetrics['server']['abuse']> {
-    const [dailyLimit, minSent, threshold] = await Promise.all([
-      this.parameters.get('P-06d'),
+    const [minSent, threshold] = await Promise.all([
       this.parameters.get('P-20'),
       this.parameters.get('P-21'),
     ]);
@@ -943,15 +942,16 @@ export class OpsService {
       }),
     ]);
     const accepted = new Map(acceptedAll.map((r) => [r.requesterId, r._count._all]));
-    // QuotaService 와 같은 규칙: 보낸 요청이 P-20 이상인데 수락률이 P-21% 미만이면 감속.
-    const decelerated = sentAll.filter((r) => {
+    // 자동 감속은 없앴지만(D-82) 신호로는 본다: 보낸 요청이 P-20 이상인데 수락률이 P-21% 미만.
+    const lowAcceptRate = sentAll.filter((r) => {
       const sent = r._count._all;
       return sent >= minSent && ((accepted.get(r.requesterId) ?? 0) / sent) * 100 < threshold;
     }).length;
     return {
       suspended,
-      capReachedToday: today.filter((r) => r._count._all >= dailyLimit).length,
-      decelerated,
+      // 횟수 상한이 없으니(D-82) 오늘 한 사람이 가장 많이 보낸 건수로 남용을 본다.
+      maxSentToday: today.reduce((max, r) => Math.max(max, r._count._all), 0),
+      lowAcceptRate,
     };
   }
 }

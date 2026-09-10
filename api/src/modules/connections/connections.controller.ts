@@ -31,7 +31,6 @@ import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
 import { ConnectionsService } from './connections.service';
 import { FollowUpService } from './follow-up.service';
-import { QuotaService } from './quota.service';
 
 const REQUEST_ID = { name: 'id', description: '연결 요청 UUID' };
 const CONNECTION_ID = { name: 'id', description: '연결 UUID' };
@@ -43,27 +42,14 @@ const CONNECTION_ID = { name: 'id', description: '연결 UUID' };
 export class ConnectionsController {
   constructor(
     private readonly connections: ConnectionsService,
-    private readonly quota: QuotaService,
     private readonly followUps: FollowUpService,
   ) {}
-
-  @Get('me/request-quota')
-  @ApiOperation({
-    summary: '내 요청 잔여 횟수',
-    description:
-      '`{ dailyLimit, dailyUsed, weeklyLimit, weeklyUsed, throttled, resetAt }`. ' +
-      '기준은 KST 달력 하루 / 달력 주(월~일)(D-60). 기본 일 5 · 주 20(P-06), 취소한 것도 센다. ' +
-      '수락률 10% 미만이면 `throttled=true`가 되고 일 상한이 2로 내려간다(docs/09 §3).',
-  })
-  requestQuota(@CurrentUser() user: User) {
-    return this.quota.quota(user.id);
-  }
 
   @Post('connection-requests')
   @ApiOperation({
     summary: '연결 요청 보내기',
     description:
-      '메시지는 필수다(docs/09 §2). 빈 요청은 친구 추가와 같다. **공통 관심사 0개여도 보낼 수 있다.** 요청 시점의 공통 관심사를 고정해 저장한다(docs/08 §3).\n\n' +
+      '메시지는 필수다(docs/09 §2). 빈 요청은 친구 추가와 같다. **공통 관심사 0개여도 보낼 수 있다.** 횟수 상한은 없다(D-82). 요청 시점의 공통 관심사를 고정해 저장한다(docs/08 §3).\n\n' +
       '서버가 순서대로 확인한다:\n' +
       '1. 정지 → `403 REQUEST_SUSPENDED`\n' +
       '2. 자기 자신 → 400\n' +
@@ -71,9 +57,8 @@ export class ConnectionsController {
       '4. 내 PENDING 요청 존재 → `409 REQUEST_ALREADY_EXISTS`\n' +
       '5. 상대가 먼저 보낸 요청 존재 → `409 REQUEST_INCOMING_EXISTS` (수락으로 유도)\n' +
       '6. 재요청 대기 중(거절 후 P-07 14일) → `409 REQUEST_COOLDOWN` + `reRequestableAt`\n' +
-      '7. 상한 → `429 REQUEST_LIMIT_REACHED` + `resetAt`\n' +
-      '8. 메시지 1~200자(P-16)\n' +
-      '9. 최근 30일 같은 메시지 3회 → 막지 않고 응답에 `warning`(D-61)\n\n' +
+      '7. 메시지 1~200자(P-16)\n' +
+      '8. 최근 30일 같은 메시지 3회 → 막지 않고 응답에 `warning`(D-61)\n\n' +
       '성공 시 상대에게 즉시 알림(`CONNECTION_REQUEST_RECEIVED`: 표시명·공통 관심사·메시지 첫 줄).',
   })
   @ApiBody({

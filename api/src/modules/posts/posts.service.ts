@@ -4,10 +4,6 @@ import type { PostInput, PostSummary } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
-/** 관심사당 하루, 전체 하루 (docs/11 §2). 게시판화 방지 장치다. */
-const PER_INTEREST_PER_DAY = 1;
-const TOTAL_PER_DAY = 3;
-
 /**
  * Interest Post (docs/11).
  *
@@ -17,16 +13,12 @@ const TOTAL_PER_DAY = 3;
  * 그 정의를 지키려고 기능을 의도적으로 빈약하게 둔다 — 댓글·좋아요·조회수·
  * 피드·검색이 모두 없다(D-46). 글의 유일한 출구는 작성자 프로필이고,
  * 거기서 연결 요청으로 이어진다.
+ *
+ * 횟수 상한(관심사당 하루 1·전체 하루 3)은 사용자 피드백으로 뺐다(D-82).
  */
 @Injectable()
 export class PostsService {
   constructor(private readonly prisma: PrismaService) {}
-
-  private startOfDay(): Date {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    return date;
-  }
 
   async create(me: User, input: PostInput): Promise<PostSummary> {
     // 관심사를 가진 사람만 쓸 수 있다(FR-6.1).
@@ -47,31 +39,7 @@ export class PostsService {
       );
     }
 
-    const since = this.startOfDay();
-    const [perInterest, total] = await Promise.all([
-      this.prisma.interestPost.count({
-        where: {
-          authorId: me.id,
-          interestId: input.interestId,
-          createdAt: { gte: since },
-          deletedAt: null,
-        },
-      }),
-      this.prisma.interestPost.count({
-        where: { authorId: me.id, createdAt: { gte: since }, deletedAt: null },
-      }),
-    ]);
-
-    if (perInterest >= PER_INTEREST_PER_DAY) {
-      throw new AppError('POST_LIMIT_REACHED');
-    }
-    if (total >= TOTAL_PER_DAY) {
-      throw new AppError(
-        'POST_LIMIT_REACHED',
-        undefined,
-        '오늘 남길 수 있는 글을 모두 썼습니다.',
-      );
-    }
+    // 횟수 상한은 없다(D-82). 게시판화는 댓글·피드·검색이 없는 구조(D-46)가 막는다.
 
     const post = await this.prisma.interestPost.create({
       data: {

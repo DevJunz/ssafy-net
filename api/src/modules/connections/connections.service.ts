@@ -16,7 +16,6 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ParametersService } from '../parameters/parameters.service';
 import { UserPresenter } from '../users/user.presenter';
-import { QuotaService } from './quota.service';
 import { RelationService } from './relation.service';
 
 const DAY_MS = 86_400_000;
@@ -30,7 +29,6 @@ export class ConnectionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly parameters: ParametersService,
-    private readonly quota: QuotaService,
     private readonly relations: RelationService,
     private readonly presenter: UserPresenter,
     private readonly mattermost: MattermostService,
@@ -69,17 +67,8 @@ export class ConnectionsService {
       );
     }
 
-    const quota = await this.quota.quota(me.id);
-    if (quota.dailyUsed >= quota.dailyLimit) {
-      throw new AppError('REQUEST_LIMIT_REACHED', { resetAt: quota.resetAt });
-    }
-    if (quota.weeklyUsed >= quota.weeklyLimit) {
-      throw new AppError(
-        'REQUEST_LIMIT_REACHED',
-        { resetAt: quota.resetAt },
-        '이번 주에 보낼 수 있는 요청을 모두 사용했습니다.',
-      );
-    }
+    // 횟수 상한과 수락률 감속은 없다(D-82). 받는 쪽을 지키는 것은 메시지 필수,
+    // 거절 뒤 재요청 대기(위 REQUEST_COOLDOWN), 운영자 정지(REQUEST_SUSPENDED)다.
 
     const [expiryDays, common] = await Promise.all([
       this.parameters.get('P-08'),
@@ -114,7 +103,6 @@ export class ConnectionsService {
 
     return {
       requestId: request.id,
-      quota: await this.quota.quota(me.id),
       // 같은 메시지를 반복하면 막지 않고 안내만 한다(docs/09 §3).
       warning: (await this.isRepeatedMessage(me.id, input.message))
         ? '각 사람에게 맞는 메시지를 써보세요.'

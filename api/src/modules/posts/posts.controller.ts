@@ -31,7 +31,7 @@ export class PostsController {
       '- 그 관심사 보유자만 → 아니면 `403 POST_INTEREST_NOT_OWNED`\n' +
       '- 층(ATTRIBUTE)에는 글을 붙일 수 없다(D-72)\n' +
       '- 1~300자(P-17), 관심사 하나\n' +
-      '- 관심사당 하루 1개, 전체 하루 3개 → `429 POST_LIMIT_REACHED`\n' +
+      '- 횟수 상한 없음(D-82)\n' +
       '- 수정 없음. 만료 없음',
   })
   @ApiBody({

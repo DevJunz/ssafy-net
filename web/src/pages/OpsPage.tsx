@@ -245,7 +245,7 @@ function ProductTab({ data, reload }: { data: OpsMetrics; reload: () => Promise<
           <StatTile label="만료" value={fmtNum(r.totals.expired)} hint="받은 쪽이 앱을 안 연 신호" />
           <StatTile label="취소" value={fmtNum(r.totals.cancelled)} />
           <StatTile label="대기 중" value={fmtNum(r.totals.pending)} />
-          <StatTile label="오늘 상한 도달" value={fmtNum(r.capReachedToday)} hint="일 상한(P-06)에 닿은 사람" tone={r.capReachedToday > 0 ? 'bad' : 'plain'} />
+          <StatTile label="오늘 최다 발송" value={fmtNum(r.maxSentToday)} hint="한 사람이 오늘 보낸 최대 건수. 상한은 없다(D-82)" tone={r.maxSentToday >= 10 ? 'bad' : 'plain'} />
         </Tiles>
         <Columns
           data={r.byDay.map((d) => ({
@@ -688,8 +688,8 @@ function ServerTab({ data }: { data: OpsMetrics }) {
       <Section title="남용 신호">
         <Tiles>
           <StatTile label="정지된 사용자" value={fmtNum(s.abuse.suspended)} />
-          <StatTile label="오늘 요청 상한 도달" value={fmtNum(s.abuse.capReachedToday)} tone={s.abuse.capReachedToday > 0 ? 'bad' : 'plain'} />
-          <StatTile label="수락률 감속 발동" value={fmtNum(s.abuse.decelerated)} hint="스팸 신호" />
+          <StatTile label="오늘 최다 발송" value={fmtNum(s.abuse.maxSentToday)} hint="한 사람이 오늘 보낸 최대 건수. 10건부터 붉게" tone={s.abuse.maxSentToday >= 10 ? 'bad' : 'plain'} />
+          <StatTile label="수락률 낮은 사용자" value={fmtNum(s.abuse.lowAcceptRate)} hint="10건 이상 보냈는데 수락률 10% 미만. 자동 감속은 없다" />
         </Tiles>
         {s.backups.available === false && (
           <Empty>백업 폴더가 컨테이너에 마운트되지 않았다. deploy/docker-compose.prod.yml 의 api volumes 를 본다.</Empty>

@@ -3,7 +3,6 @@ import type {
   FollowUpItem,
   PublicUser,
   RequestDetail,
-  RequestQuota,
 } from '@ssafy-net/shared';
 import { FOLLOW_UP_REASONS } from '@ssafy-net/shared';
 import { useEffect, useState, type ComponentProps } from 'react';
@@ -104,13 +103,8 @@ export function RequestComposeOverlay({
   onSent: (warning: string | null) => void;
 }) {
   const [message, setMessage] = useState('');
-  const [quota, setQuota] = useState<RequestQuota | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-
-  useEffect(() => {
-    api.get<RequestQuota>('/me/request-quota').then(setQuota).catch(() => {});
-  }, []);
 
   const common = target.interests.filter((interest) => interest.isCommon);
   const limit = 200;
@@ -162,11 +156,7 @@ export function RequestComposeOverlay({
           placeholder="어떤 이야기를 나누고 싶은지 한두 문장이면 충분합니다."
           className="min-h-24 resize-y rounded-[9px] px-3 py-[11px] text-sm"
         />
-        <div className="flex items-center justify-between gap-3">
-          <Muted>
-            {quota &&
-              `오늘 ${quota.dailyLimit - quota.dailyUsed}번 더 보낼 수 있습니다`}
-          </Muted>
+        <div className="flex justify-end">
           <Muted>
             {message.length} / {limit}
           </Muted>

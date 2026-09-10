@@ -109,8 +109,8 @@ export interface OpsMetrics {
       acceptRate: number | null;
       byEntry: OpsEntryStat[];
       byCommonCount: OpsCommonBucket[];
-      /** 오늘 일 상한(P-06)에 닿은 사용자 수 */
-      capReachedToday: number;
+      /** 오늘 한 사람이 가장 많이 보낸 요청 수. 횟수 상한이 없어(D-82) 이것으로 남용을 본다 */
+      maxSentToday: number;
     };
 
     /** 가드레일: 후속 확인 "대화 시작" 응답 비율 ≥ 50% (docs/14 §4) */
@@ -284,10 +284,10 @@ export interface OpsMetrics {
     };
     abuse: {
       suspended: number;
-      /** 오늘 요청 상한에 닿은 사용자 (requests.capReachedToday 와 같다) */
-      capReachedToday: number;
-      /** 수락률 감속이 걸린 사용자 */
-      decelerated: number;
+      /** 오늘 한 사람이 가장 많이 보낸 요청 수 (requests.maxSentToday 와 같다) */
+      maxSentToday: number;
+      /** P-20 건 이상 보냈는데 수락률이 P-21% 미만인 사용자. 자동 감속은 없다(D-82) */
+      lowAcceptRate: number;
     };
     mode: {
       nodeEnv: string;

@@ -119,7 +119,6 @@ function buildStates(me, others) {
     await grab('/parameters');
     await grab('/me');
     await grab('/interests');
-    await grab('/me/request-quota');
     await grab('/me/posts');
     await grab('/notifications');
     await grab('/notifications/badge');

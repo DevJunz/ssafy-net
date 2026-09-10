@@ -40,6 +40,8 @@
 
 ### 다음 세션에서 이어서 할 것
 
+**2026-09-10 밤(3) — 요청·글 횟수 상한 해제(D-82).** 사용자 피드백으로 연결 요청의 일 5·주 20 과 수락률 감속, 글의 관심사당 하루 1·전체 하루 3 을 없앴다. `QuotaService` 와 `GET /me/request-quota`, 오류 코드 `REQUEST_LIMIT_REACHED`·`POST_LIMIT_REACHED`, 파라미터 P-06d·P-06w·P-22 가 사라졌다(DB 의 옛 `app_parameter` 행은 무시된다). 남는 것: 메시지 필수, 거절 후 재요청 대기(P-07), 같은 메시지 안내(D-61), 운영자 정지(`requestSuspended`), 관심사 직접 추가 일 3(D-74). `/ops` 의 "상한 도달" 은 **오늘 최다 발송**(한 사람의 최대 건수, 10건부터 붉게)으로, "감속 발동" 은 **수락률 낮은 사용자**(P-20·P-21 은 신호 기준으로만 남는다)로 바뀌었다.
+
 **2026-09-10 밤(2) — 패널 폭 조정, 알림 배지 규칙(D-81), 실명 수정.** 셋 다 로컬에서 만들어 확인받고 올린다. (1) 그래프 화면 양쪽 패널의 폭을 경계선 손잡이로 끌어 바꾼다(`web/src/features/graph/usePanelWidths.ts`·`PanelResizeHandle.tsx`). localStorage `sn.graph.panelWidths` 에 남고 두 번 누르면 기본 폭. 캔버스는 ResizeObserver 로 따라온다. (2) **배지 = 아직 확인하지 않은 알림 수(D-81, D-31 대체).** `GET /notifications/badge` 가 `readAt` 없는 것을 세고, 알림함을 열면 `POST /notifications/read-all` 로 전부 읽음이 되어 배지가 사라진다. 목록의 "처리가 필요한 것" 구역은 그대로다. (3) My Profile 에 **실명 수정**(`PATCH /api/me/real-name`, `UsersService.setRealName`, `web/src/features/profile/RealNameForm.tsx`). 이름·반만 바꾸고 하루 1회 규칙은 걸지 않는다. `SelfUser.identity` 가 재료(이름·반·캠퍼스)다. 금칙어 목록은 `nickname.service.ts` 의 `BANNED_WORDS` 를 같이 쓴다. 뒤이어 헤더를 손봤다: 첫 메뉴는 "커넥션", "내 프로필" 메뉴는 빠지고 오른쪽 위 표시명이 프로필 링크다(`Shell.tsx`). 그래프 홈의 "내 그래프" 칩은 없앴고, 프로필의 "내가 쓴 글"은 실명과 관심사 사이다. 프로필의 관심사 구역은 다른 구역과 같은 결(현재 관심사 칩 + "관심사 수정" 버튼)이고, 누르면 `InterestPicker` 가 `embedded` 로 상자 안에 열린다 — 검색은 상자 위에 고정, 목록은 상자 안에서 스크롤, 저장·취소는 상자 발. 온보딩은 `embedded` 없이 그대로다.
 
 **2026-09-10 밤 — 대화창 링크 제거(D-80)와 프로필 표시명 변경.** 연결 성립 화면의 "Mattermost에서 대화 열기" 버튼은 SSAFY Mattermost 가 대화창으로 이어 주지 않아 없앴다. `@아이디` 복사만 남는다. `ConnectionAction.mattermostLink` 와 `MATTERMOST_URL` 은 사라졌다(보안 비밀에 남아 있어도 읽지 않는다). My Profile 에 **표시명 바꾸기**(`PATCH /api/me/display-name`, `UsersService.setDisplayName`)가 생겼고 온보딩 2단계도 같은 서비스와 같은 폼(`web/src/features/profile/DisplayNameForm.tsx`)을 쓴다. **하루 1회 규칙(docs/12 §3)이 여기서부터 실제로 걸린다** — 온보딩의 첫 선택은 세지 않고(`display-name-policy.ts`), 같은 값 저장은 변경이 아니다. `SelfUser.displayNameChangeableAt` 로 화면이 미리 잠근다. 시험할 때 하루에 두 번 바꾸면 막히는 것이 정상이다.
@@ -123,6 +125,7 @@ npm run dev:web                               # :5173
 - 사용은 공개 후 약 2주에 집중. 시간 파라미터는 하루 단위.
 - 연결/Network 성립 시 시작자를 지정해 구체적으로 안내한다.
 - 그래프 간격·노드 크기·표시 상한은 문서로 확정하지 않는다. 써 보고 조정한다(D-34).
+- **연결 요청과 글에 횟수 상한을 두지 않는다(D-82, 2026-09-10 사용자 피드백).** 남는 안전장치는 메시지 필수, 거절 후 재요청 대기, 운영자 정지다.
 
 ## 반드시 지킬 것 두 가지
 
