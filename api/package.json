@@ -12,6 +12,7 @@
     "prisma:seed": "ts-node -r dotenv/config prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "seed:dev": "ts-node -r dotenv/config prisma/seed/dev-users.ts",
+    "content:import": "ts-node -r dotenv/config prisma/content-import.ts",
     "mm:check": "ts-node -r dotenv/config scripts/mattermost-check.ts"
   },
   "prisma": {

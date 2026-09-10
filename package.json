@@ -16,7 +16,8 @@
     "prisma:migrate": "npm run prisma:migrate --workspace=api",
     "prisma:seed": "npm run prisma:seed --workspace=api",
     "prisma:studio": "npm run prisma:studio --workspace=api",
-    "seed:dev": "npm run seed:dev --workspace=api"
+    "seed:dev": "npm run seed:dev --workspace=api",
+    "content:import": "npm run content:import --workspace=api --"
   },
   "engines": {
     "node": ">=22"
