@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   DEFAULT_PARAMETERS,
+  FEATURE_FLAGS,
   type FeatureFlagKey,
   type FeatureFlagMap,
   type ParameterKey,
@@ -69,6 +70,19 @@ export class ParametersService {
   async allFlags(): Promise<FeatureFlagMap> {
     await this.refresh();
     return { ...this.flags };
+  }
+
+  /**
+   * 운영자가 기능을 켜고 끈다(D-78). 캐시를 바로 비워 다음 요청부터 반영된다.
+   * 이 서비스는 모듈 싱글턴이라 여기서 비우면 ExposureService 가 보는 값도 같이 바뀐다.
+   */
+  async setFlag(key: FeatureFlagKey, enabled: boolean): Promise<void> {
+    await this.prisma.featureFlag.upsert({
+      where: { key },
+      update: { enabled },
+      create: { key, enabled, note: FEATURE_FLAGS[key].note },
+    });
+    this.invalidate();
   }
 
   invalidate(): void {

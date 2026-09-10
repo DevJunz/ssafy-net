@@ -10,10 +10,16 @@ import type {
   OpsEntryStat,
   OpsJob,
   OpsMetrics,
+  OpsNetworkSwitchResult,
+  OpsOperator,
   OpsRequestDay,
   OpsRequestEntry,
 } from '@ssafy-net/shared';
+import { AppError } from '../../common/app-error';
 import { StatsService } from '../../common/stats.service';
+import { JobsService } from '../../jobs/jobs.service';
+import { CandidateService } from '../networks/candidate.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MattermostService } from '../../infra/mattermost/mattermost.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CREATE_PER_DAY } from '../interests/interests.service';
@@ -98,6 +104,10 @@ export class OpsService {
     private readonly stats: StatsService,
     private readonly mattermost: MattermostService,
     private readonly config: ConfigService,
+    private readonly candidates: CandidateService,
+    // 지표 헬퍼 jobs()·notifications() 와 이름이 겹쳐 다르게 부른다.
+    private readonly jobRunner: JobsService,
+    private readonly notifier: NotificationsService,
   ) {}
 
   async metrics(days: number): Promise<OpsMetrics> {
@@ -661,8 +671,9 @@ export class OpsService {
   }
 
   private async network(): Promise<OpsMetrics['product']['network']> {
-    const [enabled, candidates, statuses, decisions] = await Promise.all([
+    const [enabled, gate, candidates, statuses, decisions] = await Promise.all([
       this.parameters.flag('network_enabled'),
+      this.candidates.evaluateGate(),
       this.prisma.networkCandidate.count(),
       this.prisma.networkRecommendation.groupBy({ by: ['status'], _count: { _all: true } }),
       this.prisma.networkMember.groupBy({ by: ['decision'], _count: { _all: true } }),
@@ -673,6 +684,7 @@ export class OpsService {
       decisions.find((r) => r.decision === d)?._count._all ?? 0;
     return {
       enabled,
+      gate: { activeUsers: gate.activeUsers, perUser: gate.perUser, passes: gate.passes },
       candidates,
       open: status('OPEN'),
       activated: status('ACTIVATED'),
@@ -681,6 +693,103 @@ export class OpsService {
       joined: decision('JOINED'),
       declined: decision('DECLINED'),
     };
+  }
+
+  // ───────────────────────────────────────────── 레버 (D-78, D-79)
+
+  /**
+   * Network 추천을 켜고 끈다(D-78). 켜면 배치 시각을 기다리지 않고 후보 재계산과 빈 슬롯 노출을 지금 돌리고,
+   * 처음 켜는 것이면 온보딩을 마친 전원에게 "네트워크 추천이 시작되었습니다" 를 보낸다(docs/10 §4).
+   * dedupeKey 가 있어 껐다 켜도 사용자당 한 번이다. 끄면 새 노출만 멈춘다 — 후보 계산은 계속 돈다(D-75).
+   */
+  async setNetworkEnabled(enabled: boolean): Promise<OpsNetworkSwitchResult> {
+    const before = await this.parameters.flag('network_enabled');
+    await this.parameters.setFlag('network_enabled', enabled);
+    if (!enabled) return { enabled: false, candidates: 0, exposed: 0, notified: 0 };
+
+    // 잡으로 돌려야 서버 탭의 "마지막 실행" 에 남는다. 캐시는 setFlag 가 비웠으므로 노출 단계가 켜진 값을 본다.
+    const run = (await this.jobRunner.runNow('network.recompute')) as
+      | { candidates?: number; exposed?: number }
+      | null;
+
+    let notified = 0;
+    if (!before) {
+      // 껐다 다시 켜도 이미 받은 사람에게는 안 간다(dedupeKey 와 같은 규칙). 세는 값도 실제 대상만.
+      const already = await this.prisma.notification.findMany({
+        where: { type: 'NETWORK_ENABLED' },
+        select: { userId: true },
+      });
+      const users = await this.prisma.user.findMany({
+        where: { status: 'ACTIVE', id: { notIn: already.map((n) => n.userId) } },
+        select: { id: true },
+      });
+      for (const user of users) {
+        await this.notifier.notify({
+          userId: user.id,
+          type: 'NETWORK_ENABLED',
+          payload: {},
+          targetPath: '/networks?tab=recommended',
+          dedupeKey: 'network-enabled',
+        });
+        notified += 1;
+      }
+    }
+
+    return {
+      enabled: true,
+      candidates: run?.candidates ?? 0,
+      exposed: run?.exposed ?? 0,
+      notified,
+    };
+  }
+
+  /** 운영자 목록(D-79). 표시명과 이메일뿐이다. 실명은 없다. */
+  async operators(actorId: string): Promise<OpsOperator[]> {
+    const users = await this.prisma.user.findMany({
+      where: { isOperator: true, status: { not: 'WITHDRAWN' } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return users.map((user) => ({
+      id: user.id,
+      displayName: this.presenter.displayName(user),
+      email: user.email,
+      self: user.id === actorId,
+    }));
+  }
+
+  /**
+   * 이메일(Google 계정)로 지정한다. 목록에서 고르게 하지 않는 이유는 구성원 전체의 이메일을 나열하지 않기 위해서다(docs/12 §1).
+   * 가입·온보딩을 마친 사람만 된다 — 운영자 엔드포인트가 OnboardedGuard 뒤에 있어 그 전에는 어차피 못 쓴다.
+   */
+  async addOperator(email: string, actorId: string): Promise<OpsOperator> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: email.trim(), mode: 'insensitive' } },
+    });
+    if (!user) {
+      throw new AppError('NOT_FOUND', undefined, '그 이메일로 가입한 사용자가 없습니다. 먼저 가입과 온보딩을 마쳐야 합니다.');
+    }
+    if (user.status !== 'ACTIVE') {
+      throw new AppError('VALIDATION_FAILED', undefined, '온보딩을 마치지 않은 사용자입니다. 온보딩을 끝낸 뒤 추가합니다.');
+    }
+    const updated = user.isOperator
+      ? user
+      : await this.prisma.user.update({ where: { id: user.id }, data: { isOperator: true } });
+    return {
+      id: updated.id,
+      displayName: this.presenter.displayName(updated),
+      email: updated.email,
+      self: updated.id === actorId,
+    };
+  }
+
+  /** 자기 자신은 해제할 수 없다 — 마지막 운영자가 사라지는 길을 막는다. */
+  async removeOperator(id: string, actorId: string): Promise<void> {
+    if (id === actorId) {
+      throw new AppError('VALIDATION_FAILED', undefined, '자기 자신은 해제할 수 없습니다. 다른 운영자가 해제해야 합니다.');
+    }
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target || !target.isOperator) throw new AppError('NOT_FOUND');
+    await this.prisma.user.update({ where: { id }, data: { isOperator: false } });
   }
 
   // ───────────────────────────────────────────── 서버

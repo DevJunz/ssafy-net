@@ -1,8 +1,4 @@
-import type {
-  FeatureFlagMap,
-  FollowUpItem,
-  ParameterMap,
-} from '@ssafy-net/shared';
+import type { FollowUpItem } from '@ssafy-net/shared';
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
@@ -27,10 +23,10 @@ import { SessionProvider, useSession } from './session';
 const OpsPage = lazy(() => import('./pages/OpsPage'));
 
 function AuthenticatedApp() {
-  const { me } = useSession();
+  // 기능 플래그는 세션과 함께 받는다. 운영자가 /ops 에서 Network 를 켜면 거기서 새로 받아 탭이 바로 나타난다(D-78).
+  const { me, features } = useSession();
   const [badge, setBadge] = useState(0);
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
-  const [features, setFeatures] = useState<FeatureFlagMap | null>(null);
 
   /**
    * 배지는 **처리가 필요한 것의 수**다(D-31). 미읽음 수가 아니다.
@@ -51,13 +47,6 @@ function AuthenticatedApp() {
   useEffect(() => {
     void refreshBadge();
   }, [refreshBadge]);
-
-  useEffect(() => {
-    api
-      .get<{ parameters: ParameterMap; features: FeatureFlagMap }>('/parameters')
-      .then((result) => setFeatures(result.features))
-      .catch(() => {});
-  }, []);
 
   return (
     <Shell badge={badge} networkEnabled={features?.network_enabled}>

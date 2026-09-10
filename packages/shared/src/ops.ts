@@ -207,6 +207,8 @@ export interface OpsMetrics {
 
     network: {
       enabled: boolean;
+      /** 게이트 판정(docs/10 §4). 참고값이다 — 켜는 시점은 운영자가 화면에서 정한다(D-78) */
+      gate: { activeUsers: number; perUser: number; passes: boolean };
       candidates: number;
       open: number;
       activated: number;
@@ -303,4 +305,22 @@ export interface TrackEventsInput {
     occurredAt?: string;
   }[];
   sessionId?: string;
+}
+
+/** `PUT /api/admin/ops/network` 응답 (D-78). 켤 때만 후보·노출·안내 수가 있고, 끌 때는 0 이다. */
+export interface OpsNetworkSwitchResult {
+  enabled: boolean;
+  candidates: number;
+  exposed: number;
+  /** 처음 켤 때 "네트워크 추천이 시작되었습니다" 를 보낸 대상 수. 사용자당 한 번이다 */
+  notified: number;
+}
+
+/** 운영자 한 명 (`GET /api/admin/ops/operators`, D-79). 이메일은 로그인 계정을 가리키는 용도로 운영자끼리만 본다. 실명은 없다. */
+export interface OpsOperator {
+  id: string;
+  displayName: string;
+  email: string | null;
+  /** 호출한 본인. 자기 자신은 해제할 수 없다 */
+  self: boolean;
 }

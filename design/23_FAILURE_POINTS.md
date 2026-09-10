@@ -114,4 +114,4 @@ docs/14 결정: North Star = 신규 성립 연결 수, 가드레일 = "대화 �
 - **운영 환경 변수.** `NODE_ENV=production`이 빠지면 쿠키 `secure`가 안 켜진다. Google OAuth 리디렉션 URI를 운영 도메인으로 등록. 파라미터는 30초 캐시.
 - ~~**로그에 OAuth 코드가 남는다.** `RequestLoggerMiddleware`가 `originalUrl`을 그대로 찍어 콜백의 `code=`·`state=`가 들어간다.~~ **닫음(2026-09-10)** `NODE_ENV=production` 이면 쿼리스트링을 지운다.
 - **백업 스크립트는 있다**(`deploy/backup.sh`, 2026-09-10). cron 에 거는 것과 복원 리허설이 남았다.
-- **운영자 레버가 없어 정지·병합이 SQL 직접 실행이다.**
+- **정지·병합은 아직 SQL 직접 실행이다.** 운영자 추가·해제와 Network 스위치는 `/ops` 에 있다(2026-09-10, D-78·D-79).

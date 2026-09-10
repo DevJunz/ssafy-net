@@ -556,13 +556,18 @@ POST /api/events
 
 ## 15. 운영자
 
-운영자 대시보드(D-77)는 아래 한 엔드포인트를 읽는다. 나머지는 UI 없이 curl 로 부른다(L6).
+운영자 화면(D-77)이 읽고 쓰는 것. 지표 하나와 레버 둘(D-78·D-79)이다. 그 아래 묶음은 아직 화면 없이 curl 로 부른다.
 
 ```
-GET  /api/admin/ops?days=14                  제품 블록 + 서버 블록 (OpsMetrics, packages/shared/src/ops.ts). days 1~90
+GET    /api/admin/ops?days=14                제품 블록 + 서버 블록 (OpsMetrics, packages/shared/src/ops.ts). days 1~90
+PUT    /api/admin/ops/network                { "enabled": true } → { enabled, candidates, exposed, notified }
+                                             켜면 network.recompute 를 즉시 돌려 노출하고, 처음이면 전원에게 NETWORK_ENABLED (D-78)
+GET    /api/admin/ops/operators              운영자 목록 (OpsOperator: id, displayName, email, self). 실명 없음
+POST   /api/admin/ops/operators              { "email": "…" } 가입·온보딩을 마친 사람만. 없으면 404 NOT_FOUND, 온보딩 전이면 400 VALIDATION_FAILED
+DELETE /api/admin/ops/operators/:id          204. 자기 자신은 400 VALIDATION_FAILED (D-79)
 ```
 
-응답에 실명은 없다. 사용자는 표시명과 id 뿐이다(20 §11). 비율은 분모가 0이면 null. HTTP·웹훅 카운터는 프로세스 메모리라 `since` 부터다.
+응답에 실명은 없다. 사용자는 표시명과 id 뿐이고, 운영자 목록의 이메일은 로그인 계정을 가리키는 용도다(20 §11). 비율은 분모가 0이면 null. HTTP·웹훅 카운터는 프로세스 메모리라 `since` 부터다.
 
 ```
 GET  /api/admin/networks/gate                1인당 후보 수와 게이트 판정 (10 §4)
@@ -575,7 +580,6 @@ POST /api/admin/users/:id/suspend            { "suspended": true, "reason": "" }
 POST /api/admin/interests                    추가
 PATCH /api/admin/interests/:id               이름 변경 / 숨김 / 병합 (08 §5)
 PUT  /api/admin/parameters/:key              { "value": 2, "reason": "추천 0명 비율 34%" }
-PUT  /api/admin/feature-flags/:key           { "enabled": true }
 ```
 
 - 화면은 만들지 않는다(L6). 운영자는 이 엔드포인트를 직접 호출하거나 `api/scripts/`의 SQL을 쓴다.

@@ -206,7 +206,7 @@ curl -s https://<도메인>/api/health      # {"ok":true,"uptimeSec":...}
 
 브라우저에서 `https://<도메인>/invite/<초대코드>` → Google 로그인 → Mattermost 인증(redirect 모드라 코드가 운영자 채널로 온다) → 온보딩 → 그래프.
 
-운영자 계정 켜기 (본인 계정 가입 뒤 한 번):
+운영자 계정 켜기 (본인 계정 가입 뒤 한 번. 그 다음 운영자는 `/ops` 관리 탭에서 이메일로 추가한다):
 
 ```bash
 docker compose -f deploy/docker-compose.prod.yml exec db \

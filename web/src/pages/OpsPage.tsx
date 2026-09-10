@@ -1,11 +1,20 @@
-import type { OpsJob, OpsMetrics, OpsRequestEntry } from '@ssafy-net/shared';
+import type {
+  OpsJob,
+  OpsMetrics,
+  OpsNetworkSwitchResult,
+  OpsOperator,
+  OpsRequestEntry,
+} from '@ssafy-net/shared';
 import { RefreshCwIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '../api/client';
+import { useSession } from '../session';
 import {
   ErrorText,
   Muted,
@@ -146,12 +155,16 @@ export default function OpsPage() {
             <TabsList className="mb-3">
               <TabsTrigger value="product">제품</TabsTrigger>
               <TabsTrigger value="server">서버</TabsTrigger>
+              <TabsTrigger value="admin">관리</TabsTrigger>
             </TabsList>
             <TabsContent value="product">
-              <ProductTab data={data} />
+              <ProductTab data={data} reload={load} />
             </TabsContent>
             <TabsContent value="server">
               <ServerTab data={data} />
+            </TabsContent>
+            <TabsContent value="admin">
+              <AdminTab />
             </TabsContent>
           </Tabs>
         )}
@@ -180,7 +193,7 @@ function LoadingSkeleton() {
 // 제품
 // ─────────────────────────────────────────────────────────
 
-function ProductTab({ data }: { data: OpsMetrics }) {
+function ProductTab({ data, reload }: { data: OpsMetrics; reload: () => Promise<void> }) {
   const p = data.product;
   const r = p.requests;
   const tick = data.days > 14 ? 4 : data.days > 7 ? 2 : 1;
@@ -461,16 +474,27 @@ function ProductTab({ data }: { data: OpsMetrics }) {
 
       <Section
         title="Network 추천"
-        description={p.network.enabled ? '기능 켜짐 — 후보가 노출되고 알림이 나간다' : '기능 꺼짐 — 후보만 계산한다(D-75)'}
+        description={
+          p.network.enabled
+            ? '기능 켜짐 — 후보가 노출되고 알림이 나간다. 끄면 새 노출만 멈춘다'
+            : '기능 꺼짐 — 후보만 계산한다(D-75). 켜는 시점은 여기서 정한다. 게이트 판정은 참고값이다(D-78)'
+        }
       >
         <Tiles>
           <StatTile label="상태" value={p.network.enabled ? '켜짐' : '꺼짐'} />
+          <StatTile
+            label="1인당 후보"
+            value={p.network.gate.perUser.toFixed(2)}
+            hint={`게이트 ${p.network.gate.passes ? '통과' : '미달'} · 기준 1.00 · 활성 ${fmtNum(p.network.gate.activeUsers)}명`}
+            tone={p.network.gate.passes ? 'plain' : 'bad'}
+          />
           <StatTile label="후보" value={fmtNum(p.network.candidates)} />
           <StatTile label="열림" value={fmtNum(p.network.open)} />
           <StatTile label="성립" value={fmtNum(p.network.activated)} />
           <StatTile label="만료 / 해산" value={`${fmtNum(p.network.expired)} / ${fmtNum(p.network.dissolved)}`} />
           <StatTile label="참여 / 거절" value={`${fmtNum(p.network.joined)} / ${fmtNum(p.network.declined)}`} />
         </Tiles>
+        <NetworkSwitch enabled={p.network.enabled} activeUsers={p.network.gate.activeUsers} onChanged={reload} />
       </Section>
     </div>
   );
@@ -681,4 +705,198 @@ function JobStatus({ job }: { job: OpsJob }) {
   if (job.lastStatus === 'running') return <Badge variant="secondary">실행 중</Badge>;
   if (job.lastStatus === 'done') return <Badge variant="outline">정상</Badge>;
   return <Badge variant="secondary">기록 없음</Badge>;
+}
+
+// ─────────────────────────────────────────────────────────
+// 레버 (D-78, D-79)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Network 추천 스위치 (D-78). 켜면 후보 재계산·노출을 지금 돌리고, 처음이면 전원에게 안내 알림이 간다.
+ * 알림이 실제로 나가는 일이라 켜기는 두 번 누른다. 끄기는 새 노출만 멈추므로 한 번.
+ */
+function NetworkSwitch({
+  enabled,
+  activeUsers,
+  onChanged,
+}: {
+  enabled: boolean;
+  activeUsers: number;
+  onChanged: () => Promise<void>;
+}) {
+  const { reloadFeatures } = useSession();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const apply = async (next: boolean) => {
+    setBusy(true);
+    try {
+      const result = await api.put<OpsNetworkSwitchResult>('/admin/ops/network', { enabled: next });
+      toast.success(
+        next
+          ? `켰습니다 — 후보 ${fmtNum(result.candidates)} · 노출 ${fmtNum(result.exposed)} · 안내 ${fmtNum(result.notified)}명`
+          : '껐습니다. 새 노출은 멈추고 후보 계산은 계속 돕니다',
+      );
+      await Promise.all([reloadFeatures(), onChanged()]);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+
+  if (enabled) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void apply(false)}>
+          끄기
+        </Button>
+        <Muted className="text-[12.5px]">끄면 새 노출과 알림만 멈춥니다. 이미 노출된 추천은 그대로 진행됩니다.</Muted>
+      </div>
+    );
+  }
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" onClick={() => setConfirming(true)}>
+          켜고 지금 노출
+        </Button>
+        <Muted className="text-[12.5px]">배치 시각(09·18시)을 기다리지 않고 바로 후보를 계산해 노출합니다.</Muted>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+      <span className="text-[13px]">
+        후보를 다시 계산해 바로 노출합니다. 처음 켜는 것이면 활성 사용자 {fmtNum(activeUsers)}명에게 &quot;네트워크 추천이
+        시작되었습니다&quot; 알림이 갑니다(live 모드면 실제 DM). 계속할까요?
+      </span>
+      <div className="ml-auto flex gap-2">
+        <Button type="button" size="sm" disabled={busy} onClick={() => void apply(true)}>
+          {busy ? '켜는 중…' : '켜기'}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+          취소
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function AdminTab() {
+  return (
+    <div className="flex flex-col gap-3">
+      <OperatorsSection />
+      <Muted className="text-[12.5px]">
+        사용자 정지와 관심사 병합·숨김은 아직 여기 없다. VM 에서 SQL 로 한다(design/23 §8). Network 추천의 켜고 끄기는 제품 탭의
+        Network 구역에 있다.
+      </Muted>
+    </div>
+  );
+}
+
+/** 운영자 추가·해제 (D-79). 이메일로 지정한다 — 목록에서 고르게 하면 구성원 전체의 이메일을 나열하게 된다(docs/12 §1). */
+function OperatorsSection() {
+  const [items, setItems] = useState<OpsOperator[] | null>(null);
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setItems(await api.get<OpsOperator[]>('/admin/ops/operators'));
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const add = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = email.trim();
+    if (!value) return;
+    setBusy(true);
+    try {
+      const added = await api.post<OpsOperator>('/admin/ops/operators', { email: value });
+      toast.success(`${added.displayName} 을(를) 운영자로 추가했습니다`);
+      setEmail('');
+      await load();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (target: OpsOperator) => {
+    setBusy(true);
+    try {
+      await api.del<void>(`/admin/ops/operators/${target.id}`);
+      toast.success(`${target.displayName} 의 운영자 권한을 해제했습니다`);
+      await load();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+      setRemoving(null);
+    }
+  };
+
+  return (
+    <Section
+      title="운영자"
+      description="이 화면과 운영자 엔드포인트를 쓸 수 있는 사람. 가입과 온보딩을 마친 사람을 Google 이메일로 추가한다. 자기 자신은 해제할 수 없다"
+    >
+      {!items ? (
+        <Skeleton className="h-[48px]" />
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((op) => (
+            <li key={op.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2">
+              <span className="font-medium">{op.displayName}</span>
+              <Muted className="text-[12.5px]">{op.email ?? '이메일 없음'}</Muted>
+              <div className="ml-auto flex items-center gap-2">
+                {op.self ? (
+                  <Badge variant="secondary">나</Badge>
+                ) : removing === op.id ? (
+                  <>
+                    <span className="text-[12.5px]">해제할까요?</span>
+                    <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void remove(op)}>
+                      해제
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setRemoving(null)}>
+                      취소
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setRemoving(op.id)}>
+                    해제
+                  </Button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => void add(event)}>
+        <Input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="추가할 사람의 Google 이메일"
+          className="max-w-[320px]"
+          required
+        />
+        <Button type="submit" size="sm" disabled={busy || !email.trim()}>
+          운영자로 추가
+        </Button>
+      </form>
+    </Section>
+  );
 }
