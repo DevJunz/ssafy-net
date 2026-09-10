@@ -84,7 +84,7 @@ Caddy 가 인증서를 자동으로 받으려면 도메인이 있어야 한다. 
 
 ## 5. VM 에서 — Docker 설치와 첫 배포
 
-VM 목록의 **SSH** 버튼(브라우저 터미널)으로 들어간다.
+Compute Engine → VM 인스턴스 → `ssafy-net` 행의 **SSH** 버튼(브라우저 터미널)으로 들어간다. **프롬프트가 `<계정>@ssafy-net:~$` 여야 한다.** `<계정>@cloudshell:~ (ssanecting)$` 이면 Cloud Shell 이다 — 거기는 콘솔 명령(§5-2)을 치는 곳이지 서버가 아니다. 이 절의 명령은 전부 VM 에서 한다.
 
 ```bash
 # Docker
@@ -92,8 +92,15 @@ sudo apt-get update && sudo apt-get install -y ca-certificates curl git
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER && newgrp docker
 
-# 코드 (compose 파일과 스크립트 때문에 필요하다. 빌드는 여기서 하지 않는다)
-git clone https://github.com/DevJunz/ssafy-net.git && cd ssafy-net
+# 코드 — compose 파일과 스크립트 때문에 필요하다. 빌드는 여기서 하지 않는다.
+# 저장소가 private 이라 배포 키(이 저장소만, 읽기 전용)로 받는다. 키 만들기는 한 번만.
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -C "ssafy-net-vm"
+cat ~/.ssh/id_ed25519.pub
+#   ↑ 이 한 줄(ssh-ed25519 로 시작)을 GitHub 저장소 → Settings → Deploy keys → Add deploy key 에 넣는다.
+#     Title: ssafy-net-vm, "Allow write access" 는 끈 채로. 로컬에서 gh 로 넣어도 된다:
+#     gh repo deploy-key add <공개키를 저장한 파일> --title ssafy-net-vm
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+git clone git@github.com:DevJunz/ssafy-net.git && cd ssafy-net
 
 # 환경 변수 — 둘 중 하나
 ./deploy/fetch-env.sh   # (a) Secret Manager 에서 내려받는다. §5-1 을 먼저 해 둔다
@@ -260,6 +267,8 @@ docker compose -f deploy/docker-compose.prod.yml down -v   # 컨테이너와 DB 
 | api 가 `unhealthy` | `logs api`. 대개 `DATABASE_URL`(비밀번호에 특수문자) 또는 migrate 실패 |
 | Mattermost 인증 코드가 안 옴 | redirect 모드면 운영자 채널을 본다. 웹훅 URL 과 "채널로 잠금 해제" 확인(README) |
 | `add-iam-policy-binding` 이 `PERMISSION_DENIED ... setIamPolicy`, 끝에 `authenticated as <번호>-compute@...` | VM SSH 에서 돌린 것이다. VM 서비스 계정은 권한을 못 준다. 같은 명령을 콘솔의 Cloud Shell 에서 |
+| `git clone` 이 Username 을 묻고 `Password authentication is not supported` | 저장소가 private 이다. §5 의 배포 키(ssh-keygen → Deploy keys → `git@github.com:` 주소). 계정 비밀번호로는 안 된다 |
+| `./deploy/deploy.sh: No such file or directory` | clone 이 안 됐거나 Cloud Shell 에 있다. 프롬프트를 본다(§5 머리) |
 | Actions 가 `secret 확인` 에서 실패 | `GCP_SA_KEY` 가 없다. §5-2 의 `gh secret set` |
 | Actions 가 `login` 에서 실패 | 키 JSON 이 통째로 들어갔는지(`gh secret set ... < 파일`). 서비스 계정에 저장소 writer 역할이 있는지 |
 | `deploy.sh` 가 `registry login` 에서 실패 | VM 액세스 범위가 "모든 Cloud API" 인지(§2), gcloud 가 있는지(`gcloud --version`) |
