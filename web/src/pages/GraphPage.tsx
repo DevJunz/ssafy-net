@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { track } from '../analytics';
 import { api } from '../api/client';
 import {
+  Notice,
   Page,
   PageLede,
   PageTitle,
@@ -255,6 +256,15 @@ export function GraphPage() {
   const anchorIds = anchor.type === 'INTEREST' ? anchor.interestIds : [];
   const peopleShown = base?.nodes.filter((node) => node.kind === 'PERSON').length ?? 0;
 
+  /**
+   * 관심사를 하나도 고르지 않은 사람은 그래프에 자기 노드 하나만 보게 된다(D-93).
+   * 그 화면은 고장과 구별되지 않으므로 이유와 갈 곳을 캔버스 위에 겹쳐 준다.
+   * 관심사는 앵커가 ME 일 때만 응답에 들어오므로 판정도 그때만 한다.
+   */
+  const myInterestsShown =
+    base?.nodes.filter((node) => node.kind === 'INTEREST' && node.mine).length ?? 0;
+  const noInterests = anchor.type === 'ME' && Boolean(base) && myInterestsShown === 0;
+
   /** 카메라 자동 맞춤의 유일한 트리거(docs/07 §1). 선택은 여기에 들어가지 않는다. */
   const cameraKey = `${anchor.type}:${anchorIds.join(',')}:${similarMode}`;
 
@@ -400,6 +410,19 @@ export function GraphPage() {
             휴대폰에서는 받은 요청을 처리하고 성립된 연결을 확인할 수 있습니다.
             그래프에서 사람을 찾는 것은 넓은 화면에서 해주세요.
           </PageLede>
+          {/* 관심사 고르기는 좁은 화면에서도 된다 — 넓은 화면으로 옮기기 전에 끝내 두는 편이 낫다(D-93). */}
+          {me.interests.length === 0 && (
+            <Notice className="mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  아직 고른 관심사가 없습니다. 골라 두면 넓은 화면에서 바로 사람이 보입니다.
+                </span>
+                <Button asChild>
+                  <Link to="/profile?edit=interests">관심사 고르기</Link>
+                </Button>
+              </div>
+            </Notice>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild>
               <Link to="/connections">연결</Link>
@@ -500,6 +523,20 @@ export function GraphPage() {
             </Toggle>
           )}
         </div>
+
+        {noInterests && (
+          <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center p-6">
+            <div className="pointer-events-auto max-w-sm rounded-xl border bg-card/95 px-5 py-4 text-center shadow-lg backdrop-blur-sm">
+              <p className="text-[15px] font-semibold">고른 관심사가 없습니다</p>
+              <p className="mt-1.5 text-[13px] leading-normal text-muted-foreground">
+                관심사를 골라야 그래프에 사람이 보이고 네트워크 추천도 만들어집니다.
+              </p>
+              <Button asChild className="mt-3.5">
+                <Link to="/profile?edit=interests">관심사 고르기</Link>
+              </Button>
+            </div>
+          </div>
+        )}
 
         {merged && (
           <GraphCanvas

@@ -1,5 +1,7 @@
 import type { GraphResponse, InterestCatalog } from '@ssafy-net/shared';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -152,17 +154,35 @@ export function InterestRail({
               </>
             ) : (
               <>
-                <CommandGroup heading="내 관심사" className="p-0">
-                  {mine.map(([id, value]) => (
-                    <Row
-                      key={id}
-                      id={id}
-                      name={value.name}
-                      categoryId={value.categoryId}
-                      onPick={() => onSelect(id)}
-                    />
-                  ))}
-                </CommandGroup>
+                {/*
+                 * 관심사가 하나도 없으면 제목만 남아 빈칸이 된다 — 고장처럼 보인다(D-93).
+                 * 그래프가 비는 진짜 이유가 여기이므로, 이유와 갈 곳을 같이 준다.
+                 */}
+                {mine.length === 0 ? (
+                  <div className="mx-1.5 rounded-md border border-dashed bg-secondary/40 px-3 py-3">
+                    <p className="text-[13px] leading-normal font-medium">
+                      고른 관심사가 없습니다
+                    </p>
+                    <p className="mt-1 text-xs leading-normal text-muted-foreground">
+                      관심사를 골라야 그래프에 사람이 보입니다.
+                    </p>
+                    <Button asChild size="sm" className="mt-2.5 w-full">
+                      <Link to="/profile?edit=interests">관심사 고르기</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <CommandGroup heading="내 관심사" className="p-0">
+                    {mine.map(([id, value]) => (
+                      <Row
+                        key={id}
+                        id={id}
+                        name={value.name}
+                        categoryId={value.categoryId}
+                        onPick={() => onSelect(id)}
+                      />
+                    ))}
+                  </CommandGroup>
+                )}
 
                 {adjacent.length > 0 && (
                   <CommandGroup heading="이 그래프에 함께 보이는 관심사" className="mt-3 p-0">

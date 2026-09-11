@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import {
   Chips,
   ChipTag,
   Muted,
+  Notice,
   Page,
   PageLede,
   PageTitle,
@@ -48,13 +50,30 @@ const formatWhen = (date: Date) =>
  * 표시명(닉네임 ↔ 실명, 닉네임 바꾸기)은 하루 1회(docs/12 §3).
  * 실명(이름·반)은 언제든 고친다 — 연결된 상대에게 보이는 이름이라 오타를 막지 않는다.
  * 관심사 수정은 온보딩과 같은 화면을 쓴다(D-24).
+ *
+ * `?edit=interests` 로 들어오면 관심사 고르기가 바로 열린다(D-93). 관심사가 비어
+ * 그래프가 빈 사람을 여기로 보내는데, 페이지만 열어 주고 버튼을 다시 찾게 하면
+ * 안내가 한 번 더 끊긴다.
  */
 export function ProfilePage() {
   const { me, reload } = useSession();
+  const [params, setParams] = useSearchParams();
   const [editingName, setEditingName] = useState(false);
-  const [editingInterests, setEditingInterests] = useState(false);
+  const [editingInterests, setEditingInterests] = useState(
+    () => params.get('edit') === 'interests',
+  );
   const [editingRealName, setEditingRealName] = useState(false);
   const [editingMessage, setEditingMessage] = useState(false);
+
+  /** 닫을 때 `?edit=` 도 지운다. 안 지우면 새로고침할 때마다 다시 열린다. */
+  const closeInterests = () => {
+    setEditingInterests(false);
+    if (params.has('edit')) {
+      const next = new URLSearchParams(params);
+      next.delete('edit');
+      setParams(next, { replace: true });
+    }
+  };
 
   if (!me) return null;
 
@@ -242,21 +261,40 @@ export function ProfilePage() {
           <Muted>
             그래프와 추천의 재료입니다. 저장하면 그래프와 추천이 즉시 바뀝니다.
           </Muted>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Chips>
-              {me.interests.map((interest) => (
-                <ChipTag key={interest.id}>{interest.name}</ChipTag>
-              ))}
-            </Chips>
-            <Button
-              type="button"
-              variant="outline"
-              className="ml-1"
-              onClick={() => setEditingInterests(true)}
-            >
-              관심사 수정
-            </Button>
-          </div>
+          {/*
+           * 비어 있는 것을 그냥 두지 않는다(D-93). 관심사가 없으면 그래프에 나 혼자만
+           * 남고 추천도 만들어지지 않는데, 칩 자리가 비어 있을 뿐이면 그것이 고장인지
+           * 아직 안 고른 것인지 구별되지 않는다.
+           */}
+          {me.interests.length === 0 ? (
+            <Notice className="mt-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  아직 고른 관심사가 없습니다. 관심사가 있어야 그래프에 사람이 보이고 추천도
+                  만들어집니다.
+                </span>
+                <Button type="button" onClick={() => setEditingInterests(true)}>
+                  관심사 고르기
+                </Button>
+              </div>
+            </Notice>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Chips>
+                {me.interests.map((interest) => (
+                  <ChipTag key={interest.id}>{interest.name}</ChipTag>
+                ))}
+              </Chips>
+              <Button
+                type="button"
+                variant="outline"
+                className="ml-1"
+                onClick={() => setEditingInterests(true)}
+              >
+                관심사 수정
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="mt-6">
@@ -277,7 +315,7 @@ export function ProfilePage() {
           <Dialog
             open
             onOpenChange={(open) => {
-              if (!open) setEditingInterests(false);
+              if (!open) closeInterests();
             }}
           >
             <DialogContent className="flex h-[94dvh] max-w-[min(1440px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1440px,96vw)]">
@@ -294,10 +332,10 @@ export function ProfilePage() {
                   submitLabel="저장"
                   onSaved={async (message) => {
                     await reload();
-                    setEditingInterests(false);
+                    closeInterests();
                     toast.success(message ?? '관심사를 저장했습니다.');
                   }}
-                  onCancel={() => setEditingInterests(false)}
+                  onCancel={closeInterests}
                 />
               </div>
             </DialogContent>
