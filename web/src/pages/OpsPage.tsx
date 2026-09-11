@@ -753,13 +753,39 @@ function NetworkSwitch({
     }
   };
 
+  // 켜져 있을 때도 지금 다시 계산할 수 있어야 한다 — 관심사 목록을 갈아 끼운 직후처럼
+  // 09·18시를 기다릴 이유가 없는 때가 있다. 켜는 것이 아니라 잡만 돌리므로 안내는 나가지 않는다.
+  const recompute = async () => {
+    setBusy(true);
+    try {
+      const result = await api.post<{ candidates?: number; exposed?: number }>(
+        '/admin/jobs/run',
+        { name: 'network.recompute' },
+      );
+      toast.success(
+        `다시 계산했습니다 — 후보 ${fmtNum(result.candidates ?? 0)} · 노출 ${fmtNum(result.exposed ?? 0)}`,
+      );
+      await onChanged();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (enabled) {
     return (
       <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" disabled={busy} onClick={() => void recompute()}>
+          {busy ? '계산 중…' : '지금 다시 계산'}
+        </Button>
         <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void apply(false)}>
           끄기
         </Button>
-        <Muted className="text-[12.5px]">끄면 새 노출과 알림만 멈춥니다. 이미 노출된 추천은 그대로 진행됩니다.</Muted>
+        <Muted className="text-[12.5px]">
+          다시 계산은 후보와 노출만 새로 만듭니다 — "시작되었습니다" 안내는 다시 가지 않습니다.
+          끄면 새 노출과 알림만 멈추고 이미 노출된 추천은 그대로 진행됩니다.
+        </Muted>
       </div>
     );
   }
