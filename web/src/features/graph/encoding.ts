@@ -15,10 +15,10 @@ import type { GraphInterestNode, GraphNode } from '@ssafy-net/shared';
 
 // 분류 색 자리. 운영자가 분류를 만들 수 있으므로(D-86) 지금 있는 11개보다 넉넉히 둔다.
 // 전부 유채색이다 — 회색은 사람의 것이라 여기에 넣지 않는다.
-const CATEGORY_SLOTS = 12;
+const CATEGORY_SLOTS = 14;
 const categorySlots = new Map<string, number>();
 
-/** Category마다 색 자리(1~12)를 준다. 처음 본 순서대로 배정하고, 넘치면 돌려 쓴다. */
+/** Category마다 색 자리(1~14)를 준다. 처음 본 순서대로 배정하고, 넘치면 돌려 쓴다. */
 export function categorySlot(categoryId: string): number {
   let slot = categorySlots.get(categoryId);
   if (slot === undefined) {

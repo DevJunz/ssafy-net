@@ -31,9 +31,11 @@ import { CreateInterest } from './CreateInterest';
  * 두 가지 모양이 있다.
  *   - page    — 온보딩. 본문 폭(760px)에 한 단으로 늘어놓고 페이지가 스크롤한다
  *   - overlay — My Profile 의 "관심사 수정". 넓은 대화상자를 가득 채우고 분류를
- *               여러 단(1440px 에서 5단)으로 흘려 100개 + 층 20개가 스크롤 없이
- *               한 화면에 들어온다. 좁아지면 단이 줄고 그때는 스크롤한다.
+ *               여러 단(1400px 부터 6단)으로 흘려 200개가 거의 한 화면에 들어온다.
+ *               단을 더 늘리면 칩이 줄바꿈해 오히려 길어진다 — 6단이 바닥이다(실측).
+ *               좁아지면 단이 줄고 그때는 스크롤한다.
  *               다 보이므로 분류 바로가기 버튼과 선택 요약 줄은 두지 않는다.
+ *               속성(층)이 목록 맨 위다 — 하나만 고르는 것이라 먼저 정하고 내려간다.
  */
 export function InterestPicker({
   submitLabel,
@@ -220,8 +222,10 @@ export function InterestPicker({
         onClick={() => toggle(interest.id)}
         // 사람 수는 "여기 고르면 누가 있을지"의 힌트다.
         count={`${interest.holderCount}명`}
-        // overlay 는 100개가 한 화면에 들어와야 해서 칩을 한 치수 줄인다.
-        className={cn(overlay && 'gap-1 px-2 py-[2px] text-[12px] [&>span]:text-[10.5px]')}
+        // overlay 는 200개가 한 화면에 들어와야 해서 칩을 두 치수 줄인다.
+        className={cn(
+          overlay && 'gap-[3px] px-[7px] py-[1px] text-[11.5px] [&>span]:text-[10px]',
+        )}
       >
         {interest.name}
       </Chip>
@@ -240,7 +244,7 @@ export function InterestPicker({
       ref={(node) => {
         sectionRefs.current[category.id] = node;
       }}
-      className={cn(overlay && 'mb-3.5 break-inside-avoid')}
+      className={cn(overlay && 'mb-2.5 break-inside-avoid')}
     >
       <div
         className={cn(
@@ -255,7 +259,7 @@ export function InterestPicker({
           {lede}
         </Muted>
       )}
-      <Chips className={cn(overlay && 'gap-1')}>
+      <Chips className={cn(overlay && 'gap-[3px]')}>
         {category.interests.map((interest) => renderChip(interest, kind))}
       </Chips>
     </div>
@@ -292,11 +296,11 @@ export function InterestPicker({
 
   return (
     <div className={cn(overlay && 'flex h-full min-h-0 flex-col')}>
-      <div className={cn(overlay && 'min-h-0 flex-1 overflow-y-auto px-6 pb-5')}>
+      <div className={cn(overlay && 'min-h-0 flex-1 overflow-y-auto px-6 pb-3')}>
         <div
           className={cn(
             'sticky top-0 z-[2] flex flex-col border-b bg-background',
-            overlay ? 'gap-3 py-3' : 'gap-4 py-4',
+            overlay ? 'gap-3 py-2.5' : 'gap-4 py-4',
           )}
         >
           {/* overlay 에서는 검색과 개수가 한 줄에 앉아 목록에 높이를 더 준다. */}
@@ -309,7 +313,7 @@ export function InterestPicker({
                 setCreating(false);
               }}
               placeholder="관심사 검색 (없으면 추가할 수 있습니다)"
-              className={cn('h-11 bg-card', overlay && 'h-10 w-[320px] max-w-full')}
+              className={cn('h-11 bg-card', overlay && 'h-9 w-[300px] max-w-full')}
             />
             <Muted className={cn(!overlay && 'mt-4')}>
               {topicCount}개 선택 · 최소 {min} · 최대 {max}
@@ -358,13 +362,11 @@ export function InterestPicker({
         <div
           className={cn(
             overlay &&
-              'columns-1 gap-x-5 pt-3 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5',
+              // 단이 더 늘면 칩이 줄바꿈해 오히려 길어진다 — 6단이 바닥이다(1440px 에서 실측).
+              'columns-1 gap-x-5 pt-2 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 xwide:columns-6',
           )}
         >
-          {visibleTopics.map((category) =>
-            categoryBlock(category, category.name, 'INTEREST'),
-          )}
-
+          {/* 층 같은 속성이 맨 위다 — 하나만 고르는 것이라 먼저 정하고 내려간다. */}
           {!normalized &&
             attributes.map((category) =>
               categoryBlock(
@@ -372,10 +374,14 @@ export function InterestPicker({
                 `활동하는 ${category.name}`,
                 'ATTRIBUTE',
                 overlay
-                  ? `하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다.`
+                  ? `하나만 고를 수 있습니다.`
                   : `선택 사항입니다. 하나만 고를 수 있고, 관심사 개수에는 들어가지 않습니다. 같은 ${category.name}에서 활동하는 사람을 그래프에서 볼 수 있습니다.`,
               ),
             )}
+
+          {visibleTopics.map((category) =>
+            categoryBlock(category, category.name, 'INTEREST'),
+          )}
         </div>
 
         {normalized && !exactExists && !creating && (

@@ -76,6 +76,8 @@
   --cat-10: #1098ad; /* 하늘 */
   --cat-11: #7048e8; /* 보라 */
   --cat-12: #a61e4d; /* 자두 */
+  --cat-13: #9c6644; /* 갈색 */
+  --cat-14: #0b7285; /* 짙은 청록 */
 
   color-scheme: light;
 }
@@ -123,6 +125,8 @@
    */
   --breakpoint-graph: 56.25rem;
   --breakpoint-wide: 70rem;
+  /* 관심사 수정 대화상자의 단 수. 노트북 폭(1400px)부터 한 단 더 준다 */
+  --breakpoint-xwide: 87.5rem;
 }
 
 @layer base {
