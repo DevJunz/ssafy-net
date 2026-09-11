@@ -380,6 +380,26 @@ docker compose -f deploy/docker-compose.prod.yml exec -e SEED_USERS=100 api npm 
 
 `seed:dev` 는 `APP_ENV=dev` 가 없으면 "운영으로 보인다" 며 멈춘다. 운영 VM 창에 잘못 붙여 넣어도 아무 일이 없다.
 
+### 내용(분류·관심사·질문)을 갈아 끼울 때
+
+이미 돌고 있는 개발 서버의 관심사 목록이 옛것일 때. `prisma:seed` 는 upsert 라 옛 관심사가 남으므로 **통째 교체**를 쓴다.
+
+```bash
+cd ~/ssafy-net
+C=deploy/docker-compose.prod.yml
+docker compose -f $C exec api npm run content:import -- prisma/content.json --dry-run  # 무엇이 바뀌는지만
+docker compose -f $C exec api npm run content:import -- prisma/content.json           # 실제 교체
+```
+
+**교체하면 모든 사용자의 관심사 선택과 글, 노출된 네트워크 추천이 사라진다.** 계정·연결·알림은 남는다. 그래서 순서가 있다:
+
+1. `content:import` — 목록을 갈아 끼운다
+2. 브라우저에서 **본인 계정의 관심사를 다시 고른다**(`/profile`). 이걸 먼저 해야 다음 단계가 내 주변 클러스터를 만든다
+3. `docker compose -f $C exec -e SEED_USERS=100 api npm run seed:dev` — 더미를 새 목록으로 다시 만든다
+4. `/ops` → 제품 → Network → **지금 다시 계산**(또는 "후보 기준값"의 미리보기)
+
+2 를 건너뛰면 `seed:dev` 가 "관심사가 비어 있어 주변 클러스터를 만들지 않았다" 고 알리고 넘어간다.
+
 ### 쓰기 — 매번
 
 ```bash
