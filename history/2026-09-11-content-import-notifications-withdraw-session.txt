@@ -1,0 +1,1809 @@
+ ▐▛███▛█   Claude Code v2.1.267
+▝▜██████▀  Opus 5 · Claude Max
+  ▝▝ ▝▝    ~\Desktop\ssafy-net
+
+
+❯ /effort                                                                       
+  ⎿  Set effort level to xhigh (saved as your default for new sessions): Deeper
+     reasoning than high, just below maximum (Fable 5, Opus 4.7+, Sonnet 5)
+
+❯ 지금 프로필 수정에서 관심사 수정을하는 부분이 너무 불편해 관심사가 스크롤이   
+  아니라 한 번에 다 볼 수 있게해줘 완료했으면 로컬에서 실행해서 보여줘          
+
+  Searched for 2 patterns, read 1 file, listed 2 directories, ran 4 shell commands (ctrl+o to expand)
+
+● Write(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 87 lines, removed 66 lines
+      28   *
+      29   * 찾는 관심사가 없으면 여기서 바로 추가한다(D-74). 별도 제안 
+          화면은 없다.
+      30   *
+      31 - * `embedded` 는 My Profile 처럼 다른 화면 안에 상자로 들어갈  
+         -때다. 목록이 상자 안에서                                       
+      32 - * 스크롤되고(검색은 상자 위에 고정) 저장·취소 버튼은 상자 아래
+         - 발에 남는다 —                                                 
+      33 - * 페이지 하나를 통째로 차지하는 온보딩과 달리, 다른 구역 사이 
+         -에 얌전히 끼어야 한다.                                         
+      31 + * 두 가지 모양이 있다.                                        
+      32 + *   - page    — 온보딩. 본문 폭(760px)에 한 단으로 늘어놓고 페
+         +이지가 스크롤한다                                              
+      33 + *   - overlay — My Profile 의 "관심사 수정". 넓은 대화상자를  
+         +가득 채우고 분류를                                             
+      34 + *               여러 단(최대 4단)으로 흘려 100개가 한 화면에  
+         +들어온다. 좁아지면                                             
+      35 + *               단이 줄어든다. 다 보이므로 분류 바로가기 버튼 
+         +은 두지 않는다.                                                
+      36   */
+      37  export function InterestPicker({
+      38    submitLabel,
+      39    onSaved,
+      40    onCancel,
+      39 -  embedded = false,                                            
+      41 +  variant = 'page',                                            
+      42  }: {
+      43    submitLabel: string;
+      44    onSaved: (notice: string | null) => void;
+      45    /** 있으면 취소 버튼이 생긴다(My Profile) */
+      46    onCancel?: () => void;
+      45 -  /** 상자 안에 들어가는 형태. 높이를 제한하고 안에서 스크롤한 
+         -다 */                                                          
+      46 -  embedded?: boolean;                                          
+      47 +  /** 넓은 대화상자 안에 들어가는 형태. 부모 높이를 채우고 목록
+         +을 여러 단으로 나눈다 */                                       
+      48 +  variant?: 'page' | 'overlay';                                
+      49  }) {
+      50    const [catalog, setCatalog] = useState<InterestCatalog | null
+          >(null);
+      51    const [selected, setSelected] = useState<Set<string>>(new Set
+          ());
+     ...
+      54    const [error, setError] = useState<string | null>(null);
+      55    const [saving, setSaving] = useState(false);
+      56    const sectionRefs = useRef<Record<string, HTMLDivElement | nu
+          ll>>({});
+      57 +  const overlay = variant === 'overlay';                       
+      58  
+      59    useEffect(() => {
+      60      api
+     ...
+      92  
+      93    if (!catalog) {
+      94      return (
+      92 -      <div className={cn(embedded && 'p-5')}>                  
+      95 +      <div className={cn(overlay && 'p-6')}>                   
+      96          {error ? <ErrorText>{error}</ErrorText> : <SkeletonRows
+           count={4} />}
+      97        </div>
+      98      );
+     ...
+      225      );
+      226    };
+      227  
+      225 -  // 안내와 저장 버튼. 온보딩에서는 목록 끝에, 상자 안에서는  
+          -상자의 발에 놓인다.                                           
+      228 +  /** 분류 한 덩어리. overlay 에서는 단 중간에서 잘리지 않는다
+          +. */                                                          
+      229 +  const categoryBlock = (                                     
+      230 +    category: InterestCatalog['categories'][number],          
+      231 +    title: string,                                            
+      232 +    kind: 'INTEREST' | 'ATTRIBUTE',                           
+      233 +    lede?: string,                                            
+      234 +  ) => (                                                      
+      235 +    <div                                                      
+      236 +      key={category.id}                                       
+      237 +      ref={(node) => {                                        
+      238 +        sectionRefs.current[category.id] = node;              
+      239 +      }}                                                      
+      240 +      className={cn(overlay && 'mb-5 break-inside-avoid')}    
+      241 +    >                                                         
+      242 +      <div                                                    
+      243 +        className={cn(                                        
+      244 +          'font-semibold tracking-tight',                     
+      245 +          overlay ? 'mb-2 text-[14px]' : 'mt-7 mb-2.5',       
+      246 +        )}                                                    
+      247 +      >                                                       
+      248 +        {title}                                               
+      249 +      </div>                                                  
+      250 +      {lede && (                                              
+      251 +        <Muted className={cn('mb-2', overlay ? 'text-[12px]' :
+          + 'text-[13px]')}>{lede}</Muted>                               
+      252 +      )}                                                      
+      253 +      <Chips className={cn(overlay && 'gap-1.5')}>            
+      254 +        {category.interests.map((interest) => renderChip(inter
+          +est, kind))}                                                  
+      255 +      </Chips>                                                
+      256 +    </div>                                                    
+      257 +  );                                                          
+      258 +                                                              
+      259 +  // 안내와 저장 버튼. 온보딩에서는 목록 끝에, 대화상자에서는 
+          +상자의 발에 놓인다.                                           
+      260    const footer = (
+      261      <>
+      262        {shortBy > 0 && (
+     ...
+      286    );
+      287  
+      288    return (
+      255 -    <div className={cn(embedded && 'flex max-h-[72vh] min-h-0 
+          -flex-col')}>                                                  
+      256 -      <div className={cn(embedded && 'min-h-0 flex-1 overflow-
+          -y-auto px-5 pb-6')}>                                          
+      289 +    <div className={cn(overlay && 'flex h-full min-h-0 flex-co
+          +l')}>                                                         
+      290 +      <div className={cn(overlay && 'min-h-0 flex-1 overflow-y
+          +-auto px-6 pb-5')}>                                           
+      291          <div
+      292            className={cn(
+      259 -            'sticky top-0 z-[2] flex flex-col gap-4 border-b p
+          -y-4',                                                         
+      260 -            embedded ? 'bg-card' : 'bg-background',           
+      293 +            'sticky top-0 z-[2] flex flex-col border-b bg-back
+          +ground py-4',                                                 
+      294 +            overlay ? 'gap-3' : 'gap-4',                      
+      295            )}
+      296          >
+      263 -          <Input                                              
+      264 -            type="text"                                       
+      265 -            value={query}                                     
+      266 -            onChange={(event) => {                            
+      267 -              setQuery(event.target.value);                   
+      268 -              setCreating(false);                             
+      269 -            }}                                                
+      270 -            placeholder="관심사 검색 (없으면 추가할 수 있습니 
+          -다)"                                                          
+      271 -            className={cn('h-11', embedded ? 'bg-secondary/60'
+          - : 'bg-card')}                                                
+      272 -          />                                                  
+      297 +          {/* overlay 에서는 검색과 개수가 한 줄에 앉아 목록에
+          + 높이를 더 준다. */}                                          
+      298 +          <div className={cn(overlay && 'flex flex-wrap items-
+          +center gap-x-4 gap-y-2')}>                                    
+      299 +            <Input                                            
+      300 +              type="text"                                     
+      301 +              value={query}                                   
+      302 +              onChange={(event) => {                          
+      303 +                setQuery(event.target.value);                 
+      304 +                setCreating(false);                           
+      305 +              }}                                              
+      306 +              placeholder="관심사 검색 (없으면 추가할 수 있습 
+          +니다)"                                                        
+      307 +              className={cn('h-11 bg-card', overlay && 'h-10 w
+          +-[320px] max-w-full')}                                        
+      308 +            />                                                
+      309 +            <Muted className={cn(!overlay && 'mt-4')}>        
+      310 +              {topicCount}개 선택 · 최소 {min} · 최대 {max}   
+      311 +            </Muted>                                          
+      312 +          </div>                                              
+      313  
+      274 -          <Muted>                                             
+      275 -            {topicCount}개 선택 · 최소 {min} · 최대 {max}     
+      276 -          </Muted>                                            
+      277 -                                                              
+      314            {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다.
+            */}
+      315            {selected.size > 0 && (
+      280 -            <Chips>                                           
+      316 +            <Chips className={cn(overlay && 'gap-1.5')}>      
+      317                {[...selected].map((id) => (
+      318                  <Chip key={id} selected onClick={() => toggle(
+           id)}>
+      319                    {byId.get(id)?.name ?? id} ✕
+     ...
+      322              </Chips>
+      323            )}
+      324  
+      289 -          {!normalized && (                                   
+      325 +          {/* 분류 바로가기. overlay 는 전부 한눈에 보이므로  
+          +필요 없다. */}                                                
+      326 +          {!overlay && !normalized && (                       
+      327              <Chips>
+      328                {catalog.categories.map((category) => (
+      329                  <Button
+     ...
+      346            )}
+      347          </div>
+      348  
+      312 -        {visibleTopics.map((category) => (                    
+      313 -          <div                                                
+      314 -            key={category.id}                                 
+      315 -            ref={(node) => {                                  
+      316 -              sectionRefs.current[category.id] = node;        
+      317 -            }}                                                
+      318 -          >                                                   
+      319 -            <div className="mt-7 mb-2.5 font-semibold tracking
+          --tight">{category.name}</div>                                 
+      320 -            <Chips>                                           
+      321 -              {category.interests.map((interest) => renderChip
+          -(interest, 'INTEREST'))}                                      
+      322 -            </Chips>                                          
+      323 -          </div>                                              
+      324 -        ))}                                                   
+      349 +        <div                                                  
+      350 +          className={cn(                                      
+      351 +            overlay && 'columns-1 gap-x-8 pt-4 sm:columns-2 lg
+          +:columns-3 xl:columns-4',                                     
+      352 +          )}                                                  
+      353 +        >                                                     
+      354 +          {visibleTopics.map((category) =>                    
+      355 +            categoryBlock(category, category.name, 'INTEREST')
+          +,                                                             
+      356 +          )}                                                  
+      357  
+      358 +          {!normalized &&                                     
+      359 +            attributes.map((category) =>                      
+      360 +              categoryBlock(                                  
+      361 +                category,                                     
+      362 +                `활동하는 ${category.name}`,                  
+      363 +                'ATTRIBUTE',                                  
+      364 +                `선택 사항입니다. 하나만 고를 수 있고, 관심사 
+          +개수에는 들어가지 않습니다. 같은 ${category.name}에서 활동하는
+          + 사람을 그래프에서 볼 수 있습니다.`,                          
+      365 +              ),                                              
+      366 +            )}                                                
+      367 +        </div>                                                
+      368 +                                                              
+      369          {normalized && !exactExists && !creating && (
+      370            <Card className="mt-4 gap-0 rounded-xl py-[22px]">
+      371              <CardContent className="px-6">
+     ...
+      395            />
+      396          )}
+      397  
+      355 -        {!normalized &&                                       
+      356 -          attributes.map((category) => (                      
+      357 -            <div                                              
+      358 -              key={category.id}                               
+      359 -              ref={(node) => {                                
+      360 -                sectionRefs.current[category.id] = node;      
+      361 -              }}                                              
+      362 -              className="mt-6"                                
+      363 -            >                                                 
+      364 -              <div className="mt-7 mb-2.5 font-semibold tracki
+          -ng-tight">                                                    
+      365 -                활동하는 {category.name}                      
+      366 -              </div>                                          
+      367 -              <Muted className="mb-2 text-[13px]">            
+      368 -                선택 사항입니다. 하나만 고를 수 있고, 관심사  
+          -개수에는 들어가지 않습니다.                                   
+      369 -                같은 {category.name}에서 활동하는 사람을 그래 
+          -프에서 볼 수 있습니다.                                        
+      370 -              </Muted>                                        
+      371 -              <Chips>                                         
+      372 -                {category.interests.map((interest) => renderCh
+          -ip(interest, 'ATTRIBUTE'))}                                   
+      373 -              </Chips>                                        
+      374 -            </div>                                            
+      375 -          ))}                                                 
+      376 -                                                              
+      377 -        {!embedded && <div className="mt-8 flex flex-col gap-4
+          -">{footer}</div>}                                             
+      398 +        {!overlay && <div className="mt-8 flex flex-col gap-4"
+          +>{footer}</div>}                                              
+      399        </div>
+      400  
+      380 -      {embedded && (                                          
+      381 -        <div className="flex flex-col gap-3 border-t bg-card p
+          -x-5 py-4">{footer}</div>                                      
+      401 +      {overlay && (                                           
+      402 +        <div className="flex flex-col gap-3 border-t bg-backgr
+          +ound px-6 py-4">{footer}</div>                                
+      403        )}
+      404      </div>
+      405    );
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(web\src\pages\ProfilePage.tsx)
+  ⎿  Added 51 lines, removed 31 lines
+      225            <Muted>
+      226              그래프와 추천의 재료입니다. 저장하면 그래프와 추천
+           이 즉시 바뀝니다.
+      227            </Muted>
+      228 -          {editingInterests ? (                               
+      229 -            // 온보딩과 같은 선택 화면(D-24)을 상자에 넣는다. 
+          -안에서 스크롤하고 저장·취소는 발에 있다.                      
+      230 -            <div className="mt-3 overflow-hidden rounded-xl bo
+          -rder bg-card shadow-xs">                                      
+      231 -              <InterestPicker                                 
+      232 -                embedded                                      
+      233 -                submitLabel="저장"                            
+      234 -                onSaved={async (message) => {                 
+      235 -                  await reload();                             
+      236 -                  setEditingInterests(false);                 
+      237 -                  toast.success(message ?? '관심사를 저장했습 
+          -니다.');                                                      
+      238 -                }}                                            
+      239 -                onCancel={() => setEditingInterests(false)}   
+      240 -              />                                              
+      241 -            </div>                                            
+      242 -          ) : (                                               
+      243 -            <div className="mt-3 flex flex-wrap items-center g
+          -ap-2">                                                        
+      244 -              <Chips>                                         
+      245 -                {me.interests.map((interest) => (             
+      246 -                  <ChipTag key={interest.id}>{interest.name}</
+          -ChipTag>                                                      
+      247 -                ))}                                           
+      248 -              </Chips>                                        
+      249 -              <Button                                         
+      250 -                type="button"                                 
+      251 -                variant="outline"                             
+      252 -                className="ml-1"                              
+      253 -                onClick={() => setEditingInterests(true)}     
+      254 -              >                                               
+      255 -                관심사 수정                                   
+      256 -              </Button>                                       
+      257 -            </div>                                            
+      258 -          )}                                                  
+      228 +          <div className="mt-3 flex flex-wrap items-center gap
+          +-2">                                                          
+      229 +            <Chips>                                           
+      230 +              {me.interests.map((interest) => (               
+      231 +                <ChipTag key={interest.id}>{interest.name}</Ch
+          +ipTag>                                                        
+      232 +              ))}                                             
+      233 +            </Chips>                                          
+      234 +            <Button                                           
+      235 +              type="button"                                   
+      236 +              variant="outline"                               
+      237 +              className="ml-1"                                
+      238 +              onClick={() => setEditingInterests(true)}       
+      239 +            >                                                 
+      240 +              관심사 수정                                     
+      241 +            </Button>                                         
+      242 +          </div>                                              
+      243          </div>
+      244 +                                                              
+      245 +        {/*                                                   
+      246 +         * 온보딩과 같은 선택 화면(D-24)이지만, 본문 폭(760px)
+          + 안의 상자에 넣으면                                           
+      247 +         * 100개를 좁은 칸에서 스크롤해야 한다. 화면을 거의 다
+          + 쓰는 대화상자로 열어                                         
+      248 +         * 분류를 여러 단으로 늘어놓으면 한 번에 다 보인다.   
+      249 +         * ResponsiveDialog(520px)로는 이 폭이 안 나와 Dialog 
+          +를 직접 쓴다.                                                 
+      250 +         */}                                                  
+      251 +        {editingInterests && (                                
+      252 +          <Dialog                                             
+      253 +            open                                              
+      254 +            onOpenChange={(open) => {                         
+      255 +              if (!open) setEditingInterests(false);          
+      256 +            }}                                                
+      257 +          >                                                   
+      258 +            <DialogContent className="flex h-[92dvh] max-w-[mi
+          +n(1400px,94vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[m
+          +in(1400px,94vw)]">                                            
+      259 +              <DialogHeader className="gap-1 border-b px-6 py-
+          +4">                                                           
+      260 +                <DialogTitle className="text-[18px] leading-sn
+          +ug">관심사 수정</DialogTitle>                                 
+      261 +                <DialogDescription>                           
+      262 +                  저장하면 그래프와 추천이 즉시 바뀝니다.     
+      263 +                </DialogDescription>                          
+      264 +              </DialogHeader>                                 
+      265 +              <div className="min-h-0 flex-1">                
+      266 +                <InterestPicker                               
+      267 +                  variant="overlay"                           
+      268 +                  submitLabel="저장"                          
+      269 +                  onSaved={async (message) => {               
+      270 +                    await reload();                           
+      271 +                    setEditingInterests(false);               
+      272 +                    toast.success(message ?? '관심사를 저장했 
+          +습니다.');                                                    
+      273 +                  }}                                          
+      274 +                  onCancel={() => setEditingInterests(false)} 
+      275 +                />                                            
+      276 +              </div>                                          
+      277 +            </DialogContent>                                  
+      278 +          </Dialog>                                           
+      279 +        )}                                                    
+      280        </Page>
+      281      </ScrollPage>
+      282    );
+
+● Update(web\src\pages\ProfilePage.tsx)
+  ⎿  Added 7 lines
+       2  import { toast } from 'sonner';
+       3  import { Button } from '@/components/ui/button';
+       4  import { Card, CardContent } from '@/components/ui/card';
+       5 +import {                                                       
+       6 +  Dialog,                                                      
+       7 +  DialogContent,                                               
+       8 +  DialogDescription,                                           
+       9 +  DialogHeader,                                                
+      10 +  DialogTitle,                                                 
+      11 +} from '@/components/ui/dialog';                               
+      12  import { api } from '../api/client';
+      13  import {
+      14    Chips,
+
+  Read 2 files, called claude-in-chrome 15 times, ran 16 shell commands (ctrl+o to expand)
+
+● Background command "Start API dev server" failed with exit code 1
+
+● Background command "Start web dev server" failed with exit code 1
+
+● Background command "Wait until API is healthy" completed (exit code 0)
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 2 lines
+      219          onClick={() => toggle(interest.id)}
+      220          // 사람 수는 "여기 고르면 누가 있을지"의 힌트다.
+      221          count={`${interest.holderCount}명`}
+      222 +        // overlay 는 100개가 한 화면에 들어와야 해서 칩을 한 
+          +치수 줄인다.                                                  
+      223 +        className={cn(overlay && 'gap-1 px-2.5 py-[2px] text-[
+          +12.5px] [&>span]:text-[11px]')}                               
+      224        >
+      225          {interest.name}
+      226        </Chip>
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 6 lines, removed 4 lines
+      239        ref={(node) => {
+      240          sectionRefs.current[category.id] = node;
+      241        }}
+      242 -      className={cn(overlay && 'mb-5 break-inside-avoid')}    
+      242 +      className={cn(overlay && 'mb-4 break-inside-avoid')}    
+      243      >
+      244        <div
+      245          className={cn(
+      246            'font-semibold tracking-tight',
+      247 -          overlay ? 'mb-2 text-[14px]' : 'mt-7 mb-2.5',       
+      247 +          overlay ? 'mb-1.5 text-[13px]' : 'mt-7 mb-2.5',     
+      248          )}
+      249        >
+      250          {title}
+      251        </div>
+      252        {lede && (
+      253 -        <Muted className={cn('mb-2', overlay ? 'text-[12px]' :
+          - 'text-[13px]')}>{lede}</Muted>                               
+      253 +        <Muted className={cn('mb-1.5', overlay ? 'text-[11.5px
+          +]' : 'mb-2 text-[13px]')}>                                    
+      254 +          {lede}                                              
+      255 +        </Muted>                                              
+      256        )}
+      255 -      <Chips className={cn(overlay && 'gap-1.5')}>            
+      257 +      <Chips className={cn(overlay && 'gap-1')}>              
+      258          {category.interests.map((interest) => renderChip(inter
+           est, kind))}
+      259        </Chips>
+      260      </div>
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 7 lines, removed 3 lines
+      315              </Muted>
+      316            </div>
+      317  
+      318 -          {/* 선택한 것은 스크롤해도 보이도록 상단에 고정한다.
+          - */}                                                          
+      319 -          {selected.size > 0 && (                             
+      320 -            <Chips className={cn(overlay && 'gap-1.5')}>      
+      318 +          {/*                                                 
+      319 +           * 선택한 것은 스크롤해도 보이도록 상단에 고정한다. 
+      320 +           * overlay 에서는 목록 전체가 한눈에 있고 고른 것이 
+          +그 자리에서 파랗게 보이므로                                   
+      321 +           * 이 줄이 없다 — 그만큼의 높이를 목록에 준다.      
+      322 +           */}                                                
+      323 +          {!overlay && selected.size > 0 && (                 
+      324 +            <Chips>                                           
+      325                {[...selected].map((id) => (
+      326                  <Chip key={id} selected onClick={() => toggle(
+           id)}>
+      327                    {byId.get(id)?.name ?? id} ✕
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 2 lines, removed 1 line
+      356  
+      357          <div
+      358            className={cn(
+      359 -            overlay && 'columns-1 gap-x-8 pt-4 sm:columns-2 lg
+          -:columns-3 xl:columns-4',                                     
+      359 +            overlay &&                                        
+      360 +              'columns-1 gap-x-6 pt-4 sm:columns-2 md:columns-
+          +3 lg:columns-4 xl:columns-5',                                 
+      361            )}
+      362          >
+      363            {visibleTopics.map((category) =>
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 3 lines, removed 1 line
+      370                  category,
+      371                  `활동하는 ${category.name}`,
+      372                  'ATTRIBUTE',
+      373 -                `선택 사항입니다. 하나만 고를 수 있고, 관심사 
+          -개수에는 들어가지 않습니다. 같은 ${category.name}에서 활동하는
+          - 사람을 그래프에서 볼 수 있습니다.`,                          
+      373 +                overlay                                       
+      374 +                  ? `하나만 고를 수 있고, 관심사 개수에는 들어
+          +가지 않습니다.`                                               
+      375 +                  : `선택 사항입니다. 하나만 고를 수 있고, 관 
+          +심사 개수에는 들어가지 않습니다. 같은 ${category.name}에서 활 
+          +동하는 사람을 그래프에서 볼 수 있습니다.`,                    
+      376                ),
+      377              )}
+      378          </div>
+
+  Called claude-in-chrome 2 times (ctrl+o to expand)
+
+● Update(web\src\pages\ProfilePage.tsx)
+  ⎿  Added 5 lines, removed 4 lines
+      262                if (!open) setEditingInterests(false);
+      263              }}
+      264            >
+      265 -            <DialogContent className="flex h-[92dvh] max-w-[mi
+          -n(1400px,94vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[m
+          -in(1400px,94vw)]">                                            
+      266 -              <DialogHeader className="gap-1 border-b px-6 py-
+          -4">                                                           
+      267 -                <DialogTitle className="text-[18px] leading-sn
+          -ug">관심사 수정</DialogTitle>                                 
+      268 -                <DialogDescription>                           
+      265 +            <DialogContent className="flex h-[94dvh] max-w-[mi
+          +n(1440px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[m
+          +in(1440px,96vw)]">                                            
+      266 +              {/* 제목과 안내를 한 줄에 둔다. 목록에 높이를 한
+          + 뼘이라도 더 준다. */}                                        
+      267 +              <DialogHeader className="flex-row flex-wrap item
+          +s-baseline gap-x-3 gap-y-1 border-b px-6 py-3 pr-14">         
+      268 +                <DialogTitle className="text-[17px] leading-sn
+          +ug">관심사 수정</DialogTitle>                                 
+      269 +                <DialogDescription className="text-[13px]">   
+      270                    저장하면 그래프와 추천이 즉시 바뀝니다.
+      271                  </DialogDescription>
+      272                </DialogHeader>
+
+  Called claude-in-chrome 9 times, ran 1 shell command (ctrl+o to expand)
+
+● 프로필 → 관심사 수정. 로컬(localhost:5173)에서 실제 데이터로 띄운 화면 —
+  관심사 100개 + 층 20개가 스크롤 없이 한 화면에 다 들어온다.
+
+  ›       ~\AppData\Local\Temp\claude-chrome-screenshots-ssJUft\screensh (111.8K
+  [image] ot-1789079580859-0.jpg                                        B)
+
+  Called claude-in-chrome 2 times, ran 2 shell commands (ctrl+o to expand)
+
+● Update(web\src\features\interests\InterestPicker.tsx)
+  ⎿  Added 3 lines, removed 2 lines
+      31   * 두 가지 모양이 있다.
+      32   *   - page    — 온보딩. 본문 폭(760px)에 한 단으로 늘어놓고 페
+          이지가 스크롤한다
+      33   *   - overlay — My Profile 의 "관심사 수정". 넓은 대화상자를 
+          가득 채우고 분류를
+      34 - *               여러 단(최대 4단)으로 흘려 100개가 한 화면에  
+         -들어온다. 좁아지면                                             
+      35 - *               단이 줄어든다. 다 보이므로 분류 바로가기 버튼 
+         -은 두지 않는다.                                                
+      34 + *               여러 단(1440px 에서 5단)으로 흘려 100개 + 층 2
+         +0개가 스크롤 없이                                              
+      35 + *               한 화면에 들어온다. 좁아지면 단이 줄고 그때는 
+         +스크롤한다.                                                    
+      36 + *               다 보이므로 분류 바로가기 버튼과 선택 요약 줄 
+         +은 두지 않는다.                                                
+      37   */
+      38  export function InterestPicker({
+      39    submitLabel,
+
+  Called claude-in-chrome 3 times, ran 2 shell commands (ctrl+o to expand)
+
+● 프로필의 관심사 수정을 화면을 거의 다 쓰는 대화상자로 바꾸고, 분류를 여러
+  단으로 흘려 100개 + 층 20개가 스크롤 없이 한 화면에 들어오게 했습니다. 위에
+  보낸 스크린샷이 로컬에서 실제 데이터로 띄운 화면입니다.
+
+  바뀐 것
+  - web/src/pages/ProfilePage.tsx — 본문 폭(760px) 안의 상자(max-h-72vh, 안에서
+    스크롤)를 없애고 Dialog(h-94dvh × min(1440px,96vw))로 연다. 제목과 안내는 한
+    줄에 앉혀 목록에 높이를 더 줬다.
+  - web/src/features/interests/InterestPicker.tsx — embedded → variant: 'page' |
+    'overlay'. overlay 는 분류 덩어리를 CSS 다단(sm:2 → md:3 → lg:4 → xl:5,
+    break-inside-avoid)으로 흘리고, 칩을 한 치수 줄이고(12px), 분류 바로가기 
+    버튼과 상단의 "선택한 것" 줄을 뺐다 — 목록 전체가 보이고 고른 것은
+    제자리에서 파랗게 보이므로 둘 다 중복이고, 그 높이가 목록으로 간다.
+    온보딩(page)은 그대로다.
+
+  확인한 것 (localhost:5173, 실제 DB · 관심사 120개)
+  - 1440×709 뷰포트에서 목록 영역 scrollHeight == clientHeight (스크롤 0).
+    5단으로 전부 보인다.
+  - 검색은 별칭까지 그대로 — "리액" → React·React Native, 없으면 "추가하기"
+    카드도 그대로 뜬다.
+  - 칩 토글 정상(10개 → 11개), 취소로 닫힘. 저장 로직은 손대지 않았다.
+  - 990px 폭에서는 3단 + 스크롤로 줄어든다. 칩이 120개라 좁은 창에서는 스크롤이
+    남는 것은 어쩔 수 없고, 그때만 스크롤한다.
+
+  tsc -b 통과. 커밋은 하지 않았습니다 (푸시 여부를 아직 못 들은 커밋 둘이 앞에
+  있어 그대로 뒀습니다). 로컬 서버(API 3000 · web 5173 · db 컨테이너)와 브라우저
+  탭은 /profile 에 켜 둔 채로 두었으니 직접 눌러 보시면 됩니다.
+
+✻ Brewed for 13m 52s · done 오전 7:34
+
+❯ 확인했어 저장하고 메인이랑 데브에 동시 배포                                   
+  Pushed to dev, ran 8 shell commands (ctrl+o to expand)
+
+● 커밋하고 main·dev 두 브랜치에 같은 커밋(44c0114)을 올렸습니다. Actions 빌드 두
+  개가 돌고 있고, 끝나면 각 VM 의 cron 이 2분 안에 받아 띄웁니다. 배포
+  완료(운영·개발 둘 다 새 번들)까지 백그라운드로 지켜보는 중이며, 확인되면
+  알려드리겠습니다.
+
+  - 커밋: 44c0114 프로필의 관심사 수정을 한 화면에 담는다 (InterestPicker.tsx,
+    ProfilePage.tsx, CLAUDE.md 재개 지점 갱신)
+  - origin/main, origin/dev 둘 다 44c0114
+  - 배포 전 번들: 운영·개발 모두 index-C3ZFPpLg.js — 이 이름이 바뀌면 화면
+    쪽까지 올라간 것입니다
+
+  CLAUDE.md 에서 "커밋 둘을 아직 푸시하지 않았다"던 줄도 함께 정리했습니다 —
+  확인해 보니 그 둘(2bb97f2·d426fc9)은 이미 원격에 올라가 있었고, 지금은
+  main·dev 가 같은 커밋입니다.
+
+✻ Cooked for 1m 55s · done 오전 7:39
+
+● Background command "Wait for builds then verify both deployments" completed
+(exit code 0)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● 배포 완료됐습니다. 운영·개발 둘 다 새 화면으로 떠 있습니다.
+
+  ┌───────────────┬───────────────────────────┬─────────────────────────────┐
+  │               │           운영            │            개발             │
+  │               │  ssafy-networking.store   │ dev.ssafy-networking.store  │
+  ├───────────────┼───────────────────────────┼─────────────────────────────┤
+  │ Actions       │ success                   │ success                     │
+  ├───────────────┼───────────────────────────┼─────────────────────────────┤
+  │ 번들          │ index-BRaA86OC.js (전     │ index-BRaA86OC.js           │
+  │               │ C3ZFPpLg)                 │                             │
+  ├───────────────┼───────────────────────────┼─────────────────────────────┤
+  │ 다단 레이아웃 │ 들어 있음                 │ 들어 있음                   │
+  │  코드         │                           │                             │
+  ├───────────────┼───────────────────────────┼─────────────────────────────┤
+  │ /api/health   │ {"ok":true}               │ {"ok":true}                 │
+  └───────────────┴───────────────────────────┴─────────────────────────────┘
+
+  커밋 44c0114 하나가 main·dev 양쪽에 올라갔고, 두 VM 의 cron 이 각각 받아
+  api·web 을 함께 띄웠습니다(번들 이름까지 바뀐 것을 확인). 마이그레이션이나
+  시드가 필요한 변경은 없습니다 — 화면만 바뀌었습니다.
+
+  로컬 서버(API 3000 · web 5173 · db 컨테이너)는 아직 켜둔 상태입니다.
+  내려둘까요?
+
+✻ Worked for 19s · done 오전 7:43
+
+❯ 지금 networking_questions.json파일에 관심사분류, 관심사, 질문을 작성해 놨어   
+  지금 헝태로 데이터를 제공하면 관심사를 생성하기에 적합해보이니?               
+
+  Ran 15 shell commands (ctrl+o to expand)
+
+● networking_questions.json 을 읽고 임포터(api/prisma/content-import.ts)의
+  contentSchema 기준으로 전부 검사했습니다.
+
+  결론: 내용은 그대로 쓸 수 있고, 감싼 모양만 다릅니다. 형태 변환은 기계적이라
+  제가 옮기면 됩니다 — 다시 쓰실 필요 없습니다.
+
+  지금:  [ { "분류": "...", "상세항목": [ { "항목": "...", "질문목록": [...] } ]
+  } ]
+  필요:  { "categories": [ { "name": "...", "kind": "INTEREST",
+             "interests": [ { "name": "...", "aliases": [], "questions": [...] }
+  ] } ],
+           "icebreakers": [...] }
+
+  검사 결과 — 하드 제약은 전부 통과
+
+  ┌───────────────────────────────────────┬─────────────────────────────────┐
+  │                 검사                  │              결과               │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ 분류 12개 · 관심사 182개 · 질문 728개 │ 관심사마다 정확히 4개, 질문     │
+  │                                       │ 없는 항목 0                     │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ 이름 글자 규칙(한글·영문·숫자· . + #  │ 위반 0 — C++, C#, CS·컴퓨터     │
+  │ · / & -)                              │ 과학 모두 통과                  │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ 이름 길이(관심사·분류 20자)           │ 초과 0                          │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ 관심사 이름 중복(분류를 넘어 전역     │ 0                               │
+  │ unique)                               │                                 │
+  ├───────────────────────────────────────┼─────────────────────────────────┤
+  │ 질문 길이(200자)                      │ 초과 0                          │
+  └───────────────────────────────────────┴─────────────────────────────────┘
+
+  빠진 것 셋 — 이건 데이터가 아니라 결정입니다. 임포트는 덮어쓰기가 아니라
+  교체라서, 파일에 없으면 사라집니다.
+
+  1. 층(1~20층) 속성 분류. 파일에 없습니다. 지금 형태로 넣으면 층 선택 자체가
+     없어집니다(D-72). 코드는 깨지지 않고 조용히 사라집니다.
+  2. 포괄 아이스브레이킹 질문. 지금 DB 에 30개 있는데 파일에 없으면 0이 됩니다.
+     네트워크 성립 때 뽑을 게 없어 성립 DM 의 "이야깃거리"가 관심사별 질문만
+     남습니다(에러는 안 납니다).
+  3. 별칭(aliases). 없어도 들어갑니다. 다만 검색과 "이미 있는 관심사"  중복
+     검사(D-74)가 별칭으로 도는 터라, 없으면 리액트로 검색해도 React가 안
+     잡힙니다.
+
+  참고 두 가지
+  - 현재 100개 중 이름이 그대로인 것은 72개입니다. 어차피 초기화하기로 하셨으니
+    선택은 전부 비워지지만, 기술 면접·오픈소스 기여처럼 지금 사람이 붙어 있는
+    이름 28개가 새 목록엔 다른 이름으로 들어갑니다.
+  - 관심사가 100 → 182(+층 20)로 늘면, 어제 만든 "한 화면에 다 보기"가 1440×709
+    에서 다시 스크롤이 생깁니다(추정 +370px). 넣은 뒤 실제 목록으로 단 수·칩
+    크기를 다시 맞추면 됩니다.
+  - 네트워킹 목적(커피챗·멘토 찾기 등 12개)은 주제가 아니라 의도라, 이야깃거리로
+    두면 사람이 몰리는 큰 허브 노드가 됩니다. 그대로 두길 권하지만(간단하고,
+    실제로 연결 명분이 됩니다) 알고 계시면 좋겠습니다.
+
+✻ Crunched for 3m 15s · done 오전 8:00
+
+❯ 층 정보는 니가 따로 추가하도록해 지금 현재 db를 비웠다가 모든 데이터를        
+  넣는다고 생각하고 검토해보자 그리고 삽입하기 직전 형태로 파일을 저장해둬      
+
+  Ran 16 shell commands (ctrl+o to expand)
+
+● api/prisma/content.json 에 삽입 직전 형태로 저장했습니다. 로컬에서 --dry-run
+  까지 통과합니다(아직 아무것도 넣지 않았습니다).
+
+  npm run content:import -- prisma/content.json --dry-run
+  npm run content:import -- prisma/content.json
+
+  넣게 되는 것 — 분류 13 · 관심사 202 · 주제별 질문 728 · 포괄 질문 30
+
+  어디서 왔나: networking_questions.json
+  내용: 분류 12 · 관심사 182 · 질문 728 (그대로)
+  ────────────────────────────────────────
+  어디서 왔나: 제가 붙임
+  내용: 층 20개(속성 분류, 1층~20층)
+  ────────────────────────────────────────
+  어디서 왔나: 지금 시드에서 이어받음
+  내용: 포괄 아이스브레이킹 30개 — 파일에 없으면 지워져 성립 DM 의 공통 질문이
+  사라집니다
+  ────────────────────────────────────────
+  어디서 왔나: 옛 100개 목록에서 이어받음
+  내용: 별칭 170개(67개 관심사). 지어낸 것은 없습니다. 새 이름과 충돌하는
+  11개(MySQL·PostgreSQL·Redis·Next.js·NestJS·피아노·밴드·드럼·미술관·공모전·데이
+  터
+    엔지니어링)는 이제 각각 독립 관심사라 별칭에서 뺐습니다
+
+  전체 교체라 사라지는 것 — 분류·관심사·모든 사람의 관심사 선택·관심사 글·변경
+  이력·주제별 질문·포괄 질문·네트워크 추천. 남는 것 — 계정·연결
+  요청·알림·파라미터·초대 코드·이벤트 기록.
+
+  검토에서 걸린 것
+
+  고쳐야 하는 것
+
+  1. 분류 13개인데 그래프 색은 12개입니다. categorySlot() 이 % 12 라
+     13번째(층)가 1번 색을 다시 씁니다 — 09-10에 8색→12색으로 늘린 그 문제가
+     그대로 재현됩니다. --cat-13 추가 + CATEGORY_SLOTS = 13 이면 끝납니다.
+     말씀하시면 넣겠습니다.
+  2. 어제 만든 "한 화면에 다 보기"가 다시 스크롤됩니다. 120칩 → 543px 였는데
+     202칩이면 약 910px, 화면은 543px 이라 370px 넘칩니다. 단을 6단으로 늘리든
+     스크롤을 감수하든 정하면 됩니다.
+
+  정하면 되는 것
+
+  3. 사실상 같은 것 둘 — 사진(문화·콘텐츠)과 사진 촬영(음악·창작 취미)은 사람이
+     갈립니다. 하나로 합치길 권합니다. 카페 ↔ 커피 도 경계가 모호합니다.
+  4. 상위·하위가 같은 층에 있습니다 — 악기 연주 아래에
+     일렉기타·통기타·베이스·드럼·피아노·보컬·밴드가 형제로 있어, 질문도 "요즘 
+     연습하고 있는 곡이 있나요?" 가 4개 관심사에 똑같이 들어갑니다(성립 DM 에
+     같은 줄이 두 번 나올 수 있습니다).
+  5. 네트워킹 목적 12개는 축이 다릅니다(주제가 아니라 의도). 스터디↔스터디메이트
+     찾기, 사이드프로젝트↔사이드프로젝트 팀원 찾기↔팀원 찾기, 창업↔창업 동료 
+     찾기, 취업 준비↔취업 정보 교환, 커피↔커피챗 가 짝을 이룹니다. 그대로 둬도
+     돌아가지만 큰 허브 노드가 생깁니다.
+  6. 별칭 없는 관심사 115개. 한글로는 찾을 길이 없는 것들이 눈에 띕니다 —
+     Rock·J-POP·Nintendo·PlayStation·FPS·RPG·LOL·Go·Rust·C#. 붙여 쓴
+     코딩테스트·기술면접·사이드프로젝트도 "코딩 테스트"로 검색하면 안 잡힙니다.
+     원하시면 한 벌 만들어 보여드리고 고르시게 하겠습니다.
+  7. 분류 순서 = 파일 순서 = 화면 순서. 지금은 학습·자기개발이 첫 단입니다.
+     개발자 대상이면 개발 분야·기술 스택을 앞으로 올리는 게 자연스럽습니다 —
+     배열 순서만 바꾸면 됩니다.
+
+  넣을 때
+
+  - 컨테이너 안에 파일이 있어야 합니다. 이미지가 api/prisma 를 통째로 담으니
+    커밋해서 배포하면 들어갑니다. 배포 없이 하려면 docker compose -f 
+    deploy/docker-compose.prod.yml cp api/prisma/content.json 
+    api:/app/api/prisma/content.json.
+  - 순서는 로컬 → dev → 운영, 운영은 deploy/backup.sh 먼저. 운영에서도 --dry-run
+    을 먼저 돌려 "사라지는 선택"을 실제 사용자 기준으로 보고 결정하시면 됩니다.
+  - 넣은 뒤: 모든 가입자의 관심사가 0개가 됩니다. 온보딩은 이미 끝난 상태라 다시
+    돌지 않고 그래프에 자기 노드 하나만 남습니다(코드 확인함, 깨지지는
+    않습니다) — 다시 고르라는 안내가 필요합니다. 네트워크 추천은
+    network.recompute 가 다시 만들고, 관심사를 가리키던 옛 알림 링크는 404 가
+    됩니다.
+
+  아직 커밋하지 않았습니다. 원본 networking_questions.json 도 레포 루트에
+  untracked 로 있는데, api/prisma/ 아래로 옮겨 같이 커밋해 둘까요?
+
+✻ Sautéed for 5m 49s · done 오전 8:08
+
+❯ 1.색은 더 추가해                                                              
+  2.단을 늘려                                                                   
+  3.하나로 합칠 수 있는 부분은 합쳐                                             
+  4.지금은 신경쓰지 않을게                                                      
+  5.이건 상관없어                                                               
+  6.별칭을 다 만들어봐 검색을 한글로만 지원하지말고 영어로도 지원하도록 해도    
+  좋고                                                                          
+  7.맞는말이야 추가적으로 층 선택을 젤 위로 두자                                
+
+  Made 2 scratchpad edits +360, called claude-in-chrome 31 times, ran 15 shell commands (ctrl+o to expand)
+
+● 새 내용을 로컬 DB 에 실제로 넣고 찍은 것. 위: 관심사 수정(층이 맨 위, 6단,
+  199개). 아래: 새 분류 13개로 그린 그래프.
+
+  ›       ~\AppData\Local\Temp\claude-chrome-screenshots-ssJUft\screensh (146.1K
+  [image] ot-1789083280776-3.jpg                                        B)
+  ›       ~\AppData\Local\Temp\claude-chrome-screenshots-ssJUft\screensho (90.1K
+  [image] t-1789083311908-4.jpg                                          B)
+
+● 일곱 가지 다 반영했고, 로컬 DB 에 실제로 넣어서 화면까지 확인했습니다(더미
+  120명도 새 관심사로 다시 뿌렸습니다 — 평균 8.1개).
+
+  ┌────────┬────────────────────────────────────────────────────────────────┐
+  │        │                             한 일                              │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ 1. 색  │ --cat-13(갈색) · --cat-14(짙은 청록) 추가, CATEGORY_SLOTS 12 → │
+  │        │  14. 분류 13개가 각각 다른 색을 받습니다                       │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │        │ 6단으로 늘렸습니다(xwide = 1400px 브레이크포인트 신설).        │
+  │ 2. 단  │ 7·8단도 재봤는데 오히려 길어집니다(719 → 799 → 871px) — 칩이   │
+  │        │ 줄바꿈해서요. 6단이 바닥입니다                                 │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ 3.     │ 전시+미술관 → 전시·미술관, 사진+사진 촬영 → 사진(음악·창작     │
+  │ 합치기 │ 취미로), 카페+커피 → 카페·커피. 182 → 179개                    │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ 4·5    │ 그대로 뒀습니다                                                │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ 6.     │ 660개를 직접 썼습니다. 179개 전부에 붙어 하나도 안 빈 채로     │
+  │ 별칭   │ 통과했습니다                                                   │
+  ├────────┼────────────────────────────────────────────────────────────────┤
+  │ 7.     │ 층이 맨 위, 그다음 개발 분야 → 기술 스택 → CS → 프로젝트 →     │
+  │ 순서   │ 커리어 → 학습 → 문화 → 음악 → 게임 → 스포츠 → 라이프 →         │
+  │        │ 네트워킹 목적. 화면에서도 속성(층)을 먼저 그리도록 고쳤습니다  │
+  └────────┴────────────────────────────────────────────────────────────────┘
+
+  별칭은 한글·영문 양쪽입니다 — Kotlin←코틀린, LOL←롤·리그 오브 레전드·league of
+  legends, 코딩테스트←코딩 테스트·코테·coding test, 백엔드←backend·서버 개발,
+  전시·미술관←갤러리·exhibition·미술 같은 식입니다. 다른 관심사 이름과 겹치는
+  별칭은 자동으로 걸러냈습니다(0건 남음).
+
+  한 화면에 들어오는지 — 실측: 1440×709 뷰포트에서 목록 높이 600px, 보이는 칸 
+  543px → 57px(칩 두 줄쯤) 모자랍니다. 5단·기존 밀도였다면 777px였으니 거의 다
+  붙였지만 완전히 0은 아닙니다. 화면이 조금만 더 높으면(1080p 창) 다 들어옵니다.
+  마지막 레버가 하나 남아 있습니다 — 칩의 "N명" 표기를 이 대화상자에서만 빼면 
+  600 → 533px 이 되어 정확히 들어맞습니다. 뺄까요? (온보딩 화면은 그대로
+  둡니다.)
+
+  넣게 될 최종 내용 — 분류 13 · 관심사 199(이야깃거리 179 + 층 20) · 주제별 질문
+  716 · 포괄 질문 30 · 별칭 660
+
+  바뀐 파일
+  - api/prisma/content.json — 삽입 직전 형태. 이제 이 파일이
+    원본입니다(별칭·층·합친 결과가 여기에만 있습니다)
+  - web/src/index.css — 색 2개, --breakpoint-xwide
+  - web/src/features/graph/encoding.ts — 색 자리 14
+  - web/src/features/interests/InterestPicker.tsx — 6단, 속성 먼저, 칩 밀도
+
+  아직 커밋하지 않았습니다. 로컬은 새 내용으로 돌고 있으니 직접 눌러보셔도
+  됩니다(localhost:5173). 커밋·배포와 개발/운영 서버 적용은 말씀하시면
+  진행하겠습니다.
+
+✻ Baked for 19m 37s · done 오전 8:36
+
+❯ 해당 내용으로 로컬에서 데이터를 삽입하고 화면 해볼게 그리고 시딩용 데이터도   
+  지금 바꾼 데이터를 기준으로 다시 만들어                                       
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Write(api\prisma\seed\content.ts)
+  ⎿  Wrote 74 lines to api\prisma\seed\content.ts
+       1 /**
+       3  *
+       4  * 시드(`prisma:seed`)와 통째 교체(`content:import`)가 **같은 파
+         일**을 본다.
+         래서 시드도 이 파일을 읽는다.
+       6  *
+       8  *   - 시드   — upsert. 이미 있는 것은 그대로 두고 없는 것만 채
+         운다. 언제 돌려도 안전하다
+       9  *   - 임포트 — 비우고 다시 넣는다. 파일에 없는 관심사와 그 선택
+      10  *
+     … +75 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Now update seed.ts to read the content file and delete the old hardcoded list.
+
+  Ran 7 shell commands (ctrl+o to expand)
+
+● 로컬은 이미 들어가 있습니다 — 아까 content:import 를 돌렸고 더미 120명도 새
+  관심사로 다시 뿌렸습니다(평균 8.1개). 서버도 그대로 떠 있으니 localhost:5173
+  에서 바로 보시면 됩니다. 다시 넣고 싶으면:
+
+  npm run content:import -- prisma/content.json --dry-run   # 먼저 확인
+  npm run content:import -- prisma/content.json
+  npm run seed:dev                                          # 더미 사용자 다시
+  뿌리기
+
+  시딩용 데이터
+
+  목록을 두 군데 적어두면 한쪽만 고쳐져 어긋나므로, 하드코딩된 100개 
+  목록(seed/interests.ts)을 지우고 시드가 prisma/content.json 을 읽도록
+  바꿨습니다. 이제 시드와 임포트가 같은 파일을 봅니다.
+
+  ┌──────────────────────────────────┬──────────────────────────────────────┐
+  │               파일               │             무엇이 됐나              │
+  ├──────────────────────────────────┼──────────────────────────────────────┤
+  │ api/prisma/seed/content.ts       │ 새로 만듦 — content.json 을 읽는     │
+  │                                  │ 로더                                 │
+  ├──────────────────────────────────┼──────────────────────────────────────┤
+  │ api/prisma/seed/interests.ts     │ 삭제 (옛 100개 목록)                 │
+  ├──────────────────────────────────┼──────────────────────────────────────┤
+  │                                  │ 포괄 질문 30개는 content.json 으로   │
+  │ api/prisma/seed/icebreakers.ts → │ 옮기고, 틀 문장 함수만 남겼습니다 —  │
+  │  seed/questions.ts               │ 파일에 없는 관심사(사용자가 직접     │
+  │                                  │ 추가한 것)용                         │
+  ├──────────────────────────────────┼──────────────────────────────────────┤
+  │                                  │ 분류·관심사·별칭·주제별 질문·포괄    │
+  │ api/prisma/seed.ts               │ 질문을 전부 파일에서 읽습니다.       │
+  │                                  │ 질문이 이제 틀 문장이 아니라 진짜    │
+  │                                  │ 질문 4개로 들어갑니다                │
+  └──────────────────────────────────┴──────────────────────────────────────┘
+
+  둘의 차이는 그대로입니다 — 시드는 upsert(있는 것은 두고 없는 것만, 언제 돌려도
+  안전), 임포트는 통째 교체(파일에 없는 것과 그 선택·글이 사라짐).
+
+  빈 DB 로 실제 검증했습니다. 임시 DB 를 만들어 migrate deploy → prisma:seed 를
+  돌린 결과:
+
+  관심사 179개 / 분류 12개, 속성 20개 확인
+  포괄 아이스브레이킹 질문 30개 확인 (새로 30개)
+  주제별 질문: 관심사 179개에 새로 넣음 (파일 179개 · 틀 0개)
+  → 분류 13 · 관심사 199 · 주제별 질문 716 · 포괄 30 · 별칭 179개 관심사 · 첫
+  분류 = 층
+
+  한 번 더 돌리니 새로 만드는 것 0개(멱등), 확인 뒤 임시 DB 는 지웠습니다.
+  운영·개발 VM 도 이미지에 content.json 이 같이 들어가므로 이제 prisma:seed 
+  만으로 새 목록이 붙습니다(기존 DB 를 비우려면 여전히 content:import).
+
+  커밋은 아직 안 했습니다. 화면 보시고 괜찮으면 커밋·배포 진행하겠습니다 — 그때
+  칩의 "N명" 표기를 뺄지(빼면 199개가 정확히 한 화면에 들어옵니다, 지금은 57px
+  모자람)도 같이 알려주세요.
+
+✻ Worked for 3m 14s · done 오전 9:04
+
+❯ local에서 확인좀 할게                                                         
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 로컬 그대로 떠 있습니다. 바로 보시면 됩니다.
+
+  - http://localhost:5173 — API :3000 정상({"ok":true})
+  - 데이터: 분류 13 / 관심사 199 / 주제별 질문 716 / 포괄 질문 30 / 사용자
+    121명(더미 120 + 본인)
+
+  볼 만한 곳:
+  - 프로필 → 관심사 수정 — 층이 맨 위, 6단, 마지막 두 줄쯤만 스크롤됩니다.
+    검색창에 코틀린·롤·코테·backend 처럼 쳐보시면 별칭이 걸리는지 확인됩니다
+  - 커넥션(그래프) — 분류 13개 색이 각각 다르게 나오는지 (제 계정엔
+    6층·백엔드·React·알고리즘·러닝·커피챗을 시험 삼아 저장해 뒀습니다. 바꾸셔도
+    됩니다)
+  - /ops 관리 탭 — 새 분류·관심사 목록이 그대로 보입니다
+
+  보시고 고칠 것 말씀해 주세요. 그동안 저는 손대지 않고 기다리겠습니다.
+
+✻ Sautéed for 18s · done 오전 9:05
+
+❯ dev에는 운영 계정을 제외하고 다시 새로 생긴 관심사들을 기반으로 만들어진      
+  더미데이터 관계를 만들거야                                                    
+  그리고 운영 계정에는 새로 정의한 관심사를 넣고싶은데 문제 생길 수 있는 부분이 
+  있을까?                                                                       
+
+  Ran 12 shell commands (ctrl+o to expand)
+
+● 확인해 보니 순서만 지키면 되고, 그 과정에서 조용히 깨지는 것 하나를 찾아 
+  고쳤습니다.
+
+  해야 할 순서 (dev)
+
+  ① dev 브랜치에 푸시 → 자동 배포 끝난 것 확인   (이미지에 content.json 이
+  들어가야 컨테이너에서 돌릴 수 있습니다)
+  ② docker compose -f deploy/docker-compose.prod.yml exec api \
+       npm run content:import -- prisma/content.json --dry-run   → 확인 후
+  --dry-run 빼고 실행
+  ③ 운영 계정으로 로그인 → 프로필 → 관심사 수정 → 새 관심사 저장     ← 운영 계정
+  관심사는 여기서 넣습니다
+  ④ docker compose ... exec api npm run seed:dev                  → 더미 120명 +
+  운영 계정 주변 클러스터 5명
+  ⑤ (원하면) network.recompute 배치
+
+  ②③ 을 바꾸면 ② 가 ③ 을 지웁니다 — 임포트는 모든 사람의 관심사 선택을 비웁니다.
+  ③④ 를 바꾸면 주변 클러스터 5명이 안 생깁니다 — seedAroundRealUser 는 실제
+  계정의 관심사가 0개면 그냥 돌아갑니다(이제 그럴 때 경고를 찍습니다).
+
+  조용히 깨질 뻔한 것 — 고쳤습니다
+
+  seed/dev-users.ts 가 옛 관심사 이름을 문자열로 들고 있었습니다: 코딩 테스트 ·
+  카페·맛집 · DevOps · 클라우드·인프라 · 오픈소스 기여 · 술·맥주. 새 목록엔 없는
+  이름이라 에러 없이 무시되고, 일부러 심어둔 클러스터 4개 중 2개가 2~3개짜리로
+  쪼그라들어 Network 후보(P-04 전원 공통 5개)가 안 만들어졌을 것입니다. 새
+  이름으로 고치고, 다음에 또 어긋나면 경고를 찍게 했습니다. 로컬 재실행 결과 —
+  코딩테스트가 다시 상위(22명)에 오고, 공통 5개 이상인 짝이 51쌍 나옵니다.
+  seedAroundRealUser 도 실제 계정이 여럿일 때 운영자를 먼저 고르도록 바꿨습니다.
+
+  문제 없는 것 (확인함)
+
+  - seed:dev 는 googleSub 이 dev-seed- 로 시작하는 계정만 지웁니다 → 운영
+    계정·다른 테스트 계정은 안전합니다
+  - 더미에게는 Mattermost 아이디가 없어 알림이 SKIPPED 로 끝납니다 → dev 가 live
+    모드여도 엉뚱한 DM 은 안 나갑니다 (운영 계정 본인은 진짜 DM 을 받습니다)
+  - holder_count 는 seed:dev 마지막에 실제 행 수로 다시 맞춥니다
+  - 빈 DB 에 migrate deploy + prisma:seed 로 검증했습니다 — 199 관심사 / 716
+    질문 / 30 포괄 질문, 두 번 돌려도 멱등
+
+  남는 위험
+
+  ┌─────────────┬───────────────────────────────────────────────────────────┐
+  │             │                                                           │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ 연결·요청   │ 더미가 지워질 때 그 더미와 맺은 연결·요청은 cascade 로    │
+  │             │ 같이 사라집니다. 사람 사이의 연결은 남습니다              │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ 알림함      │ 사라진 관심사·사람을 가리키는 옛 알림 링크는 404 가       │
+  │             │ 됩니다                                                    │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ 글          │ interest_post 는 임포트가 전부 지웁니다                   │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ 네트워크    │ 비워집니다. network_enabled 가 켜진 상태로 recompute 를   │
+  │ 추천        │ 돌리면 성립 알림이 운영 계정에게 실제 DM 으로 갑니다      │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ seed:dev    │ APP_ENV=dev 가 없으면 멈춥니다(개발 VM 보안 비밀에 있음). │
+  │ 빗장        │  멈추면 fetch-env.sh 후 api 재시작                        │
+  ├─────────────┼───────────────────────────────────────────────────────────┤
+  │ 운영(main)  │ 같은 순서에 seed:dev 만 빼면 됩니다. 다만 실제 가입자     │
+  │ 갈 때       │ 전원의 관심사가 비므로 다시 고르라는 공지가 필요하고,     │
+  │             │ deploy/backup.sh 를 먼저 돌리는 게 좋습니다               │
+  └─────────────┴───────────────────────────────────────────────────────────┘
+
+  지금 바뀐 파일은 api/prisma/seed/dev-users.ts 가 추가됐습니다(앞서의
+  content.json·seed·web 변경과 함께 아직 커밋 안 함). dev 에서 돌리려면 먼저 
+  커밋 & dev 푸시가 필요합니다 — 진행할까요?
+
+✻ Sautéed for 3m 31s · done 오전 9:12
+
+❯ 지금은 바로 main에 반영하는 반영으로 갈건데 지금 운영서버에서 알람을 보내는   
+  경우는 언제 보내? 아침 9시에 모두에게 보내는거야? 사용자가 알람 받기 여부를   
+  선택할 수 있게 하고 싶어 그리고 운영자가 전체 사람들에게 브로드캐스트 공지를  
+  할 수 있게 운영 페이지에 공지보내기를 만들고싶어                              
+
+  Ran 12 shell commands (ctrl+o to expand)
+● 지금 운영 서버가 알림을 보내는 시점을 코드 기준으로 정리하면 이렇습니다. "아침
+  9시에 모두에게"는 아닙니다 — 9시에 전원을 훑지만 보낼 내용이 있는 사람에게만
+  갑니다.
+
+  ┌───────────┬───────────────────────────┬────────────────────────────────┐
+  │ 시각(KST) │            잡             │            누구에게            │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │           │                           │ 활성 사용자를 전부 훑되 ①나와  │
+  │ 09:00     │ digest.send 묶음 알림     │ 겹치는 새 사람 ②내 관심사의 새 │
+  │           │                           │  글 ③아직 결정 안 한 네트워크  │
+  │           │                           │ 추천 — 셋 다 0이면 건너뜀      │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │ 09:00 ·   │                           │ 후보 재계산 → network_enabled  │
+  │ 18:00     │ network.recompute         │ 가 켜져 있으면 새로 묶인       │
+  │           │                           │ 사람에게 추천 알림             │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │ 09:05     │ gate.evaluate             │ 판정만, 아무에게도 안 보냄     │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │           │ 요청 만료 임박 · 시작자   │                                │
+  │ 매시      │ 리마인드 · 후속 확인 ·    │ 해당되는 사람에게만            │
+  │           │ 네트워크 만료             │                                │
+  │           │ 임박/리마인드             │                                │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │ 10분마다  │ request.expire            │ 만료 처리(알림 없음)           │
+  ├───────────┼───────────────────────────┼────────────────────────────────┤
+  │           │ 연결 요청 받음 · 수락됨 · │                                │
+  │ 즉시      │  후속 확인 · 네트워크     │ 당사자에게                     │
+  │           │ 추천/성립/켜짐            │                                │
+  └───────────┴───────────────────────────┴────────────────────────────────┘
+
+  공개 직후에는 ①②③ 중 하나가 있는 사람이 많을 테니 9시 묶음이 사실상 전원 
+  발송에 가까워집니다. 이게 공지 기능과 같은 문제를 공유합니다 — 1,000명이면
+  웹훅 1,000건이 한꺼번에 튀고, 지금은 동시성 상한도 재시도도 없습니다(design/23
+  §1의 1순위).
+
+  알림 끄기는 백엔드가 이미 준비돼 있습니다. notification_setting(user, channel,
+  category, enabled) 테이블이 있고 발송 직전에 실제로
+  확인합니다(channelEnabled). 온보딩 때 4줄이 전부 켜짐으로 깔립니다. 없는 건 이
+  값을 바꿀 API 와 화면뿐입니다. 앱 내 알림함은 끌 수 없게 되어 있습니다(채널이
+  하나뿐이라 유일한 대비책이라서).
+
+  공지 기능은 없습니다. 비슷한 것으로 "네트워크 켜짐" 전체 발송이 있는데, 순차
+  루프로 돌면서 발송은 기다리지 않습니다 — 그대로 공지에 쓰면 위 동시성 문제를
+  그대로 맞습니다.
+
+  만들기 전에 세 가지만 정해주세요.
+
+● User answered Claude's questions:
+  ⎿  · 사용자가 끌 수 있는 단위를 어떻게 할까요? (앱 내 알림함은 어느 쪽이든 못 
+     끕니다) → 즉시 / 묶음 두 스위치 (추천)
+     · 운영자 공지는 어디까지 나가야 할까요? → 알림함 전원 + DM 은 켠 사람만 
+     (추천)
+     · 발송 동시성 상한과 재시도를 이번에 같이 넣을까요? → 공지·묶음 등 모든 
+     발송에 (추천)
+
+  Ran 17 shell commands (ctrl+o to expand)
+
+● Now the operator broadcast (announce) on the server side.
+
+  Ran 8 shell commands (ctrl+o to expand)
+
+● Stop Task
+  ⎿  cd C:/Users/devju/Desktop/ssafy-net && npm run dev:api · stopped
+
+  Ran 9 shell commands (ctrl+o to expand)
+
+● Write(web\src\features\profile\NotificationPrefsForm.tsx)
+  ⎿  Wrote 100 lines to web\src\features\profile\NotificationPrefsForm.tsx
+      1 import type { NotificationPrefs } from '@ssafy-net/shared';
+      2 import { useEffect, useState } from 'react';
+      3 import { toast } from 'sonner';
+      4 import { Badge } from '@/components/ui/badge';
+      5 import { Button } from '@/components/ui/button';
+      6 import { api } from '../../api/client';
+      7 import { errorText } from '../../api/errors';
+      8 import { Muted } from '../../components/primitives';
+      9 import { Skeleton } from '@/components/ui/skeleton';
+     … +101 lines (ctrl+o to expand)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Now the operator announcement section and wiring both into the pages.
+
+● Write(web\src\features\ops\AnnounceSection.tsx)
+  ⎿  Wrote 174 lines to web\src\features\ops\AnnounceSection.tsx
+       1 import type { OpsAnnouncement, OpsAnnounceResult } from '@ssafy-
+         net/shared';
+       2 import { useEffect, useState } from 'react';
+       4 import { Button } from '@/components/ui/button';
+       5 import { Input } from '@/components/ui/input';
+       6 import { Skeleton } from '@/components/ui/skeleton';
+       7 import { Textarea } from '@/components/ui/textarea';
+       9 import { Muted } from '../../components/primitives';
+      10 import { ResponsiveDialog, OverlayActions } from '../../componen
+         ts/ResponsiveDialog';
+     … +189 lines (ctrl+o to expand)
+
+  Called claude-in-chrome 11 times, ran 11 shell commands (ctrl+o to expand)
+
+● Background command "Wait for API to be ready" completed (exit code 0)
+
+● Stop Task
+  ⎿  cd C:/Users/devju/Desktop/ssafy-net && MATTERMOST_WEBHOOK_URL= npm run
+     dev:api · stopped
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● 빌드해서 로컬에서 확인까지 마쳤습니다. 세 가지가 들어갔습니다.
+
+  1. 사용자 알림 설정 — 프로필 "알림" 구역
+
+  메신저 DM 만 두 갈래로 끕니다. 앱 알림함은 끌 수 없습니다(채널이 메신저
+  하나뿐이라 그게 유일한 대비책).
+
+  ┌──────────────┬───────────────────────────────────────────────┐
+  │    스위치    │                 무엇이 멈추나                 │
+  ├──────────────┼───────────────────────────────────────────────┤
+  │ 나에게 온 것 │ 연결 요청·수락, 네트워크 추천·성립, 후속 확인 │
+  ├──────────────┼───────────────────────────────────────────────┤
+  │ 아침 묶음    │ 매일 9시 묶음 알림                            │
+  └──────────────┴───────────────────────────────────────────────┘
+
+  GET/PATCH /api/me/notifications. 백엔드 테이블(notification_setting)은 원래
+  있었고 발송 직전에 이미 확인하고 있었는데, 그 값을 바꿀 길이 없었던 것이라 API
+  와 화면만 붙였습니다.
+
+  실제로 막히는지 확인했습니다 — 묶음을 끄고 digest.send 를 돌리니 제 계정에는
+  IN_APP 행만 생기고 Mattermost 발송 행 자체가 만들어지지 않았습니다(웹훅 호출
+  0). 알림함에는 그대로 남습니다.
+
+  2. 운영자 공지 — /ops 관리 탭 맨 위 "공지 보내기"
+
+  제목(선택) · 본문(1000자) · 누르면 갈 화면(선택, 기본 /). 보내기 전에 확인 
+  대화상자가 뜨고 메신저에 나갈 모습 그대로 미리 보여줍니다. 아래에 보낸 공지
+  이력(받은 사람 수 / 메신저로 나간 수)이 쌓입니다.
+
+  - 온보딩을 마친 활성 전원의 알림함에 남고, DM 은 '나에게 온 것' 을 켜 둔 
+    사람에게만 갑니다
+  - POST /api/admin/ops/announce, GET /api/admin/ops/announcements
+  - 확인 결과: 126명 알림함 / DM 125건 시도(더미는 메신저 아이디가 없어 SKIPPED)
+    / 알림을 꺼 둔 제 계정은 DM 행이 아예 안 생김. 테스트로 만든 공지 126건은
+    지웠고 설정도 원래대로 돌려놨습니다.
+
+  3. 발송 동시성 상한 + 재시도 (design/23 §1 해소)
+
+  발송 경로 전체에 대기열을 놨습니다 — 동시 5건씩만 흘려보냅니다. 1,000명이면 몇
+  분에 걸쳐 나가고 웹훅이 한꺼번에 튀지 않습니다. 실패는 1초 → 5초 뒤 
+  재시도하되, 400(없는 아이디)처럼 다시 해도 같은 것은 한 번으로 끝냅니다. 시도
+  횟수는 notification_delivery.attempts 에 쌓입니다. 9시 묶음도 이 경로를
+  씁니다.
+
+  ---
+
+  마이그레이션이 하나 늘었습니다 (20260911090000_announcement_notification —
+  알림 종류에 ANNOUNCEMENT 추가). 컨테이너가 시작할 때 migrate deploy 로
+  자동으로 붙습니다.
+
+  main 으로 바로 가신다면 순서는 이렇게 됩니다.
+
+  ① 커밋 → main 푸시 → 자동 배포 (마이그레이션 자동 적용)
+  ② 배포 확인 후 운영 컨테이너에서 content:import --dry-run → 실행
+  ③ 운영 계정으로 로그인해 새 관심사 고르기
+  ④ /ops 관리 탭에서 "관심사를 다시 골라주세요" 공지 발송   ← 새 기능이 바로
+  여기 쓰입니다
+
+  ② 가 모든 가입자의 관심사를 비우므로 ④ 공지는 그 직후가 맞습니다. 그리고
+  운영은 발송 모드가 live 라 공지 버튼을 누르면 실제 DM 이 나갑니다 — 확인
+  대화상자를 한 번 거치게 해 둔 이유입니다.
+
+  지금 로컬에서 보실 수 있게 서버는 다시 띄워 뒀습니다(프로필 → 알림, /ops →
+  관리). 확인하시고 커밋·배포 진행할까요?
+
+✻ Worked for 14m 3s · done 오전 9:29
+
+❯ 커밋하고 배포진행하자                                                         
+
+  Ran 8 shell commands (ctrl+o to expand)
+
+❯ 그 다음에 바로 로그아웃이랑 회원탈퇴 기능추가하자                             
+
+  Pushed to main, read 1 file, ran 21 shell commands (ctrl+o to expand)
+
+● Write(web\src\features\profile\AccountSection.tsx)
+  ⎿  Wrote 103 lines to web\src\features\profile\AccountSection.tsx
+       1 import { useState } from 'react';
+       2 import { toast } from 'sonner';
+       3 import { Button } from '@/components/ui/button';
+       4 import { api } from '../../api/client';
+       5 import { Muted } from '../../components/primitives';
+       6 import {
+       7   OverlayActions,
+       8   ResponsiveDialog,
+       9 } from '../../components/ResponsiveDialog';
+      10 import { useSession } from '../../session';
+     … +101 lines (ctrl+o to expand)
+
+  Read 2 files, called claude-in-chrome 3 times, ran 14 shell commands (ctrl+o to expand)
+
+● Background command "Watch build and production deploy" completed (exit code 0)
+
+● Background command "Wait for API restart" completed (exit code 0)
+
+● 첫 묶음은 운영에 배포 완료됐고(번들 index-Qv7LWR7x.js, /api/health 정상,
+  마이그레이션 자동 적용), 이어서 요청하신 로그아웃·탈퇴까지 만들어
+  커밋·푸시했습니다. 두 번째 배포는 지금 돌고 있습니다.
+
+  올린 커밋 4개
+
+  ┌─────────┬────────────────────────────────────────────────────────────────┐
+  │         │                                                                │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 9668788 │ 운영용 내용을 파일 한 벌로 — content.json + 시드가 그것을 읽게 │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ 4596df9 │ 관심사 199개를 6단으로, 층 맨 위로, 분류 색 14자리             │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ ec7021d │ 알림 선택과 운영자 공지(D-89·D-90) + 발송 동시성·재시도        │
+  ├─────────┼────────────────────────────────────────────────────────────────┤
+  │ da643b7 │ 로그아웃과 탈퇴                                                │
+  └─────────┴────────────────────────────────────────────────────────────────┘
+
+  로그아웃·탈퇴 — 프로필 맨 아래 "계정" 구역(로그인 이메일 · 로그아웃 · 탈퇴).
+  로그아웃 엔드포인트는 원래 있었는데 들어갈 입구가 없었습니다.
+
+  탈퇴는 docs/12 §10·D-64 가 이미 정해 둔 그대로 구현했습니다:
+  - 지운다 — 프로필(실명·닉네임·메신저 아이디·로그인 계정), 관심사와 이력, 글
+    전부, 진행 중인 요청, 주고받은 요청 메시지, 후속 확인, 알림과 알림 설정
+  - 남는다 — 성립된 연결과 네트워크. 상대 화면에는 "탈퇴한 사용자" 로 보입니다
+  - googleSub 을 비우므로 같은 Google 계정으로 다시 가입 가능(옛 데이터는 안
+    돌아옴)
+  - 열려 있던 네트워크 추천에서 빠지고 남은 인원이 3 미만이면 그 추천은 소멸
+  - 마지막 운영자는 탈퇴 불가(400) — 운영자가 사라지는 길을 막습니다
+  - 되돌릴 수 없으므로 무엇이 사라지는지 보여 주고 한 번 더 묻습니다
+
+  더미 계정으로 실제로 돌려 확인했습니다(본인 계정은 건드리지 않았습니다) — 204
+  → 상태 WITHDRAWN, 계정 정보 전부 비워짐, 관심사·글·알림 0, 진행 중이던 요청은
+  CANCELLED 에 메시지 비움, holder_count 감소(등산 11→10 등), 그 세션으로 /me
+  호출 시 401. 시험용 계정은 지우고 더미는 다시 뿌려 뒀습니다.
+
+  두 번째 배포가 끝나면 알려드리겠습니다. 그다음 운영 DB 에 새 관심사 
+  넣기(content:import → 관심사 다시 고르기 → 공지)가 남아 있습니다 — 진행할
+  준비되면 말씀해 주세요.
+
+✻ Baked for 10m 41s · done 오전 9:43
+
+● Background command "Push logout/withdraw and watch deploy" completed (exit
+code 0)
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● 두 번째 배포도 끝났습니다. 운영에 4개 커밋이 전부 올라가 있습니다.
+
+  ┌──────────────┬───────────────────────────────────────────────────────────┐
+  │              │                                                           │
+  ├──────────────┼───────────────────────────────────────────────────────────┤
+  │ 운영 번들    │ index-Bc9DKnH4.js (탈퇴 대화상자 문구까지 들어 있는 것    │
+  │              │ 확인)                                                     │
+  ├──────────────┼───────────────────────────────────────────────────────────┤
+  │ /api/health  │ {"ok":true}                                               │
+  ├──────────────┼───────────────────────────────────────────────────────────┤
+  │ main         │ da643b7 — origin/main 과 같음, 작업 트리 깨끗             │
+  ├──────────────┼───────────────────────────────────────────────────────────┤
+  │ 마이그레이션 │ ANNOUNCEMENT 추가분이 컨테이너 시작 때 자동 적용됨        │
+  └──────────────┴───────────────────────────────────────────────────────────┘
+
+  지금 운영 서버에서 바로 쓸 수 있는 것:
+  - 프로필 → 알림 — 메신저 DM 을 즉시/묶음으로 끄고 켜기
+  - 프로필 → 계정 — 로그아웃, 탈퇴
+  - /ops → 관리 → 공지 보내기 — 전원 알림함 + DM(켠 사람만). 운영은 live 모드라 
+    누르면 실제 DM 이 나갑니다
+  - 관심사 수정 대화상자(6단·층 맨 위), 분류 색 14자리
+
+  아직 안 한 것 — 운영 DB 의 내용 교체입니다. 코드와 파일은 올라갔지만
+  content:import 는 돌리지 않았으니 운영 관심사는 아직 옛 100개입니다. 하실 때
+  순서는:
+
+  ① deploy/backup.sh                                    # 먼저 백업
+  ② docker compose -f deploy/docker-compose.prod.yml exec api \
+       npm run content:import -- prisma/content.json --dry-run    # 사라지는
+  선택 확인
+  ③ 같은 명령에서 --dry-run 빼고 실행                    # 전원의 관심사 선택이
+  비워집니다
+  ④ 운영 계정으로 로그인해 관심사 다시 고르기
+  ⑤ /ops → 관리 → 공지로 "관심사를 다시 골라주세요" 발송
+
+  ②를 먼저 보고 결정하시면 됩니다. 제가 옆에서 붙어 진행할까요, 아니면 VM 명령은
+  직접 하시고 결과만 같이 볼까요?
+
+✻ Baked for 27s · done 오전 9:47
+
+❯ 붙어서 같이 진행하자                                                          
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 좋습니다. 제가 한 단계씩 드릴 테니, VM SSH 창(프롬프트가 …@ssafy-net:~$)에
+  붙여 넣고 출력을 그대로 주세요. Cloud Shell 이 아니라 VM 창이어야 합니다.
+
+  1단계 — 백업 먼저
+
+  되돌릴 수 없는 작업이라 이것부터 합니다.
+
+  cd ~/ssafy-net && ./deploy/backup.sh
+
+  기대 출력: [backup] backups/ssafynet-<날짜>-<시각>.sql.gz (몇 MB) 한 줄. (.env
+  에 BACKUP_BUCKET 이 있으면 GCS 업로드 줄이 하나 더 붙습니다.)
+
+  2단계 — 무엇이 바뀌는지만 본다 (아무것도 안 씁니다)
+
+  1단계가 끝나면 이어서:
+
+  docker compose -f deploy/docker-compose.prod.yml exec api \
+    npm run content:import -- prisma/content.json --dry-run
+
+  여기서 같이 볼 것 세 가지입니다:
+
+  1. 넣을 것 — 분류 13 · 관심사 199 · 주제별 질문 716 · 아이스브레이킹 30 이
+     나와야 맞습니다. 숫자가 다르면 이미지가 옛 커밋인 것이니 멈추고 알려주세요.
+  2. 지금 DB — 현재 운영의 분류·관심사 수와 사람들의 관심사 선택 N건. 이 선택이
+     전부 비워집니다.
+  3. 사라지는 선택 — 지금 누가 고르고 있는데 새 목록에 없는 관심사 목록. 실제 
+     가입자 기준이라 로컬에서 본 것과 다릅니다.
+
+  출력 붙여 주시면 3단계(실제 실행) 여부를 같이 판단하겠습니다. 그전까지는
+  아무것도 바뀌지 않습니다.
+✻ Brewed for 29s · done 오전 9:51
+
+❯ > api@0.1.0 content:import                                                    
+  > ts-node -r dotenv/config prisma/content-import.ts prisma/content.json       
+  --dry-run                                                                     
+                                                                                
+  파일: /app/api/prisma/content.json                                            
+  넣을 것                                                                       
+    분류 13개                                                                   
+    관심사 199개                                                                
+    주제별 질문 716개                                                           
+    아이스브레이킹 질문 30개                                                    
+                                                                                
+  지금 DB (전부 지우고 위 내용으로 바꾼다)                                      
+    분류 11개 · 관심사 120개                                                    
+    주제별 질문 0개 · 아이스브레이킹 0개                                        
+    사람들의 관심사 선택 370건 · 글 13개 · 네트워크 추천 0건                    
+                                                                                
+  사라지는 선택 (파일에 없는데 지금 누가 고르고 있는 관심사)                    
+  - 코딩 테스트 · 13명                                                          
+  - 영어 회화 · 11명                                                            
+  - 사이드 프로젝트 · 10명                                                      
+  - 카페·맛집 · 9명                                                             
+  - 기술 면접 · 8명                                                             
+  - 이력서·자소서 · 6명                                                         
+  - 술·맥주 · 6명                                                               
+  - 네트워크 · 5명                                                              
+  - 오픈소스 기여 · 4명                                                         
+  - 대기업 취업 · 4명                                                           
+  - 재테크·투자 · 3명                                                           
+  - DevOps · 2명                                                                
+  - 클라우드·인프라 · 2명                                                       
+  - 코드 리뷰 · 1명                                                             
+  - Android · 1명                                                               
+  - 테스트·TDD · 1명                                                            
+  - UI·UX 디자인 · 1명                                                          
+  - 모바일 앱 · 1명                                                             
+                                                                                
+  --dry-run 이라 아무것도 쓰지 않았다.                                          
+
+● 넣을 것 숫자가 정확히 맞습니다(13 · 199 · 716 · 30) — 이미지에 새 파일이 잘
+  들어갔습니다. 출력에서 세 가지가 눈에 띕니다.
+
+  1. 운영에는 질문이 하나도 없습니다 (주제별 질문 0개 · 아이스브레이킹 0개).
+     시드를 다시 돌린 적이 없어서인데, 이번 임포트로 716 + 30 개가 처음 
+     생깁니다. 순수한 이득입니다.
+  2. 관심사 선택 370건이 비워집니다. 1인 평균 8개면 45명 안팎이 관심사를 다시
+     골라야 합니다 — ⑤번 공지가 그래서 필요합니다.
+  3. 글 13개가 사라집니다. 이게 유일하게 "사용자가 직접 쓴 것" 이라, 넘어가기
+     전에 읽을 수 있는 형태로 한 번 빼 두시길 권합니다.
+
+  사라지는 관심사 18개는 대부분 이름만 바뀐 것입니다 — 코딩 테스트→코딩테스트,
+  영어 회화→영어, 사이드 프로젝트→사이드프로젝트, 기술 면접→기술면접,
+  카페·맛집→카페·커피+맛집, 이력서·자소서→이력서·자기소개서, 네트워크→컴퓨터 
+  네트워크, 오픈소스 기여→오픈소스, 대기업 취업→대기업, DevOps→DevOps·SRE,
+  클라우드·인프라→클라우드, UI·UX 디자인→UI·UX, 모바일 앱→모바일,
+  재테크·투자→재테크+주식. 사람은 다시 골라야 하지만 고를 것이 없어지는 경우는 
+  없습니다.
+
+  먼저 확인 하나
+
+  1단계 백업이 [backup] backups/ssafynet-….sql.gz (…) 로 끝났나요? 그 줄이 안
+  나왔다면 임포트는 아직 하지 마세요.
+
+  3단계 — 글 13개를 읽을 수 있게 빼 두기 (권장)
+
+  docker compose -f deploy/docker-compose.prod.yml exec -T db \
+    psql -U ssafynet -d ssafynet -tAF'|' -c \
+    "select p.created_at, i.name, coalesce(u.nickname, u.real_name), 
+  replace(p.content, chr(10), ' / ') from interest_post p join interest i on 
+  i.id=p.interest_id join \"user\" u on u.id=p.author_id where p.deleted_at is 
+  null order by p.created_at" \
+    | tee ~/posts-before-import.txt
+
+  ~/posts-before-import.txt 에 남습니다. 여기 붙여 주실 필요는 없습니다 —
+  사용자가 쓴 글이니 VM 에만 두시면 됩니다. 줄 수가 13줄인지만 확인해 주세요.
+
+  4단계 — 실제 교체
+
+  위 둘이 끝나면:
+
+  docker compose -f deploy/docker-compose.prod.yml exec api \
+    npm run content:import -- prisma/content.json
+
+  한 트랜잭션이라 중간에 실패하면 통째로 되돌아갑니다. 끝나면 이렇게 나와야
+  합니다:
+
+  넣었다.
+    분류 13 · 관심사 199 · 주제별 질문 716 · 아이스브레이킹 30
+  사람들의 관심사 선택은 비었다. …
+
+  출력 주시면 바로 화면 확인(⑤ 관심사 다시 고르기)으로 넘어가겠습니다.
+
+✻ Crunched for 44s · done 오전 9:55
+
+❯ 파일: /app/api/prisma/content.json                                            
+  넣을 것                                                                       
+    분류 13개                                                                   
+    관심사 199개                                                                
+    주제별 질문 716개                                                           
+    아이스브레이킹 질문 30개                                                    
+                                                                                
+  지금 DB (전부 지우고 위 내용으로 바꾼다)                                      
+    분류 11개 · 관심사 120개                                                    
+    주제별 질문 0개 · 아이스브레이킹 0개                                        
+    사람들의 관심사 선택 370건 · 글 13개 · 네트워크 추천 0건                    
+                                                                                
+  사라지는 선택 (파일에 없는데 지금 누가 고르고 있는 관심사)                    
+  - 코딩 테스트 · 13명                                                          
+  - 영어 회화 · 11명                                                            
+  - 사이드 프로젝트 · 10명                                                      
+  - 카페·맛집 · 9명                                                             
+  - 기술 면접 · 8명                                                             
+  - 이력서·자소서 · 6명                                                         
+  - 술·맥주 · 6명                                                               
+  - 네트워크 · 5명                                                              
+  - 오픈소스 기여 · 4명                                                         
+  - 대기업 취업 · 4명                                                           
+  - 재테크·투자 · 3명                                                           
+  - DevOps · 2명                                                                
+  - 클라우드·인프라 · 2명                                                       
+  - 코드 리뷰 · 1명                                                             
+  - Android · 1명                                                               
+  - 테스트·TDD · 1명                                                            
+  - UI·UX 디자인 · 1명                                                          
+  - 모바일 앱 · 1명                                                             
+                                                                                
+  넣었다.                                                                       
+    분류 13 · 관심사 199 · 주제별 질문 716 · 아이스브레이킹 30                  
+                                                                                
+  사람들의 관심사 선택은 비었다. 이미 가입한 사람은 프로필에서 관심사를 다시    
+  고른다.                                                                       
+  네트워크 추천은 다음 network.recompute 배치가 새 관심사로 다시 만든다.        
+
+● 운영 교체 완료됐습니다. 이제 화면 쪽을 확인하고 안내를 보내면 끝입니다.
+
+  하나만 확인해 주세요 — 1단계 백업([backup] …sql.gz)과 3단계 글
+  저장(~/posts-before-import.txt 13줄)은 돌리셨나요? 백업만 있으면 글은
+  나중에라도 덤프에서 꺼낼 수 있습니다. 둘 다 안 돌리셨다면 글 13개는 복구할
+  길이 없으니 그것만 알고 넘어가면 됩니다.
+
+  5단계 — 들어간 것 확인 (VM)
+
+  docker compose -f deploy/docker-compose.prod.yml exec -T db psql -U ssafynet
+  -d ssafynet -tAc \
+   "select (select count(*) from category)||' 분류 / '||(select count(*) from 
+  interest)||' 관심사 / '||(select count(*) from interest_question)||' 주제별 
+  질문 / '||(select count(*) from icebreaker_question)||' 포괄 질문 / '||(select
+  count(*) from user_interest)||' 선택 / '||(select count(*) from \"user\" 
+  where status='ACTIVE')||' 활성 사용자';"
+
+  13 분류 / 199 관심사 / 716 주제별 질문 / 30 포괄 질문 / 0 선택 / N 활성 사용자
+  가 나오면 맞습니다. N 이 공지가 갈 사람 수입니다.
+
+  6단계 — 운영 계정으로 다시 고르기 (브라우저)
+
+  https://ssafy-networking.store/profile → 관심사 수정. 새 대화상자가 6단으로
+  뜨고, 맨 위가 활동하는 층입니다. 검색창에 코틀린·롤·코테·backend 를 쳐보시면
+  별칭이 붙었는지 바로 보입니다. 5개 이상 고르고 저장하세요.
+
+  이때 같이 봐 주실 것: 그래프에서 분류 13개 색이 겹치지 않는지, 관심사 상세에
+  질문 4개가 보이는지(이번에 처음 생겼습니다).
+
+  7단계 — 공지 (운영 /ops → 관리 → 공지 보내기)
+
+  운영은 live 라 누르면 실제 DM 이 나갑니다. 초안입니다 — 고쳐서 쓰셔도 됩니다.
+
+  - 제목: 관심사 목록이 새로 바뀌었습니다
+  - 본문:
+  관심사 목록을 새로 정리했습니다. 199개로 늘었고 분류도 다시 묶었습니다.
+
+  그 과정에서 이전에 고르셨던 관심사가 초기화됐습니다.
+  프로필 > 관심사 수정에서 다시 골라주세요. 5개 이상 고르면
+  그래프와 추천이 다시 채워집니다. 활동하는 층도 함께 고를 수 있습니다.
+
+  번거롭게 해서 죄송합니다.
+  - 누르면 갈 화면: /profile
+
+  보내기 전 확인 화면에 대상 인원이 뜹니다. 그 숫자가 5단계의 N 과 같은지 보고
+  누르시면 됩니다.
+
+  5단계 출력과 6단계 화면 느낌 주시면, 마지막으로 네트워크 추천
+  재계산(network.recompute)을 돌릴지 같이 정하겠습니다.
+
+✻ Worked for 35s · done 오전 10:15
+
+❯ 네트워크 추천은 내가 버튼으로 트리거할 수 있지?                               
+
+  Pushed to main, called claude-in-chrome 2 times, ran 6 shell commands (ctrl+o to expand)
+
+● 네, 다만 지금 켜져 있으면 버튼이 없었습니다 — /ops 제품 탭 Network 구역은 꺼져
+  있을 때 "켜고 지금 노출", 켜져 있을 때 "끄기" 뿐이었습니다. 그래서 "지금 다시
+  계산" 버튼을 방금 추가해 올렸습니다(66480b8, 배포 진행 중).
+
+  ┌──────┬─────────────┬────────────────────────────────────────────────────┐
+  │ 상태 │    버튼     │                 무슨 일이 일어나나                 │
+  ├──────┼─────────────┼────────────────────────────────────────────────────┤
+  │ 꺼짐 │ 켜고 지금   │ 플래그 ON + 즉시 재계산·노출 + (처음 켜는 것이면)  │
+  │      │ 노출        │ 전원에게 "네트워크 추천이 시작되었습니다"          │
+  ├──────┼─────────────┼────────────────────────────────────────────────────┤
+  │      │ 지금 다시   │ network.recompute 만 돌린다. 플래그를 안 건드리니  │
+  │ 켜짐 │ 계산 ← 새로 │ "시작되었습니다" 안내는 다시 안 나감. 새로 묶인    │
+  │      │  만든 것    │ 사람에게 추천 알림은 갑니다                        │
+  ├──────┼─────────────┼────────────────────────────────────────────────────┤
+  │ 켜짐 │ 끄기        │ 새 노출·알림만 멈춤. 이미 노출된 추천은 그대로     │
+  │      │             │ 진행                                               │
+  └──────┴─────────────┴────────────────────────────────────────────────────┘
+
+  자동으로는 매일 09:00·18:00 (KST) 에 돕니다. 그러니 급하지 않으면 버튼을 안
+  눌러도 오늘 18시에 새 관심사로 다시 계산됩니다.
+
+  로컬에서 버튼이 부르는 그 호출을 그대로 확인했습니다 —
+  {"candidates":6,"exposed":6}.
+
+  순서 제안: 관심사가 지금 전원 0개라 지금 계산하면 후보가 거의 안 나옵니다.
+  공지를 먼저 보내고, 사람들이 다시 고른 뒤에 누르시는 게 맞습니다(또는 그냥
+  18시 배치에 맡기기).
+
+  두 가지만 알려드립니다:
+  - 로컬 확인 과정에서 네트워크 추천 알림 2건이 교육장 Mattermost 운영자 채널에
+    [전송 안 함] 형태로 찍혔을 겁니다(로컬은 redirect 모드). 실제 DM 은
+    아닙니다.
+  - 5단계 확인 출력과 6단계(관심사 다시 고르기) 결과 주시면 마무리하겠습니다.
+    배포 끝나면 알려드릴게요.
+
+✻ Cogitated for 2m 20s · done 오전 10:25
+
+● Background command "Watch the recompute-button deploy" completed (exit code 0)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 배포 끝났습니다. "지금 다시 계산" 버튼과 "공지 보내기" 둘 다 운영에 올라가 
+  있는 것을 확인했습니다(/ops 는 lazy 청크라 OpsPage-C8xtUiQZ.js 안에 들어
+  있습니다).
+
+  ┌─────────────┬─────────────────────────────────────────┐
+  │             │                                         │
+  ├─────────────┼─────────────────────────────────────────┤
+  │ 운영 번들   │ index-DA-avLZB.js / OpsPage-C8xtUiQZ.js │
+  ├─────────────┼─────────────────────────────────────────┤
+  │ /api/health │ {"ok":true}                             │
+  ├─────────────┼─────────────────────────────────────────┤
+  │ main        │ 66480b8 — 푸시 완료                     │
+  └─────────────┴─────────────────────────────────────────┘
+
+  지금 운영 상태를 정리하면:
+
+  - ✅ 관심사 내용 교체 완료 — 분류 13 · 관심사 199 · 주제별 질문 716 · 포괄
+    질문 30 (질문은 운영에 처음 생겼습니다)
+  - ⬜ 5단계 확인 출력 (아직 못 봤습니다)
+  - ⬜ 운영 계정으로 관심사 다시 고르기
+  - ⬜ /ops → 관리 → 공지 보내기 (초안은 앞 메시지에)
+  - ⬜ 사람들이 고른 뒤 /ops → 제품 → Network → 지금 다시 계산 (또는 18시 배치에
+    맡기기)
+
+  다음 하실 것 하시고 결과만 주세요. 5단계 확인 명령을 다시 붙여 둡니다:
+
+  docker compose -f deploy/docker-compose.prod.yml exec -T db psql -U ssafynet
+  -d ssafynet -tAc \
+   "select (select count(*) from category)||' 분류 / '||(select count(*) from 
+  interest)||' 관심사 / '||(select count(*) from interest_question)||' 주제별 
+  질문 / '||(select count(*) from icebreaker_question)||' 포괄 질문 / '||(select
+  count(*) from user_interest)||' 선택 / '||(select count(*) from \"user\" 
+  where status='ACTIVE')||' 활성 사용자';"
+
+✻ Churned for 44s · done 오전 10:31
+
+❯ docker compose -f deploy/docker-compose.prod.yml exec -T db psql -U ssafynet  
+  -d ssafynet -tAc \                                                            
+   "select (select count() from category)||' 분류 / '||(select count() from     
+  interest)||' 관심사 / '||(select count() from interest_question)||' 주제별    
+  질문 / '||(select count() from icebreaker_question)||' 포괄 질문 / '||(select 
+  count() from user_interest)||' 선택 / '||(select count() from \"user\" where  
+  status='ACTIVE')||' 활성 사용자';"                                            
+  이게 뭐야?                                                                    
+
+● 방금 드린 확인용 SQL 한 줄입니다. 읽기만 하고 아무것도 바꾸지 않습니다(전부
+  select).
+
+  docker compose -f deploy/docker-compose.prod.yml exec -T db   ← VM 의 DB
+  컨테이너 안에서
+    psql -U ssafynet -d ssafynet -tAc "…"                        ← SQL 한 줄
+  실행 (-t 머리글 없이, -A 정렬 없이)
+
+  SQL 이 세는 것은 다섯 가지입니다.
+
+  ┌─────────────────────┬────────┬───────────────────────────────────────────┐
+  │       세는 것       │ 기대값 │                  왜 보나                  │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ category            │ 13     │ 분류(층 포함)가 새 파일대로 들어갔나      │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ interest            │ 199    │ 관심사 179 + 층 20                        │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ interest_question   │ 716    │ 관심사별 질문 (운영에 처음 생긴 것)       │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ icebreaker_question │ 30     │ 포괄 아이스브레이킹 질문                  │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ user_interest       │ 0      │ 사람들의 선택이 비워졌나                  │
+  ├─────────────────────┼────────┼───────────────────────────────────────────┤
+  │ user (ACTIVE)       │ N      │ 공지가 갈 사람 수 — 이게 진짜 알고 싶은   │
+  │                     │        │ 값                                        │
+  └─────────────────────┴────────┴───────────────────────────────────────────┘
+
+  임포터가 이미 "넣었다 — 분류 13 · 관심사 199 · …" 를 출력했으니 앞의 네 줄은
+  확인 사살이고, 실제로 필요한 건 마지막 N입니다. 공지 보내기 확인 화면에 뜨는
+  인원수가 이 숫자와 맞는지 보려는 것이었습니다.
+
+  굳이 안 돌리셔도 됩니다. 대신 이렇게 해도 같습니다:
+
+  - /ops 제품 탭의 "온보딩 완료" 타일 → 활성 사용자 수
+  - 브라우저에서 프로필 → 관심사 수정 → 새 목록 6단으로 뜨는지, 층이 맨 위인지
+
+  바로 6단계(운영 계정으로 관심사 다시 고르기)로 넘어가셔도 좋습니다. 화면이
+  제대로 뜨면 그게 가장 확실한 확인입니다.
+
+✻ Cogitated for 1m 22s · done 오전 10:34
+
+❯ network추천은 켜고 지금 노출하면 바로 계산하고 전달되나?                      
+
+● 네, 즉시입니다. 배치 시각(09·18시)을 기다리지 않습니다. 버튼을 누르면 순서대로
+  이렇게 돕니다.
+
+  1. network_enabled 플래그를 켜고
+  2. 그 자리에서 network.recompute 를 돌려 후보를 계산하고
+  3. 계산된 것을 바로 노출합니다 (결과가 토스트에 후보 N · 노출 M · 안내 K명
+     으로 뜹니다)
+  4. 새로 묶인 사람에게 추천 알림이 나가고, 처음 켜는 것이면 온보딩을 마친
+     전원에게 "네트워크 추천이 시작되었습니다" 안내가 갑니다
+
+  알림함은 즉시, 메신저 DM 은 대기열(동시 5건)로 몇 분에 걸쳐 나갑니다. 운영은 
+  live 라 실제 DM 입니다. 전원 안내는 사용자당 한 번이라 껐다 켜도 두 번 가지
+  않습니다.
+
+  다만 지금 누르면 후보가 거의 0입니다. 방금 임포트로 모든 사람의 관심사 선택이 
+  0 이 됐기 때문입니다. 네트워크가 묶이려면:
+
+  - 3~6명(P-05a·P-05b)이
+  - 전원이 공통으로 가진 관심사 5개(P-04)
+
+  를 만족해야 하는데, 관심사를 아무도 안 고른 상태에서는 나올 수가 없습니다.
+  지금 켜면 "시작되었습니다" 안내만 전원에게 나가고 눌러 들어가면 빈 화면이
+  됩니다 — 그 안내는 한 번뿐이라 다시 쓸 수 없고요.
+
+  권하는 순서
+
+  ① 공지 보내기 ("관심사를 다시 골라주세요")
+  ② 사람들이 관심사를 고르는 동안 기다린다
+  ③ 어느 정도 모이면 /ops → 제품 → Network
+     - 아직 꺼져 있으면 "켜고 지금 노출"  (이때 전원 안내가 나감)
+     - 이미 켜져 있으면 "지금 다시 계산"  (안내는 안 나감)
+
+  ③ 전에 같은 화면의 게이트 판정(1인당 후보 ≥ 1.00)을 보면 "지금 눌러도
+  되는지"가 숫자로 보입니다. 아니면 그냥 두셔도 18시 배치가 알아서 계산합니다 —
+  켜져 있기만 하면요.
+
+  지금 운영의 Network 가 켜져 있는지 꺼져 있는지는 /ops 제품 탭에서 보입니다.
+  확인해서 알려주시면 ③을 언제 누를지 같이 정하겠습니다.
+
+✻ Crunched for 35s · done 오전 10:36
+
+❯ 지금 현재 닉네임 변경시 저장 버튼 활성화가 안돼 이 부분에 대한 대안이 필요해  
+
+  Called claude-in-chrome 4 times, ran 8 shell commands (ctrl+o to expand)
+
+❯ 아 횟수 제한 걸려서 그런가봐                                                  
+
+● 맞습니다. 표시명 하루 1회 규칙(docs/12 §3)에 걸린 겁니다.
+  SelfUser.displayNameChangeableAt 이 미래 시각이면 폼이 저장 버튼을 잠급니다.
+  다만 그 이유가 회색 한 줄로 다른 안내들 사이에 묻혀 있어서 버튼이 그냥 죽은
+  것처럼 보였습니다 — 그게 진짜 문제였습니다.
+
+  폼부터 고쳐 놨습니다(로컬 적용, 아직 푸시 전). 이제 버튼이 잠기면 항상 이유가
+  보입니다:
+
+  - 하루 1회에 걸림 → 회색 줄이 아니라 안내 상자로 "○월 ○일 ○시 이후에 다시 바꿀
+    수 있습니다"
+  - 확인 중 → 확인 중…
+  - 중복·실명 유사 → 빨간 이유 (기존과 같음)
+  - 2자 미만 → 2자 이상 12자까지
+  - 지금과 같은 값 → 지금 쓰는 표시명과 같습니다
+  - 검사 요청이 실패하면 버튼을 열어 둡니다 — 서버가 저장할 때 어차피 다시
+    봅니다. 지금까지는 검사가 조용히 실패하면 버튼이 영영 안 켜졌습니다
+
+  지금 당장 풀려면 (VM)
+
+  docker compose -f deploy/docker-compose.prod.yml exec -T db psql -U ssafynet
+  -d ssafynet -c \
+   "update \"user\" set nickname_changed_at = null where email = 
+  '본인이메일@gmail.com';"
+
+  nickname_changed_at 을 비우면 잠금이 풀립니다(온보딩 때 고른 것으로 취급).
+  24시간 기다려도 자동으로 풀립니다.
+
+  규칙 자체는 어떻게 할까요
+
+  D-82 에서 연결 요청·글의 횟수 상한을 없앴던 것과 같은 상황입니다. 특히 지금은 
+  공지를 받고 사람들이 프로필에 몰려 들어올 시점이라, 닉네임을 한 번 잘못 정하면
+  24시간 잠기는 게 첫인상으로 좋지 않습니다.
+
+● User answered Claude's questions:
+  ⎿  · 표시명 하루 1회 규칙(docs/12 §3)을 어떻게 할까요? → 하루 3회로 완화
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+  ⎿  Read ..\..\AppData\Local\Temp\claude\C--Users-devju-Desktop-ssafy-net\dce57
+     6ee-0d81-46b7-a4a1-ba1c1e4e9b6a\tasks\bu37x7mze.output (12 lines)
+  ⎿  Read web\src\features\profile\AccountSection.tsx (104 lines)
+  ⎿  Referenced file ..\..\AppData\Local\Temp\claude\C--Users-devju-Desktop-ssaf
+     y-net\dce576ee-0d81-46b7-a4a1-ba1c1e4e9b6a\tasks\b0p4g24w2.output
+  ⎿  Read web\src\pages\ProfilePage.tsx (310 lines)
+  ⎿  Read web\src\features\ops\AnnounceSection.tsx (175 lines)

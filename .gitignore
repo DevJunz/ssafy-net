@@ -18,3 +18,6 @@ deploy/backups/
 
 # 자동 배포를 멈추는 고정 표시. deploy.sh 가 IMAGE_TAG 를 받으면 만든다(README §8)
 deploy/.pin
+
+# 옛 Vercel 데모의 찌꺼기. 배포는 GCP VM 하나다(2026-09-10)
+.vercel/
