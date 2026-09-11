@@ -18,10 +18,12 @@ import type { User } from '@prisma/client';
 import {
   displayNameSchema,
   identitySchema,
+  notificationPrefsSchema,
   profileMessageSchema,
   PROFILE_MESSAGE_MAX,
   type DisplayNameInput,
   type IdentityInput,
+  type NotificationPrefsInput,
   type ProfileMessageInput,
 } from '@ssafy-net/shared';
 import { CurrentUser } from '../../common/current-user.decorator';
@@ -146,6 +148,45 @@ export class UsersController {
     @Body(new ZodValidationPipe(profileMessageSchema)) body: ProfileMessageInput,
   ) {
     return this.users.setProfileMessage(user, body);
+  }
+
+  /** 메신저 알림 받기 설정 (FR-14.2). 앱 내 알림함은 끌 수 없다. */
+  @Get('me/notifications')
+  @UseGuards(OnboardedGuard)
+  @ApiOperation({
+    summary: '알림 받기 설정 읽기 (My Profile)',
+    description:
+      '`{ immediate, digest }`. 메신저(Mattermost) DM 을 받을지다. ' +
+      '`immediate` 는 나에게 온 것(연결 요청·수락·네트워크 추천 등), `digest` 는 매일 아침 9시 묶음 알림. ' +
+      '**앱 내 알림함은 끌 수 없다** — 채널이 메신저 하나뿐이라 그것이 유일한 대비책이다(D-67).',
+  })
+  notificationPrefs(@CurrentUser() user: User) {
+    return this.users.notificationPrefs(user.id);
+  }
+
+  @Patch('me/notifications')
+  @UseGuards(OnboardedGuard)
+  @ApiOperation({
+    summary: '알림 받기 설정 저장 (My Profile)',
+    description:
+      '`{ immediate?, digest? }` 중 보낸 것만 바꾼다. 응답은 바뀐 뒤의 `{ immediate, digest }`. ' +
+      '끄면 그 종류의 메신저 DM 만 멈추고, 알림함에는 그대로 쌓인다.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        immediate: { type: 'boolean', example: true },
+        digest: { type: 'boolean', example: false },
+      },
+    },
+  })
+  setNotificationPrefs(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(notificationPrefsSchema))
+    body: NotificationPrefsInput,
+  ) {
+    return this.users.setNotificationPrefs(user.id, body);
   }
 
   @Get('users/:id')

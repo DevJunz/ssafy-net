@@ -26,6 +26,9 @@ export interface NotificationPayload {
   reason?: string;
   /** 성립 알림에 붙는 대화 재료(D-87). 앱의 성립 화면에 전부 있고 DM 에는 앞의 몇 개만 */
   questions?: string[];
+  /** 운영자 공지의 제목과 본문. 운영자가 쓴 글 그대로 나간다 */
+  title?: string;
+  body?: string;
   [key: string]: unknown;
 }
 
@@ -180,5 +183,18 @@ export const NOTIFICATION_RULES: Record<NotificationType, Rule> = {
     category: 'DIGEST',
     actionRequired: false,
     render: (p) => p.reason ?? '새로운 소식이 있습니다.',
+  },
+
+  /**
+   * 운영자 공지. 문구를 여기서 만들지 않는다 — 운영자가 쓴 글을 그대로 싣는다.
+   * 즉시 알림으로 분류하므로 메신저 DM 을 꺼 둔 사람에게는 앱 알림함에만 남는다.
+   */
+  ANNOUNCEMENT: {
+    category: 'IMMEDIATE',
+    actionRequired: false,
+    render: (p) =>
+      [p.title ? `**${p.title}**` : '', p.body ?? '']
+        .filter(Boolean)
+        .join('\n\n'),
   },
 };

@@ -324,3 +324,27 @@ export interface OpsOperator {
   /** 호출한 본인. 자기 자신은 해제할 수 없다 */
   self: boolean;
 }
+
+
+/** 운영자 공지 한 건 (`GET /api/admin/ops/announcements`). */
+export interface OpsAnnouncement {
+  id: string;
+  title: string | null;
+  body: string;
+  /** 보낸 때(ISO) */
+  sentAt: string;
+  /** 알림함에 받은 사람 수 */
+  recipients: number;
+  /** 메신저 DM 을 실제로 보낸 수(끈 사람과 아이디 없는 사람은 빠진다) */
+  messenger: number;
+}
+
+/** `POST /api/admin/ops/announce` 응답. */
+export interface OpsAnnounceResult {
+  id: string;
+  recipients: number;
+  /** 메신저 DM 대기열에 올라간 수 */
+  messenger: number;
+  /** 즉시 알림을 꺼 둬서 앱에만 남는 사람 수 */
+  appOnly: number;
+}

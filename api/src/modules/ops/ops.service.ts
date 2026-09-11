@@ -10,6 +10,8 @@ import type {
   OpsEntryStat,
   OpsJob,
   OpsMetrics,
+  OpsAnnouncement,
+  OpsAnnounceResult,
   OpsNetworkSwitchResult,
   OpsOperator,
   OpsRequestDay,
@@ -795,6 +797,96 @@ export class OpsService {
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target || !target.isOperator) throw new AppError('NOT_FOUND');
     await this.prisma.user.update({ where: { id }, data: { isOperator: false } });
+  }
+
+  // ───────────────────────────────────────────── 공지
+
+  /**
+   * 전체 공지 (운영자 → 온보딩을 마친 전원).
+   *
+   * 알림함에는 **모두에게** 남기고, 메신저 DM 은 즉시 알림을 켜 둔 사람에게만 간다
+   * (`NotificationsService.notify` 가 설정을 본다). 끈 사람도 앱에 들어오면 읽을 수 있다.
+   *
+   * 발송은 대기열이 동시 5건으로 흘려보낸다 — 1,000명에게 한꺼번에 웹훅을 때리지 않는다(design/23 §1).
+   * 같은 글을 두 번 눌러도 `dedupeKey` 가 같으면 한 번만 간다.
+   */
+  async announce(input: {
+    title?: string;
+    body: string;
+    targetPath?: string;
+  }): Promise<OpsAnnounceResult> {
+    const title = input.title?.trim() || null;
+    const body = input.body.trim();
+    const targetPath = input.targetPath?.trim() || '/';
+
+    const users = await this.prisma.user.findMany({
+      where: { status: 'ACTIVE', onboardedAt: { not: null } },
+      select: { id: true },
+    });
+
+    // 한 번 보낼 때마다 새 키. 같은 글을 다시 보내고 싶을 수도 있어 내용으로 묶지 않는다.
+    const key = `announce:${Date.now()}`;
+    const settings = await this.prisma.notificationSetting.findMany({
+      where: { channel: 'MATTERMOST', category: 'IMMEDIATE', enabled: false },
+      select: { userId: true },
+    });
+    const optedOut = new Set(settings.map((row) => row.userId));
+
+    for (const user of users) {
+      await this.notifier.notify({
+        userId: user.id,
+        type: 'ANNOUNCEMENT',
+        payload: { title: title ?? undefined, body },
+        targetPath,
+        dedupeKey: key,
+      });
+    }
+
+    const appOnly = users.filter((user) => optedOut.has(user.id)).length;
+    return {
+      id: key,
+      recipients: users.length,
+      messenger: users.length - appOnly,
+      appOnly,
+    };
+  }
+
+  /** 보낸 공지 목록. 알림 행을 dedupeKey 로 묶어 센다. */
+  async announcements(limit = 10): Promise<OpsAnnouncement[]> {
+    const rows = await this.prisma.$queryRaw<
+      {
+        key: string;
+        title: string | null;
+        body: string;
+        sent_at: Date;
+        recipients: bigint;
+        messenger: bigint;
+      }[]
+    >`
+      SELECT
+        n.payload ->> 'dedupeKey'                       AS key,
+        min(n.payload ->> 'title')                      AS title,
+        min(n.payload ->> 'body')                       AS body,
+        min(n.created_at)                               AS sent_at,
+        count(*)::bigint                                AS recipients,
+        count(d.id) FILTER (WHERE d.status = 'SENT')::bigint AS messenger
+      FROM notification n
+      LEFT JOIN notification_delivery d
+        ON d.notification_id = n.id AND d.channel = 'MATTERMOST'
+      WHERE n.type = 'ANNOUNCEMENT'
+      GROUP BY n.payload ->> 'dedupeKey'
+      ORDER BY min(n.created_at) DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      id: row.key,
+      title: row.title,
+      body: row.body ?? '',
+      sentAt: row.sent_at.toISOString(),
+      recipients: Number(row.recipients),
+      messenger: Number(row.messenger),
+    }));
   }
 
   // ───────────────────────────────────────────── 서버

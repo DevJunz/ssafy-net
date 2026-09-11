@@ -152,6 +152,19 @@ export const profileMessageSchema = z.object({
 });
 export type ProfileMessageInput = z.infer<typeof profileMessageSchema>;
 
+/** 알림 받기 설정 (FR-14.2). 보낸 것만 바꾼다. */
+export const notificationPrefsSchema = z
+  .object({
+    immediate: z.boolean().optional(),
+    digest: z.boolean().optional(),
+  })
+  .refine((value) => value.immediate !== undefined || value.digest !== undefined, {
+    message: 'immediate 나 digest 중 하나는 있어야 합니다.',
+  });
+
+export type NotificationPrefsInput = z.infer<typeof notificationPrefsSchema>;
+
+
 /** 관심사 분류(D-86). 이름은 관심사 이름과 같은 글자 규칙을 따른다. */
 export const categoryNameSchema = z
   .string()

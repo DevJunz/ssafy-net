@@ -77,6 +77,17 @@ export interface SelfUser extends ConnectedUser {
   identity: { realName: string | null; classNo: string | null; campus: string };
 }
 
+/**
+ * 메신저 알림 받기 설정 (FR-14.2).
+ * 앱 내 알림함은 끌 수 없다 — 채널이 Mattermost 하나뿐이라 그것이 유일한 대비책이다(D-67).
+ */
+export interface NotificationPrefs {
+  /** 연결 요청·수락·네트워크 추천처럼 나에게 온 것 */
+  immediate: boolean;
+  /** 매일 아침 9시 묶음 알림 */
+  digest: boolean;
+}
+
 export type OnboardingStep =
   /** Mattermost 계정 인증. 소속 검증과 알림 채널 확보를 겸한다(D-66) */
   | 'MATTERMOST'

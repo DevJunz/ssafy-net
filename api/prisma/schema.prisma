@@ -492,6 +492,8 @@ enum NotificationType {
   INTEREST_MERGED
   INTEREST_HIDDEN
   DIGEST
+  // 운영자가 전체에게 보내는 공지
+  ANNOUNCEMENT
 }
 
 enum NotificationChannel {

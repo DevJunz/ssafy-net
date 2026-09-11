@@ -12,7 +12,13 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiCookieAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
-import type { OpsMetrics, OpsNetworkSwitchResult, OpsOperator } from '@ssafy-net/shared';
+import type {
+  OpsAnnouncement,
+  OpsAnnounceResult,
+  OpsMetrics,
+  OpsNetworkSwitchResult,
+  OpsOperator,
+} from '@ssafy-net/shared';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
@@ -25,6 +31,22 @@ const MAX_DAYS = 90;
 const networkSwitchSchema = z.object({ enabled: z.boolean({ message: 'enabled 는 true 또는 false 여야 합니다.' }) });
 const inviteSwitchSchema = z.object({ required: z.boolean({ message: 'required 는 true 또는 false 여야 합니다.' }) });
 const addOperatorSchema = z.object({ email: z.string().trim().email('이메일 형식이 아닙니다.') });
+
+/** 공지. 제목은 선택, 본문은 필수. 메신저 DM 한 통에 들어갈 만큼만 받는다. */
+const announceSchema = z.object({
+  title: z.string().trim().max(40, '제목은 40자까지 쓸 수 있습니다.').optional(),
+  body: z
+    .string()
+    .trim()
+    .min(1, '공지 내용을 입력해주세요.')
+    .max(1000, '공지는 1000자까지 쓸 수 있습니다.'),
+  targetPath: z
+    .string()
+    .trim()
+    .regex(/^\/[\w\-/?=&.]*$/, '앱 안의 경로여야 합니다. 예: /networks')
+    .max(200)
+    .optional(),
+});
 
 /**
  * 운영자 화면 (D-77). 지표를 읽고(GET), 레버 둘을 당긴다 — Network 스위치(D-78)와 운영자 추가·해제(D-79).
@@ -117,6 +139,42 @@ export class OpsController {
     @Body(new ZodValidationPipe(addOperatorSchema)) body: { email: string },
   ): Promise<OpsOperator> {
     return this.ops.addOperator(body.email, user.id);
+  }
+
+  @Get('announcements')
+  @ApiOperation({
+    summary: '보낸 공지 목록',
+    description: '최근 10건. 받은 사람 수와 메신저로 실제 나간 수를 함께 준다.',
+  })
+  announcements(): Promise<OpsAnnouncement[]> {
+    return this.ops.announcements();
+  }
+
+  @Post('announce')
+  @ApiOperation({
+    summary: '전체 공지 보내기',
+    description:
+      '온보딩을 마친 활성 사용자 **전원**의 알림함에 남기고, 메신저 DM 은 "즉시 알림"을 켜 둔 사람에게만 보낸다. ' +
+      '발송은 동시 5건으로 흘려보내므로 1,000명이면 몇 분에 걸쳐 나간다 — 응답은 기다리지 않고 바로 돌아온다. ' +
+      '`targetPath` 를 주면 알림을 눌렀을 때 그 화면으로 간다(기본 `/`). ' +
+      '**되돌릴 수 없다.** 보낸 알림은 지워지지 않는다.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['body'],
+      properties: {
+        title: { type: 'string', maxLength: 40, example: '점검 안내' },
+        body: { type: 'string', maxLength: 1000, example: '오늘 저녁 8시부터 10분간 접속이 잠시 끊길 수 있습니다.' },
+        targetPath: { type: 'string', example: '/networks' },
+      },
+    },
+  })
+  announce(
+    @Body(new ZodValidationPipe(announceSchema))
+    body: { title?: string; body: string; targetPath?: string },
+  ): Promise<OpsAnnounceResult> {
+    return this.ops.announce(body);
   }
 
   @Delete('operators/:id')

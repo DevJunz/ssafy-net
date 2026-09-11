@@ -24,6 +24,7 @@ import {
 import { InterestPicker } from '../features/interests/InterestPicker';
 import { MyPosts } from '../features/posts/MyPosts';
 import { DisplayNameForm } from '../features/profile/DisplayNameForm';
+import { NotificationPrefsForm } from '../features/profile/NotificationPrefsForm';
 import { ProfileMessageForm } from '../features/profile/ProfileMessageForm';
 import { RealNameForm } from '../features/profile/RealNameForm';
 import { useSession } from '../session';
@@ -220,6 +221,14 @@ export function ProfilePage() {
               </Button>
             </div>
           )}
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle>알림</SectionTitle>
+          <Muted>
+            메신저(Mattermost)로 받을 알림을 고릅니다. 끄면 앱 알림함에만 쌓입니다.
+          </Muted>
+          <NotificationPrefsForm />
         </div>
 
         <div className="mt-6">

@@ -5,6 +5,7 @@ import type {
   DisplayNameInput,
   IdentityInput,
   InterestRef,
+  NotificationPrefs,
   ProfileMessageInput,
   PublicUser,
 } from '@ssafy-net/shared';
@@ -169,6 +170,43 @@ export class UsersService {
    * 프로필 메시지 (D-85). 사람 패널에서 표시명 아래에 보이는 한 줄이다.
    * 빈 문자열이면 지운다. 금칙어는 닉네임과 같은 목록을 본다 — 연결 전 누구에게나 보이는 글이다.
    */
+  /**
+   * 메신저 알림 받기 설정 (FR-14.2).
+   *
+   * 행이 없으면 켜진 것으로 본다 — 온보딩에서 만들지만 그 전에 물어볼 수도 있다.
+   * 앱 내 알림함(IN_APP)은 건드리지 않는다. 끌 수 없다.
+   */
+  async notificationPrefs(userId: string): Promise<NotificationPrefs> {
+    const rows = await this.prisma.notificationSetting.findMany({
+      where: { userId, channel: 'MATTERMOST' },
+      select: { category: true, enabled: true },
+    });
+    const value = (category: 'IMMEDIATE' | 'DIGEST') =>
+      rows.find((row) => row.category === category)?.enabled ?? true;
+    return { immediate: value('IMMEDIATE'), digest: value('DIGEST') };
+  }
+
+  async setNotificationPrefs(
+    userId: string,
+    input: Partial<NotificationPrefs>,
+  ): Promise<NotificationPrefs> {
+    const pairs: [('IMMEDIATE' | 'DIGEST'), boolean | undefined][] = [
+      ['IMMEDIATE', input.immediate],
+      ['DIGEST', input.digest],
+    ];
+    for (const [category, enabled] of pairs) {
+      if (enabled === undefined) continue;
+      await this.prisma.notificationSetting.upsert({
+        where: {
+          userId_channel_category: { userId, channel: 'MATTERMOST', category },
+        },
+        update: { enabled },
+        create: { userId, channel: 'MATTERMOST', category, enabled },
+      });
+    }
+    return this.notificationPrefs(userId);
+  }
+
   async setProfileMessage(
     user: User,
     input: ProfileMessageInput,

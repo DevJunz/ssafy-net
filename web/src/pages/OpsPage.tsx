@@ -42,6 +42,7 @@ import {
   fmtTime,
   fmtUptime,
 } from '../features/ops/charts';
+import { AnnounceSection } from '../features/ops/AnnounceSection';
 import {
   CategoriesSection,
   InterestsSection,
@@ -170,7 +171,7 @@ export default function OpsPage() {
               <ServerTab data={data} />
             </TabsContent>
             <TabsContent value="admin">
-              <AdminTab />
+              <AdminTab activeUsers={data.product.network.gate.activeUsers} />
             </TabsContent>
           </Tabs>
         )}
@@ -792,9 +793,10 @@ function NetworkSwitch({
   );
 }
 
-function AdminTab() {
+function AdminTab({ activeUsers }: { activeUsers: number }) {
   return (
     <div className="flex flex-col gap-3">
+      <AnnounceSection activeUsers={activeUsers} />
       <OperatorsSection />
       <InviteSwitch />
       <CategoriesSection />

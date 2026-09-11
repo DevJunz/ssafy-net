@@ -18,9 +18,27 @@ import {
  * 발송은 도메인 트랜잭션 밖에서, 응답을 붙잡지 않고 한다. 알림 실패가
  * 요청 수락 같은 도메인 처리를 막아서는 안 된다.
  */
+/**
+ * 웹훅을 한꺼번에 때리지 않는다.
+ *
+ * 묶음 알림(매일 9시)과 운영자 공지는 한 번에 1,000명에게 나갈 수 있다. 상한이 없으면
+ * fetch 1,000건이 동시에 뜨고 Mattermost 가 429/타임아웃을 뱉는다(design/23 §1).
+ * 5건씩 흘려보내면 1,000명이 몇 분에 걸쳐 나간다 — 알림은 몇 분 늦어도 된다.
+ */
+const MAX_CONCURRENT_DELIVERIES = 5;
+
+/** 재시도 간격. 400(없는 아이디)처럼 다시 해도 소용없는 것은 재시도하지 않는다. */
+const RETRY_DELAYS_MS = [1_000, 5_000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+
+  /** 발송 대기열. 프로세스 안에만 있다 — 재시작하면 남은 것은 알림함에만 남는다. */
+  private readonly queue: Array<() => Promise<void>> = [];
+  private running = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -89,7 +107,33 @@ export class NotificationsService {
     });
 
     // 응답을 붙잡지 않는다. 실패해도 알림함에는 남아 있다.
-    void this.deliver(delivery.id, input.userId, input.type, input.payload);
+    this.enqueue(() =>
+      this.deliver(delivery.id, input.userId, input.type, input.payload),
+    );
+  }
+
+  /** 지금 밀려 있는 발송 수(대기 + 진행). 운영 화면이 본다. */
+  get pendingDeliveries(): number {
+    return this.queue.length + this.running;
+  }
+
+  private enqueue(task: () => Promise<void>): void {
+    this.queue.push(task);
+    this.pump();
+  }
+
+  private pump(): void {
+    while (this.running < MAX_CONCURRENT_DELIVERIES && this.queue.length > 0) {
+      const task = this.queue.shift();
+      if (!task) return;
+      this.running += 1;
+      void task()
+        .catch((error) => this.logger.error(`발송 중 예외: ${String(error)}`))
+        .finally(() => {
+          this.running -= 1;
+          this.pump();
+        });
+    }
   }
 
   private async channelEnabled(
@@ -139,23 +183,46 @@ export class NotificationsService {
       `[확인하기](${base}/n/${deliveryId})`,
     ].join('\n');
 
-    const result = await this.mattermost.sendDirectMessage(
-      user.mattermostUsername,
-      body,
-    );
+    // 재시도. 없는 아이디(400)와 설정 누락은 다시 해도 같으니 한 번으로 끝낸다.
+    for (let attempt = 0; ; attempt += 1) {
+      const result = await this.mattermost.sendDirectMessage(
+        user.mattermostUsername,
+        body,
+      );
 
-    await this.prisma.notificationDelivery.update({
-      where: { id: deliveryId },
-      data: {
-        status: result.ok ? 'SENT' : 'FAILED',
-        sentAt: result.ok ? new Date() : null,
-        attempts: { increment: 1 },
-        error: result.error ?? null,
-      },
-    });
+      if (result.ok) {
+        await this.prisma.notificationDelivery.update({
+          where: { id: deliveryId },
+          data: {
+            status: 'SENT',
+            sentAt: new Date(),
+            attempts: { increment: 1 },
+            error: null,
+          },
+        });
+        return;
+      }
 
-    if (!result.ok) {
-      this.logger.warn(`알림 발송 실패 ${deliveryId}: ${result.error}`);
+      const retryable = result.error !== '400' && !result.error?.includes('없음');
+      const last = attempt >= RETRY_DELAYS_MS.length;
+
+      await this.prisma.notificationDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: retryable && !last ? 'QUEUED' : 'FAILED',
+          attempts: { increment: 1 },
+          error: result.error ?? null,
+        },
+      });
+
+      if (!retryable || last) {
+        this.logger.warn(
+          `알림 발송 실패 ${deliveryId}: ${result.error} (시도 ${attempt + 1}회)`,
+        );
+        return;
+      }
+
+      await sleep(RETRY_DELAYS_MS[attempt]);
     }
   }
 
