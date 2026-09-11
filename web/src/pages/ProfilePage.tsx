@@ -23,6 +23,7 @@ import {
 } from '../components/primitives';
 import { InterestPicker } from '../features/interests/InterestPicker';
 import { MyPosts } from '../features/posts/MyPosts';
+import { AccountSection } from '../features/profile/AccountSection';
 import { DisplayNameForm } from '../features/profile/DisplayNameForm';
 import { NotificationPrefsForm } from '../features/profile/NotificationPrefsForm';
 import { ProfileMessageForm } from '../features/profile/ProfileMessageForm';
@@ -256,6 +257,14 @@ export function ProfilePage() {
               관심사 수정
             </Button>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle>계정</SectionTitle>
+          <Muted>
+            로그인에 쓴 Google 계정입니다. 다른 구성원에게는 보이지 않습니다.
+          </Muted>
+          <AccountSection />
         </div>
 
         {/*

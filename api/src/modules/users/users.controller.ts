@@ -2,9 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -26,10 +29,12 @@ import {
   type NotificationPrefsInput,
   type ProfileMessageInput,
 } from '@ssafy-net/shared';
+import type { Response } from 'express';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthGuard, OnboardedGuard } from '../auth/auth.guard';
+import { SessionService } from '../auth/session.service';
 import { InterestsService } from '../interests/interests.service';
 import { UserPresenter } from './user.presenter';
 import { UsersService } from './users.service';
@@ -44,6 +49,7 @@ export class UsersController {
     private readonly interests: InterestsService,
     private readonly users: UsersService,
     private readonly analytics: AnalyticsService,
+    private readonly session: SessionService,
   ) {}
 
   /** 나 자신에게만 나가는 형태. 계정 이메일은 여기에만 있다(docs/12 §1). */
@@ -187,6 +193,25 @@ export class UsersController {
     body: NotificationPrefsInput,
   ) {
     return this.users.setNotificationPrefs(user.id, body);
+  }
+
+  /** 탈퇴 (docs/12 §10). 온보딩 중에도 할 수 있어야 하므로 OnboardedGuard 를 걸지 않는다. */
+  @Post('me/withdraw')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: '탈퇴',
+    description:
+      '**되돌릴 수 없다.** 프로필·관심사·글·진행 중인 요청·요청 메시지·후속 확인·알림과 알림 설정을 지우고 ' +
+      '계정을 탈퇴 상태로 바꾼다. 성립된 연결과 네트워크는 남아 상대에게 "탈퇴한 사용자" 로 보인다(D-64). ' +
+      '로그인 계정을 비우므로 **같은 Google 계정으로 다시 가입할 수 있다** — 옛 데이터는 돌아오지 않는다. ' +
+      '마지막 운영자는 탈퇴할 수 없다(400). 세션 쿠키도 함께 지운다.',
+  })
+  async withdraw(
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.users.withdraw(user);
+    this.session.clearSession(response);
   }
 
   @Get('users/:id')

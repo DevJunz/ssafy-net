@@ -171,6 +171,103 @@ export class UsersService {
    * 빈 문자열이면 지운다. 금칙어는 닉네임과 같은 목록을 본다 — 연결 전 누구에게나 보이는 글이다.
    */
   /**
+   * 탈퇴 (docs/12 §10, 06 §3.11).
+   *
+   * 계정 행은 남기고 사람에 해당하는 것을 전부 지운다 — 성립된 연결이 상대의 목록에서
+   * 통째로 사라지면 상대는 자기 기억을 의심하게 된다. 그 자리에는 "탈퇴한 사용자" 가 남는다(D-64).
+   *
+   * 지우는 것   프로필(실명·닉네임·메신저 아이디·프로필 메시지·로그인 계정), 관심사 선택과 이력,
+   *             글 전부(11 §탈퇴), 진행 중인 요청, 주고받은 요청 메시지, 후속 확인, 알림과 알림 설정
+   * 남는 것     성립된 연결과 네트워크(상대 화면에 "탈퇴한 사용자"), 개인 식별 없는 집계
+   *
+   * `googleSub` 을 비우므로 **같은 Google 계정으로 다시 가입할 수 있다.** 옛 데이터는 돌아오지 않는다.
+   */
+  async withdraw(user: User): Promise<void> {
+    if (user.isOperator) {
+      const others = await this.prisma.user.count({
+        where: { isOperator: true, status: { not: 'WITHDRAWN' }, id: { not: user.id } },
+      });
+      if (others === 0) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          undefined,
+          '마지막 운영자는 탈퇴할 수 없습니다. 다른 사람을 운영자로 추가한 뒤 탈퇴합니다.',
+        );
+      }
+    }
+
+    const mine = await this.prisma.userInterest.findMany({
+      where: { userId: user.id },
+      select: { interestId: true },
+    });
+    const interestIds = mine.map((row) => row.interestId);
+    const involved = { OR: [{ requesterId: user.id }, { targetId: user.id }] };
+
+    await this.prisma.$transaction(async (tx) => {
+      // 진행 중인 요청은 닫고, 주고받은 메시지는 지운다(12 §10). 상태 기록은 집계를 위해 남는다.
+      await tx.connectionRequest.updateMany({
+        where: { ...involved, status: 'PENDING' },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+      });
+      await tx.connectionRequest.updateMany({ where: involved, data: { message: '' } });
+
+      await tx.interestPost.deleteMany({ where: { authorId: user.id } });
+      await tx.userInterest.deleteMany({ where: { userId: user.id } });
+      await tx.userInterestChange.deleteMany({ where: { userId: user.id } });
+      if (interestIds.length > 0) {
+        await tx.interest.updateMany({
+          where: { id: { in: interestIds } },
+          data: { holderCount: { decrement: 1 } },
+        });
+      }
+
+      // 아직 열려 있는 추천에서 뺀다. 남은 인원이 3 미만이면 그 추천은 조기 소멸한다(10 §5).
+      const open = await tx.networkMember.findMany({
+        where: { userId: user.id, recommendation: { status: 'OPEN' } },
+        select: { recommendationId: true },
+      });
+      if (open.length > 0) {
+        const recommendationIds = open.map((member) => member.recommendationId);
+        await tx.networkMember.deleteMany({
+          where: { userId: user.id, recommendationId: { in: recommendationIds } },
+        });
+        for (const recommendationId of recommendationIds) {
+          const left = await tx.networkMember.count({ where: { recommendationId } });
+          if (left < 3) {
+            await tx.networkRecommendation.update({
+              where: { id: recommendationId },
+              data: { status: 'DISSOLVED' },
+            });
+          }
+        }
+      }
+
+      await tx.followUpCheck.deleteMany({ where: { userId: user.id } });
+      await tx.notification.deleteMany({ where: { userId: user.id } });
+      await tx.notificationSetting.deleteMany({ where: { userId: user.id } });
+      await tx.mattermostVerification.deleteMany({ where: { userId: user.id } });
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          status: 'WITHDRAWN',
+          withdrawnAt: new Date(),
+          // 같은 계정으로 다시 가입할 수 있도록 비운다(schema 의 googleSub 주석).
+          googleSub: null,
+          email: null,
+          realName: null,
+          classNo: null,
+          nickname: null,
+          mattermostUsername: null,
+          mattermostVerifiedAt: null,
+          profileMessage: null,
+          isOperator: false,
+        },
+      });
+    });
+  }
+
+  /**
    * 메신저 알림 받기 설정 (FR-14.2).
    *
    * 행이 없으면 켜진 것으로 본다 — 온보딩에서 만들지만 그 전에 물어볼 수도 있다.
