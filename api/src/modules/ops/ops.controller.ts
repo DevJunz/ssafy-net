@@ -37,6 +37,7 @@ const MAX_DAYS = 90;
 
 const networkSwitchSchema = z.object({ enabled: z.boolean({ message: 'enabled 는 true 또는 false 여야 합니다.' }) });
 const inviteSwitchSchema = z.object({ required: z.boolean({ message: 'required 는 true 또는 false 여야 합니다.' }) });
+const weekendSwitchSchema = z.object({ quiet: z.boolean({ message: 'quiet 는 true 또는 false 여야 합니다.' }) });
 const addOperatorSchema = z.object({ email: z.string().trim().email('이메일 형식이 아닙니다.') });
 
 /**
@@ -173,6 +174,24 @@ export class OpsController {
   ): Promise<{ required: boolean }> {
     await this.ops.setInviteRequired(body.required);
     return { required: body.required };
+  }
+
+  @Put('weekend-quiet')
+  @ApiOperation({
+    summary: '주말 메신저 알림 끄기 / 켜기 (D-95)',
+    description:
+      '기본은 켜짐 — 토·일(KST)에는 Mattermost DM 을 보내지 않고 월요일 09:00 에 사람마다 한 통으로 요약해 보낸다. ' +
+      '앱 알림함은 주말에도 그대로 쌓이고, 운영자 공지(`POST /admin/ops/announce`)는 주말에도 바로 나간다. ' +
+      '끄면 그 자리부터 평소대로 나간다 — 이미 미뤄 둔 것은 월요일 요약이 가져간다.',
+  })
+  @ApiBody({
+    schema: { type: 'object', required: ['quiet'], properties: { quiet: { type: 'boolean' } } },
+  })
+  async setWeekendQuiet(
+    @Body(new ZodValidationPipe(weekendSwitchSchema)) body: { quiet: boolean },
+  ): Promise<{ quiet: boolean }> {
+    await this.ops.setWeekendQuiet(body.quiet);
+    return { quiet: body.quiet };
   }
 
   @Get('operators')

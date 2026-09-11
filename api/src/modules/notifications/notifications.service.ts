@@ -4,10 +4,12 @@ import type { NotificationType } from '@prisma/client';
 import { SERVICE_NAME } from '@ssafy-net/shared';
 import { MattermostService } from '../../infra/mattermost/mattermost.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { ParametersService } from '../parameters/parameters.service';
 import {
   NOTIFICATION_RULES,
   type NotificationPayload,
 } from './notification.catalog';
+import { WEEKEND_HELD, WEEKEND_SUMMARIZED, isWeekendKst } from './weekend';
 
 /**
  * 알림 생성과 발송 (design/20 §8).
@@ -44,6 +46,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly mattermost: MattermostService,
     private readonly config: ConfigService,
+    private readonly parameters: ParametersService,
   ) {}
 
   /**
@@ -102,6 +105,21 @@ export class NotificationsService {
     );
     if (!wantsMattermost) return;
 
+    // 주말에는 DM 을 보내지 않는다(D-95). 알림함에는 이미 남았으니 잃는 것은 없고,
+    // 미룬 것은 표시만 해 두었다가 월요일 아침 한 통으로 요약한다.
+    // 운영자 공지만 예외다 — 토요일에 공지를 보냈다면 그건 지금 알리려는 뜻이다.
+    if (input.type !== 'ANNOUNCEMENT' && (await this.weekendQuiet())) {
+      await this.prisma.notificationDelivery.create({
+        data: {
+          notificationId: notification.id,
+          channel: 'MATTERMOST',
+          status: 'SKIPPED',
+          error: WEEKEND_HELD,
+        },
+      });
+      return;
+    }
+
     const delivery = await this.prisma.notificationDelivery.create({
       data: { notificationId: notification.id, channel: 'MATTERMOST' },
     });
@@ -151,6 +169,97 @@ export class NotificationsService {
     });
     // 설정이 없으면 켜진 것으로 본다. 온보딩에서 만들지만 없을 수도 있다.
     return setting?.enabled ?? true;
+  }
+
+  /** 지금이 주말이고 스위치도 켜져 있는가(D-95). 플래그는 30초 캐시된다. */
+  private async weekendQuiet(): Promise<boolean> {
+    if (!isWeekendKst()) return false;
+    return this.parameters.flag('weekend_quiet');
+  }
+
+  /**
+   * 주말에 미뤄 둔 DM 을 사람마다 한 통으로 요약해 보낸다(D-95). 월요일 09:00 배치가 부른다.
+   *
+   * 세는 것은 **아직 읽지 않은 것**뿐이다. 주말에 앱을 열어 본 사람은 이미 다 본
+   * 것이고(알림함을 열면 전부 읽음이 된다, D-81), 그 사람에게 월요일 아침에
+   * "알림 3건이 왔습니다" 라고 보내면 소음이다. 읽은 것도 표시는 바꿔 둔다.
+   *
+   * 미뤄 둔 것은 이미 각자의 알림 설정을 지나 온 것이므로 여기서 다시 거르지 않는다.
+   */
+  async flushWeekendBacklog(): Promise<{ users: number; held: number }> {
+    const held = await this.prisma.notificationDelivery.findMany({
+      where: { channel: 'MATTERMOST', status: 'SKIPPED', error: WEEKEND_HELD },
+      select: {
+        id: true,
+        notification: {
+          select: { userId: true, readAt: true, actionRequired: true, resolvedAt: true },
+        },
+      },
+    });
+    if (held.length === 0) return { users: 0, held: 0 };
+
+    const byUser = new Map<string, { ids: string[]; unread: number; todo: number }>();
+    for (const row of held) {
+      const bucket = byUser.get(row.notification.userId) ?? { ids: [], unread: 0, todo: 0 };
+      bucket.ids.push(row.id);
+      if (!row.notification.readAt) {
+        bucket.unread += 1;
+        if (row.notification.actionRequired && !row.notification.resolvedAt) bucket.todo += 1;
+      }
+      byUser.set(row.notification.userId, bucket);
+    }
+
+    let sent = 0;
+    for (const [userId, bucket] of byUser) {
+      if (bucket.unread > 0) {
+        const lines = [`주말 동안 알림 ${bucket.unread}건이 왔습니다.`];
+        if (bucket.todo > 0) lines.push(`그중 ${bucket.todo}건은 답을 기다립니다.`);
+        await this.deliverWeekendSummary(userId, lines.join(' '));
+        sent += 1;
+      }
+      await this.prisma.notificationDelivery.updateMany({
+        where: { id: { in: bucket.ids } },
+        data: { error: WEEKEND_SUMMARIZED },
+      });
+    }
+
+    return { users: sent, held: held.length };
+  }
+
+  /**
+   * 주말 요약 한 통. 알림함에도 한 줄 남는다 — 링크(`/n/<deliveryId>`)가 발송 기록을
+   * 가리키므로 알림 없이 DM 만 보낼 수는 없다.
+   *
+   * 여기서는 알림 설정을 보지 않는다. 미뤄 둔 것들이 이미 그 검사를 지나 왔으므로
+   * 한 번 더 거르면 "즉시는 켜고 묶음은 끈" 사람이 주말 것을 영영 못 받게 된다.
+   */
+  private async deliverWeekendSummary(userId: string, reason: string): Promise<void> {
+    const notification = await this.prisma.notification.create({
+      data: {
+        userId,
+        type: 'DIGEST',
+        payload: { reason },
+        targetPath: '/notifications',
+        actionRequired: false,
+      },
+    });
+
+    await this.prisma.notificationDelivery.create({
+      data: {
+        notificationId: notification.id,
+        channel: 'IN_APP',
+        status: 'SENT',
+        sentAt: new Date(),
+      },
+    });
+
+    const delivery = await this.prisma.notificationDelivery.create({
+      data: { notificationId: notification.id, channel: 'MATTERMOST' },
+    });
+
+    this.enqueue(() =>
+      this.deliver(delivery.id, userId, 'DIGEST', { reason }),
+    );
   }
 
   private async deliver(

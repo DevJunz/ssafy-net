@@ -121,7 +121,9 @@
 
 **표시명 저장 버튼이 말없이 잠겨 있던 것을 고쳤다.** 사용자 피드백("닉네임 변경시 저장 버튼 활성화가 안돼"). 원인은 둘이었다 — (1) 버튼이 입력 중 검사(`GET /onboarding/nickname-check`)의 `ok === true` 를 요구하는데 검사가 실패하면 조용히 `null` 로 돌아가 버튼이 영영 안 켜졌다 (2) 진짜 이유인 **하루 1회 제한**이 회색 한 줄(`Muted`)이라 눈에 안 띄었다. 이제 `DisplayNameForm` 의 검사는 `idle·checking·ok·bad·unknown` 다섯 상태이고 **버튼은 검사에 걸지 않는다**(최종 판정은 서버가 한다 — `packages/shared/src/errors.ts` 에 한국어 문구가 이미 있다). 어떤 상태든 버튼 아래 이유가 한 줄 뜨고, 하루 1회는 `Notice` 상자로 올라왔다.
 
-**알림이 나가는 시각(KST).** 09:00 묶음(보낼 것이 있는 사람만) · 09:00·18:00 네트워크 재계산 · 09:05 게이트 판정(발송 없음) · 매시 만료/리마인드/후속 확인 · 10분마다 요청 만료. 나머지는 즉시.
+**알림이 나가는 시각(KST).** 09:00 묶음(보낼 것이 있는 사람만) · 09:00·18:00 네트워크 재계산 · 09:05 게이트 판정(발송 없음) · 매시 만료/리마인드/후속 확인 · 10분마다 요청 만료 · **월요일 09:00 주말 요약**. 나머지는 즉시 — **단 토·일에는 메신저 DM 이 나가지 않는다(D-95).**
+
+**주말에는 메신저 알림을 보내지 않는다(D-95, 2026-09-11).** 토·일(KST)에는 DM 을 미루고 **월요일 09:00 에 사람마다 한 통**으로 요약한다("주말 동안 알림 N건이 왔습니다. 그중 M건은 답을 기다립니다"). **앱 알림함은 주말에도 그대로 쌓인다** — 막히는 것은 DM 하나뿐이다. 예외는 운영자 공지(`ANNOUNCEMENT`)로 주말에도 바로 나간다. 스위치는 `/ops` 관리 탭 "주말 알림"(`PUT /api/admin/ops/weekend-quiet`, 플래그 `weekend_quiet`, 기본 켜짐). 판정은 `api/src/modules/notifications/weekend.ts` 의 `isWeekendKst()` 하나이고 프로세스 TZ 에 기대지 않는다. **미뤄 둔 것은 시각이 아니라 표시로 찾는다** — `notification_delivery` 에 `status=SKIPPED` + `error='주말(D-95) — 월요일 요약 대기'` 로 남기고, 요약에 실으면 표시를 바꾼다. 월요일에 서버가 꺼져 있었어도 다음 실행이 그대로 이어받고, 두 번 돌아도 두 번 세지 않는다. 주말에 이미 읽은 것은 세지 않는다. **마이그레이션은 없다**(DIGEST 종류와 SKIPPED 상태를 그대로 쓴다). 배치 이름은 `weekend.summary`.
 
 
 **재개 지점(2026-09-11 새벽). 대화록 `history/2026-09-10-feedback-10-deploy-fix-interest-admin-session.txt`.**
@@ -233,7 +235,7 @@ npm run dev:web                               # :5173
 - 기획 문서(`docs/`)에는 코드·ERD·API·기술 스택을 넣지 않는다. 구현 중 생긴 **제품 결정만** `docs/16`에 덧붙인다(docs/19 §10의 절차).
 - 표시명은 닉네임/실명 선택제. 연결 성립 시 실명 공개. 소속 정보는 표시하지 않는다.
 - 차단 없음. 연결 해제 없음. 자체 메신저·DM·댓글·좋아요 없음. **신고도 만들지 않는다(D-69)**.
-- **알림은 Mattermost + 앱 내 알림함 둘뿐(D-67).** 이메일·브라우저 알림·외부 채널은 만들지 않는다.
+- **알림은 Mattermost + 앱 내 알림함 둘뿐(D-67).** 이메일·브라우저 알림·외부 채널은 만들지 않는다. **주말(토·일)에는 메신저 DM 을 보내지 않는다(D-95)** — 알림함에는 그대로 쌓이고 월요일 09:00 에 한 통으로 요약한다. 운영자 공지만 예외다.
 - **온보딩 첫 단계가 Mattermost 계정 인증(D-66).** 이것이 SSAFY 소속 검증을 겸한다.
 - **메신저에서 사람을 찾는 수단은 실명이 아니라 @아이디(D-68).** 실명은 표시용.
 - 로그인은 Google만. **가입에 초대 링크는 필요 없다(D-84)** — Mattermost 인증이 소속 검증이다. 초대 링크 요구는 플래그 `invite_required`(기본 꺼짐)로 `/ops` 에서 켤 수 있다. 운영자 = 사용자 본인. 시드 = 같은 반 26명.
@@ -257,7 +259,8 @@ npm run dev:web                               # :5173
 curl -X POST localhost:3000/api/admin/jobs/run -H 'Content-Type: application/json' \
   -d '{"name":"request.expire"}'      # request.expiry-remind, connection.follow-up,
                                        # connection.initiator-remind, network.recompute,
-                                       # network.expire, digest.send, gate.evaluate ...
+                                       # network.expire, digest.send, gate.evaluate,
+                                       # weekend.summary ...
 curl localhost:3000/api/admin/jobs     # 실행 이력
 
 # Network 게이트 판정 (docs/10 §4)

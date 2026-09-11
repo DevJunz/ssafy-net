@@ -49,6 +49,7 @@ import {
   InterestsSection,
   InviteSwitch,
   QuestionsSection,
+  WeekendQuietSwitch,
 } from '../features/ops/ContentAdmin';
 
 /**
@@ -832,6 +833,7 @@ function AdminTab({ activeUsers }: { activeUsers: number }) {
       <AnnounceSection activeUsers={activeUsers} />
       <OperatorsSection />
       <InviteSwitch />
+      <WeekendQuietSwitch />
       <CategoriesSection />
       <InterestsSection />
       <QuestionsSection />

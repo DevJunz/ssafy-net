@@ -57,6 +57,16 @@ export const FEATURE_FLAGS = {
     enabled: false,
     note: '꺼져 있으면 누구나 Google 로 바로 가입한다. Mattermost 인증이 소속 검증이다(D-84)',
   },
+  /**
+   * 토·일(KST)에는 메신저 DM 을 보내지 않는다(D-95). 기본은 켜짐 — 쉬는 날에 알림이
+   * 오지 않는 것이 기본값이어야 한다. 앱 알림함은 주말에도 그대로 쌓이고(D-89 의
+   * "알림함은 못 끈다"), 미룬 DM 은 월요일 09:00 에 한 통으로 요약해 보낸다.
+   */
+  weekend_quiet: {
+    label: '주말 메신저 알림 끄기',
+    enabled: true,
+    note: '토·일에는 DM 을 미루고 월요일 09:00 에 요약 한 통. 알림함은 그대로 쌓인다. 운영자 공지는 예외(D-95)',
+  },
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

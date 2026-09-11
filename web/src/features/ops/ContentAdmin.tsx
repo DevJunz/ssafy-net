@@ -96,6 +96,62 @@ export function InviteSwitch() {
 }
 
 // ─────────────────────────────────────────────────────────
+// 주말 알림 (D-95)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 토·일에 메신저 DM 을 보내지 않는 스위치. 기본은 켜짐.
+ *
+ * 끄는 것은 DM 뿐이다 — 앱 알림함은 주말에도 쌓이고, 미뤄 둔 DM 은 월요일 09:00 에
+ * 사람마다 한 통으로 요약해 나간다. 운영자 공지는 주말에도 바로 간다.
+ */
+export function WeekendQuietSwitch() {
+  const { features, reloadFeatures } = useSession();
+  const [busy, setBusy] = useState(false);
+  const quiet = features?.weekend_quiet ?? true;
+
+  const apply = async (next: boolean) => {
+    setBusy(true);
+    try {
+      await api.put('/admin/ops/weekend-quiet', { quiet: next });
+      await reloadFeatures();
+      toast.success(
+        next ? '주말에는 메신저 알림을 보내지 않습니다' : '주말에도 평소대로 메신저 알림이 나갑니다',
+      );
+    } catch (cause) {
+      toast.error(errorText(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section
+      title="주말 알림"
+      description="토·일(KST)에는 메신저 DM 을 보내지 않고 월요일 09:00 에 사람마다 한 통으로 요약해 보낸다. 앱 알림함은 주말에도 그대로 쌓인다"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant={quiet ? 'default' : 'secondary'}>
+          {quiet ? '주말 DM 안 보냄' : '주말에도 DM 보냄'}
+        </Badge>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy || !features}
+          onClick={() => void apply(!quiet)}
+        >
+          {quiet ? '주말에도 보내게' : '주말에는 미루게'}
+        </Button>
+        <Muted className="text-[12.5px]">
+          운영자 공지는 주말에도 바로 나갑니다. 끄면 그 자리부터 평소대로 나가고, 이미 미뤄 둔 것은 월요일 요약이 가져갑니다.
+        </Muted>
+      </div>
+    </Section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // 관심사 분류 (D-86)
 // ─────────────────────────────────────────────────────────
 

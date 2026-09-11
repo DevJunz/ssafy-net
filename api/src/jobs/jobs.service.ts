@@ -462,6 +462,23 @@ export class JobsService {
     });
   }
 
+  /**
+   * 주말에 미뤄 둔 DM 을 월요일 아침에 한 통으로 보낸다(D-95).
+   *
+   * 묶음 알림(09:00)과 같은 시각이다. 둘 다 받는 사람은 DM 두 통을 보는데, 하나는
+   * "주말에 온 것", 다른 하나는 "어제 이후 새 소식" 으로 뜻이 다르다.
+   */
+  @Cron('0 0 9 * * 1', { timeZone: KST })
+  async flushWeekendNotifications() {
+    return this.run('weekend.summary', this.slot(60), async () => {
+      const result = await this.notifications.flushWeekendBacklog();
+      if (result.held > 0) {
+        this.logger.log(`주말 요약 ${result.users}명 (미뤄 둔 알림 ${result.held}건)`);
+      }
+      return result;
+    });
+  }
+
   // ─────────────────────────────────────────────────────────
 
   private async interestNames(ids: string[]): Promise<string[]> {
@@ -488,6 +505,7 @@ export class JobsService {
       'network.initiator-remind': () => this.remindNetworkInitiators(),
       'gate.evaluate': () => this.evaluateGate(),
       'digest.send': () => this.sendDigest(),
+      'weekend.summary': () => this.flushWeekendNotifications(),
     };
 
     const job = jobs[name];

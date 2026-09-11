@@ -820,6 +820,16 @@ export class OpsService {
     await this.parameters.setFlag('invite_required', required);
   }
 
+  /**
+   * 주말(토·일 KST)에 메신저 DM 을 보내지 않는지(D-95).
+   *
+   * 끄면 그 자리에서 평소대로 나간다. 이미 미뤄 둔 것은 월요일 요약이 가져가므로
+   * 여기서 따로 밀어내지 않는다.
+   */
+  async setWeekendQuiet(quiet: boolean): Promise<void> {
+    await this.parameters.setFlag('weekend_quiet', quiet);
+  }
+
   /** 운영자 목록(D-79). 표시명과 이메일뿐이다. 실명은 없다. */
   async operators(actorId: string): Promise<OpsOperator[]> {
     const users = await this.prisma.user.findMany({
