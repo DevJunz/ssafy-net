@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Toggle } from '@/components/ui/toggle';
 import { api, RequestFailed } from '../../api/client';
-import { ErrorText, Muted } from '../../components/primitives';
+import { ErrorText, Muted, Notice } from '../../components/primitives';
 
 const NICKNAME_ERRORS: Record<string, string> = {
   NICKNAME_TAKEN: '이미 사용 중인 닉네임입니다.',
@@ -25,6 +25,11 @@ const choiceClass =
  *
  * 입력 중 검사는 온보딩의 `GET /onboarding/nickname-check` 를 쓴다. 지금 쓰는 닉네임과
  * 같으면 검사하지 않고 저장 버튼도 잠근다 — 같은 값을 저장해 하루 1회를 쓰지 않게.
+ *
+ * **저장 버튼을 이 검사에 걸지 않는다.** 검사는 힌트일 뿐이고 최종 판정은 서버가 한다
+ * (`NICKNAME_TAKEN` · `NICKNAME_LOOKS_LIKE_REAL_NAME` · `NICKNAME_INVALID` 를 그대로 돌려준다).
+ * 검사가 느리거나 실패했을 때 버튼이 이유 없이 죽어 있으면 사용자는 무엇을 고쳐야 할지 알 수 없다 —
+ * 그래서 "확실히 안 되는 것"(검사가 거부했거나 하루 1회에 걸렸거나 값이 그대로)만 막는다.
  */
 export function DisplayNameForm({
   realNamePreview,
@@ -48,9 +53,11 @@ export function DisplayNameForm({
 }) {
   const [type, setType] = useState<DisplayNameType | null>(initial?.type ?? null);
   const [nickname, setNickname] = useState(initial?.nickname ?? '');
-  const [check, setCheck] = useState<{ ok: boolean; code?: string } | null>(
-    null,
-  );
+  /** idle 검사 안 함 · checking 확인 중 · ok 가능 · bad 거부 · unknown 확인 실패(저장은 열어 둔다) */
+  const [check, setCheck] = useState<{
+    status: 'idle' | 'checking' | 'ok' | 'bad' | 'unknown';
+    code?: string;
+  }>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -62,16 +69,22 @@ export function DisplayNameForm({
 
   useEffect(() => {
     if (type !== 'NICKNAME' || trimmed.length < 2 || unchanged) {
-      setCheck(null);
+      setCheck({ status: 'idle' });
       return;
     }
+    setCheck({ status: 'checking' });
     const timer = setTimeout(() => {
       api
         .get<{ ok: boolean; code?: string }>(
           `/onboarding/nickname-check?value=${encodeURIComponent(trimmed)}`,
         )
-        .then(setCheck)
-        .catch(() => setCheck(null));
+        .then((result) =>
+          setCheck(
+            result.ok ? { status: 'ok' } : { status: 'bad', code: result.code },
+          ),
+        )
+        // 검사에 실패해도 저장까지 막지 않는다. 서버가 저장할 때 다시 본다.
+        .catch(() => setCheck({ status: 'unknown' }));
     }, 250);
     return () => clearTimeout(timer);
   }, [type, trimmed, unchanged]);
@@ -92,7 +105,8 @@ export function DisplayNameForm({
   const canSubmit =
     !blockedReason &&
     !unchanged &&
-    (type === 'REAL' || (type === 'NICKNAME' && check?.ok === true));
+    (type === 'REAL' ||
+      (type === 'NICKNAME' && trimmed.length >= 2 && check.status !== 'bad'));
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,12 +131,21 @@ export function DisplayNameForm({
             maxLength={12}
             className="h-11 bg-card"
           />
-          {check?.ok === false && (
+          {/* 버튼이 왜 그 상태인지 항상 한 줄로 말해 준다. 말없이 잠긴 버튼이 제일 나쁘다. */}
+          {check.status === 'bad' && (
             <ErrorText>
               {NICKNAME_ERRORS[check.code ?? ''] ?? '사용할 수 없습니다.'}
             </ErrorText>
           )}
-          {check?.ok === true && <Muted>사용할 수 있는 닉네임입니다.</Muted>}
+          {check.status === 'ok' && <Muted>사용할 수 있는 닉네임입니다.</Muted>}
+          {check.status === 'checking' && <Muted>확인 중…</Muted>}
+          {check.status === 'unknown' && (
+            <Muted>지금은 확인하지 못했습니다. 저장을 누르면 서버가 다시 봅니다.</Muted>
+          )}
+          {check.status === 'idle' && !unchanged && trimmed.length < 2 && (
+            <Muted>2자 이상 12자까지 쓸 수 있습니다.</Muted>
+          )}
+          {unchanged && <Muted>지금 쓰는 표시명과 같습니다. 바꾸면 저장할 수 있습니다.</Muted>}
         </div>
       )}
 
@@ -139,7 +162,8 @@ export function DisplayNameForm({
         </span>
       </Toggle>
 
-      {blockedReason ? <Muted>{blockedReason}</Muted> : note}
+      {/* 하루 1회에 걸린 것은 회색 한 줄로 흘리지 않는다. 이것 때문에 버튼이 잠긴다 */}
+      {blockedReason ? <Notice>{blockedReason}</Notice> : note}
 
       {error && <ErrorText>{error}</ErrorText>}
 
