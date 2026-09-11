@@ -209,6 +209,8 @@ export interface OpsMetrics {
       enabled: boolean;
       /** 게이트 판정(docs/10 §4). 참고값이다 — 켜는 시점은 운영자가 화면에서 정한다(D-78) */
       gate: { activeUsers: number; perUser: number; passes: boolean };
+      /** 지금 걸려 있는 기준값(D-91). 화면 입력칸의 초기값이다 */
+      thresholds: { minCommon: number; minInterests: number };
       candidates: number;
       open: number;
       activated: number;
@@ -347,4 +349,50 @@ export interface OpsAnnounceResult {
   messenger: number;
   /** 즉시 알림을 꺼 둬서 앱에만 남는 사람 수 */
   appOnly: number;
+}
+
+/**
+ * 기준값을 바꾸기 전에 **운영 실데이터로** 미리 보는 한 줄 (D-91).
+ *
+ * `docs/10 §3` 이 P-04 의 "조정 데이터"로 지목한 것 가운데 후보 수와 인기 관심사
+ * 비율이 여기 있다. 나머지 하나(참여율)는 노출을 해 봐야 나온다.
+ */
+export interface OpsNetworkPreviewRow {
+  /** 이 줄이 가정한 P-04 값 */
+  minCommon: number;
+  candidates: number;
+  /** 후보 어딘가에 이름이 올라간 사람 수(중복 제거) */
+  coveredUsers: number;
+  /** 온보딩 완료자 1인당 후보 슬롯. 게이트 기준 1.00 과 같은 계산이다(docs/10 §4) */
+  perUser: number;
+  /**
+   * 공통 관심사가 **전부** 인기 관심사인 후보의 비율(0~1). 후보가 0이면 null.
+   * 이 값이 높으면 "이 3명은 백엔드·알고리즘·취업 준비를 공유합니다" 같은 추천이라
+   * 대화 명분이 되지 않는다.
+   */
+  popularOnly: number | null;
+  /** 지금 쓰이는 값인지 */
+  current: boolean;
+}
+
+/** `GET /api/admin/ops/network/preview` 응답 (D-91). */
+export interface OpsNetworkPreview {
+  activeUsers: number;
+  /** 보유율이 이 비율 이상이면 "인기"로 셌다(0~1) */
+  popularThreshold: number;
+  /** 인기로 분류된 관심사 이름. 무엇을 인기로 봤는지 눈으로 확인할 수 있어야 한다 */
+  popularInterests: string[];
+  rows: OpsNetworkPreviewRow[];
+  /** 계산에 걸린 시간(ms). 기준을 낮추면 여기가 먼저 늘어난다 */
+  computeMs: number;
+}
+
+/** `PUT /api/admin/ops/parameters` 응답 (D-91). */
+export interface OpsParameterUpdateResult {
+  key: string;
+  oldValue: number;
+  newValue: number;
+  /** 저장 직후 돌린 `network.recompute` 의 결과 */
+  candidates: number;
+  exposed: number;
 }

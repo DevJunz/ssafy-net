@@ -61,3 +61,50 @@ export const FEATURE_FLAGS = {
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
 export type FeatureFlagMap = Record<FeatureFlagKey, boolean>;
+
+/**
+ * 운영 화면(`/ops` 제품 탭 Network 구역)에서 값을 바꿀 수 있는 파라미터 (D-91).
+ *
+ * 전부를 열지 않는 이유는 값마다 영향 범위가 다르기 때문이다. 여기 둘은 **추천이
+ * 생기느냐 마느냐**를 직접 정하고, 바꾼 결과를 같은 화면의 미리보기로 곧장 확인할 수
+ * 있다. 나머지는 design/20 §9 대로 DB 에서 바꾼다.
+ *
+ * `warnBelow` 아래 값도 저장은 된다. 막지 않고 경고만 하는 이유는 docs/10 §4 의
+ * "3까지는 낮추지 않는다"가 2026-09-07 의 판단이고, 그 판단을 뒤집을 재료(실데이터
+ * 미리보기)를 이제 같은 화면이 주기 때문이다. 운영자가 숫자를 보고 정한다.
+ */
+export interface OpsEditableParameterDef {
+  min: number;
+  max: number;
+  /** 이 값 미만이면 화면이 경고를 띄운다. 저장을 막지는 않는다 */
+  warnBelow: number;
+  /** 경고에 쓸 한 줄 */
+  warning: string;
+  /** 입력칸 아래 설명 */
+  note: string;
+}
+
+export const OPS_EDITABLE_PARAMETERS = {
+  'P-04': {
+    min: 2,
+    max: 10,
+    warnBelow: 4,
+    warning:
+      '3 이하로 내리면 인기 관심사(백엔드·프론트엔드·알고리즘·취업 준비)만으로 묶인 그룹이 늘어 추천 이유가 "다 같은 SSAFY 교육생"이 됩니다. 아래 미리보기의 "인기뿐" 비율을 보고 정하세요.',
+    note: '3~6명 전원의 교집합이 이 개수 이상이어야 후보가 됩니다. 쌍이 아니라 전원 교집합입니다(docs/10 §2).',
+  },
+  'P-01': {
+    min: 3,
+    max: 15,
+    warnBelow: 5,
+    warning:
+      '적게 고를수록 사람 사이에 겹칠 일이 줄어 추천이 더 안 생깁니다. 관심사 목록이 179개라 5개는 이미 적은 편입니다.',
+    note: '온보딩과 관심사 수정에서 최소 몇 개를 골라야 하는지. 층(속성)은 세지 않습니다(D-72). 올리면 이미 그보다 적게 고른 사람은 다음에 저장할 때 더 고르라는 안내를 받습니다.',
+  },
+} as const satisfies Record<string, OpsEditableParameterDef>;
+
+export type OpsEditableParameterKey = keyof typeof OPS_EDITABLE_PARAMETERS;
+
+export const OPS_EDITABLE_PARAMETER_KEYS = Object.keys(
+  OPS_EDITABLE_PARAMETERS,
+) as OpsEditableParameterKey[];

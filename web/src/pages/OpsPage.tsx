@@ -43,6 +43,7 @@ import {
   fmtUptime,
 } from '../features/ops/charts';
 import { AnnounceSection } from '../features/ops/AnnounceSection';
+import { NetworkThresholds } from '../features/ops/NetworkThresholds';
 import {
   CategoriesSection,
   InterestsSection,
@@ -502,6 +503,12 @@ function ProductTab({ data, reload }: { data: OpsMetrics; reload: () => Promise<
           <StatTile label="참여 / 거절" value={`${fmtNum(p.network.joined)} / ${fmtNum(p.network.declined)}`} />
         </Tiles>
         <NetworkSwitch enabled={p.network.enabled} activeUsers={p.network.gate.activeUsers} onChanged={reload} />
+        <SectionLabel>후보 기준값</SectionLabel>
+        <NetworkThresholds
+          minCommon={p.network.thresholds.minCommon}
+          minInterests={p.network.thresholds.minInterests}
+          onChanged={reload}
+        />
       </Section>
     </div>
   );

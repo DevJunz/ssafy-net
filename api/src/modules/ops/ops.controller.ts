@@ -16,8 +16,15 @@ import type {
   OpsAnnouncement,
   OpsAnnounceResult,
   OpsMetrics,
+  OpsNetworkPreview,
   OpsNetworkSwitchResult,
   OpsOperator,
+  OpsParameterUpdateResult,
+} from '@ssafy-net/shared';
+import {
+  OPS_EDITABLE_PARAMETERS,
+  OPS_EDITABLE_PARAMETER_KEYS,
+  type OpsEditableParameterKey,
 } from '@ssafy-net/shared';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/current-user.decorator';
@@ -31,6 +38,17 @@ const MAX_DAYS = 90;
 const networkSwitchSchema = z.object({ enabled: z.boolean({ message: 'enabled 는 true 또는 false 여야 합니다.' }) });
 const inviteSwitchSchema = z.object({ required: z.boolean({ message: 'required 는 true 또는 false 여야 합니다.' }) });
 const addOperatorSchema = z.object({ email: z.string().trim().email('이메일 형식이 아닙니다.') });
+
+/**
+ * 파라미터 저장(D-91). 키는 열어 둔 둘만 받는다 — 범위는 `OPS_EDITABLE_PARAMETERS` 가 갖고,
+ * 값끼리의 관계(P-01 ≤ P-02)는 서비스가 본다.
+ */
+const parameterSchema = z.object({
+  key: z.enum(OPS_EDITABLE_PARAMETER_KEYS as [OpsEditableParameterKey, ...OpsEditableParameterKey[]], {
+    message: '운영 화면에서 바꿀 수 있는 값이 아닙니다.',
+  }),
+  value: z.number().int('정수여야 합니다.'),
+});
 
 /** 공지. 제목은 선택, 본문은 필수. 메신저 DM 한 통에 들어갈 만큼만 받는다. */
 const announceSchema = z.object({
@@ -91,6 +109,52 @@ export class OpsController {
     @Body(new ZodValidationPipe(networkSwitchSchema)) body: { enabled: boolean },
   ): Promise<OpsNetworkSwitchResult> {
     return this.ops.setNetworkEnabled(body.enabled);
+  }
+
+  @Get('network/preview')
+  @ApiOperation({
+    summary: 'Network 후보 기준값 미리보기 (D-91)',
+    description:
+      'P-04 를 바꾸면 후보가 몇 개가 되는지 지금 데이터로 계산해 본다. 저장하는 것은 없다 — network_candidate 는 그대로다. ' +
+      '줄마다 후보 수, 후보에 이름이 오른 사람 수, 1인당 슬롯(게이트와 같은 계산), ' +
+      '그리고 공통 관심사가 전부 인기 관심사(보유율 30%+)뿐인 후보의 비율을 준다. ' +
+      '마지막 값이 높으면 "이 3명은 백엔드·알고리즘·취업 준비를 공유합니다" 같은 추천이라 대화 명분이 되지 않는다(docs/10 §3·§4). ' +
+      '기준값을 낮출수록 계산이 오래 걸린다(computeMs). 재계산도 같은 파이프라인을 쓰므로 여기 시간이 곧 배치 시간이다.',
+  })
+  networkPreview(): Promise<OpsNetworkPreview> {
+    return this.ops.networkPreview();
+  }
+
+  @Put('parameters')
+  @ApiOperation({
+    summary: '후보 기준값 바꾸기 (D-91)',
+    description:
+      'P-04(전원 교집합 기준)와 P-01(관심사 최소 선택 수)만 바꿀 수 있다. 나머지는 design/20 §9 대로 DB 에서 바꾼다. ' +
+      '저장하면 캐시를 바로 비우고 network.recompute 를 즉시 돌려 후보·노출 수를 돌려준다. ' +
+      '이미 노출된 추천은 바뀌지 않는다 — 노출 시점의 스냅샷으로 굳어 있다(D-45). ' +
+      'network_enabled 가 꺼져 있으면 후보만 계산되고 노출·알림은 나가지 않는다(D-75). ' +
+      'app_parameter_change 에 옛 값과 새 값이 남는다.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['key', 'value'],
+      properties: {
+        key: { type: 'string', enum: [...OPS_EDITABLE_PARAMETER_KEYS], example: 'P-04' },
+        value: {
+          type: 'integer',
+          example: 4,
+          description: `P-04 는 ${OPS_EDITABLE_PARAMETERS['P-04'].min}~${OPS_EDITABLE_PARAMETERS['P-04'].max}, P-01 은 ${OPS_EDITABLE_PARAMETERS['P-01'].min}~${OPS_EDITABLE_PARAMETERS['P-01'].max}`,
+        },
+      },
+    },
+  })
+  setParameter(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(parameterSchema))
+    body: { key: OpsEditableParameterKey; value: number },
+  ): Promise<OpsParameterUpdateResult> {
+    return this.ops.setParameter(body.key, body.value, user.id);
   }
 
   @Put('invite')

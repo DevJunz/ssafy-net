@@ -12,10 +12,16 @@ import type {
   OpsMetrics,
   OpsAnnouncement,
   OpsAnnounceResult,
+  OpsNetworkPreview,
   OpsNetworkSwitchResult,
   OpsOperator,
+  OpsParameterUpdateResult,
   OpsRequestDay,
   OpsRequestEntry,
+} from '@ssafy-net/shared';
+import {
+  OPS_EDITABLE_PARAMETERS,
+  type OpsEditableParameterKey,
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { StatsService } from '../../common/stats.service';
@@ -673,13 +679,16 @@ export class OpsService {
   }
 
   private async network(): Promise<OpsMetrics['product']['network']> {
-    const [enabled, gate, candidates, statuses, decisions] = await Promise.all([
-      this.parameters.flag('network_enabled'),
-      this.candidates.evaluateGate(),
-      this.prisma.networkCandidate.count(),
-      this.prisma.networkRecommendation.groupBy({ by: ['status'], _count: { _all: true } }),
-      this.prisma.networkMember.groupBy({ by: ['decision'], _count: { _all: true } }),
-    ]);
+    const [enabled, gate, candidates, statuses, decisions, minCommon, minInterests] =
+      await Promise.all([
+        this.parameters.flag('network_enabled'),
+        this.candidates.evaluateGate(),
+        this.prisma.networkCandidate.count(),
+        this.prisma.networkRecommendation.groupBy({ by: ['status'], _count: { _all: true } }),
+        this.prisma.networkMember.groupBy({ by: ['decision'], _count: { _all: true } }),
+        this.parameters.get('P-04'),
+        this.parameters.get('P-01'),
+      ]);
     const status = (s: 'OPEN' | 'ACTIVATED' | 'EXPIRED' | 'DISSOLVED') =>
       statuses.find((r) => r.status === s)?._count._all ?? 0;
     const decision = (d: 'JOINED' | 'DECLINED') =>
@@ -687,6 +696,7 @@ export class OpsService {
     return {
       enabled,
       gate: { activeUsers: gate.activeUsers, perUser: gate.perUser, passes: gate.passes },
+      thresholds: { minCommon, minInterests },
       candidates,
       open: status('OPEN'),
       activated: status('ACTIVATED'),
@@ -742,6 +752,66 @@ export class OpsService {
       candidates: run?.candidates ?? 0,
       exposed: run?.exposed ?? 0,
       notified,
+    };
+  }
+
+  /**
+   * 후보 기준값을 바꾸기 전에 실데이터로 미리 본다(D-91).
+   * 저장하는 것이 없다 — `network_candidate` 는 그대로다.
+   */
+  networkPreview(): Promise<OpsNetworkPreview> {
+    return this.candidates.preview();
+  }
+
+  /**
+   * 파라미터 값을 바꾼다(D-91). `/ops` 의 Network 구역에서 P-04·P-01 두 개만 연다.
+   *
+   * 저장하면 그 자리에서 `network.recompute` 를 돌린다 — 배치 시각(09·18시)을 기다리면
+   * 바꾼 값이 맞는지 반나절 뒤에야 안다. 잡으로 돌려야 서버 탭의 "마지막 실행" 에 남는다.
+   *
+   * **이미 노출된 추천은 바뀌지 않는다.** 노출 시점의 멤버와 공통 관심사가 스냅샷으로
+   * 굳어 있다(D-45). 새 값은 다음 후보부터 적용된다.
+   *
+   * `network_enabled` 가 꺼져 있으면 후보만 다시 계산되고 노출·알림은 나가지 않는다(D-75).
+   */
+  async setParameter(
+    key: OpsEditableParameterKey,
+    value: number,
+    actorId: string,
+  ): Promise<OpsParameterUpdateResult> {
+    const def = OPS_EDITABLE_PARAMETERS[key];
+    if (!Number.isInteger(value) || value < def.min || value > def.max) {
+      throw new AppError('VALIDATION_FAILED', undefined, `${def.min}~${def.max} 사이의 정수여야 합니다.`);
+    }
+
+    // 최소가 최대를 넘으면 아무도 관심사를 저장할 수 없게 된다.
+    if (key === 'P-01') {
+      const max = await this.parameters.get('P-02');
+      if (value > max) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          undefined,
+          `최대 선택 수(P-02 = ${max})보다 클 수 없습니다.`,
+        );
+      }
+    }
+    // 그룹 최대 인원보다 큰 교집합을 요구하는 것은 막지 않는다 — 관심사 개수와 사람 수는 다른 축이다.
+
+    const oldValue = await this.parameters.setParameter(key, value, {
+      updatedBy: actorId,
+      reason: '/ops',
+    });
+
+    const run = (await this.jobRunner.runNow('network.recompute')) as
+      | { candidates?: number; exposed?: number }
+      | null;
+
+    return {
+      key,
+      oldValue,
+      newValue: value,
+      candidates: run?.candidates ?? 0,
+      exposed: run?.exposed ?? 0,
     };
   }
 

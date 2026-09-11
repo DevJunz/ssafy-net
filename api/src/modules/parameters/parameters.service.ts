@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   DEFAULT_PARAMETERS,
   FEATURE_FLAGS,
+  PARAMETER_DEFS,
   type FeatureFlagKey,
   type FeatureFlagMap,
   type ParameterKey,
@@ -87,6 +88,49 @@ export class ParametersService {
       create: { key, enabled, note: FEATURE_FLAGS[key].note },
     });
     this.invalidate();
+  }
+
+  /**
+   * 운영자가 값을 바꾼다(D-91). `/ops` 의 Network 구역에서 P-04·P-01 을 이걸로 쓴다.
+   *
+   * `app_parameter_change` 에 한 줄을 남긴다 — 스키마에 처음부터 있던 자리다. 나중에
+   * "추천이 갑자기 늘었는데 언제부터였나"를 `analytics_event.occurred_at` 과 맞춰 보려면
+   * 값이 바뀐 시각이 남아 있어야 한다.
+   *
+   * 캐시를 바로 비우므로 다음 요청부터 새 값이 보인다 — 30초를 기다리지 않는다.
+   * 돌려주는 것은 **바뀌기 전 값**이다.
+   */
+  async setParameter(
+    key: ParameterKey,
+    value: number,
+    options: { updatedBy?: string; reason?: string } = {},
+  ): Promise<number> {
+    const before = await this.get(key);
+    if (before === value) return before;
+
+    await this.prisma.$transaction([
+      this.prisma.appParameter.upsert({
+        where: { key },
+        update: { value, updatedBy: options.updatedBy ?? null },
+        create: {
+          key,
+          value,
+          label: PARAMETER_DEFS[key].label,
+          updatedBy: options.updatedBy ?? null,
+        },
+      }),
+      this.prisma.appParameterChange.create({
+        data: {
+          key,
+          oldValue: before,
+          newValue: value,
+          reason: options.reason ?? null,
+        },
+      }),
+    ]);
+
+    this.invalidate();
+    return before;
   }
 
   invalidate(): void {

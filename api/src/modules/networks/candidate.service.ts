@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
+import type { OpsNetworkPreview, OpsNetworkPreviewRow } from '@ssafy-net/shared';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { ParametersService } from '../parameters/parameters.service';
 
@@ -18,6 +19,20 @@ export interface Candidate {
 const MAX_DEGREE = 60;
 /** 신규 가입자 판정(docs/10 §2a 우선순위). */
 const NEW_MEMBER_DAYS = 3;
+/** 미리보기에서 "인기 관심사"로 세는 보유율(docs/10 §3 의 조정 데이터가 쓰는 30%). */
+const POPULAR_RATIO = 0.3;
+/** 미리보기가 보여 주는 P-04 후보값. 지금 값이 이 밖이면 한 줄을 더 붙인다. */
+const PREVIEW_THRESHOLDS = [3, 4, 5, 6];
+
+type Group = { memberIds: string[]; commonInterestIds: string[] };
+
+/** 한 번 읽어 여러 기준값에 돌려 쓰는 재료. 미리보기가 SQL 을 기준값마다 다시 치지 않게 한다. */
+interface Snapshot {
+  users: { id: string; createdAt: Date }[];
+  interestsOf: Map<string, Set<string>>;
+  /** ACTIVE 사용자 기준 실제 보유 수. 비정규화된 holderCount 가 아니라 여기서 센 값이다 */
+  holders: Map<string, number>;
+}
 
 export const memberSetHash = (ids: string[]): string =>
   createHash('sha1').update([...ids].sort().join(',')).digest('hex');
@@ -58,32 +73,16 @@ export class CandidateService {
       this.parameters.get('P-05b'),
     ]);
 
-    const users = await this.prisma.user.findMany({
-      where: { status: 'ACTIVE', requestSuspended: false },
-      select: { id: true, createdAt: true },
-    });
+    const { users, interestsOf } = await this.snapshot();
     if (users.length < minSize) return [];
 
-    // 속성(층)은 공통 관심사가 아니다(D-72). 같은 층 사람끼리 묶이는 것은 추천의 목적이 아니다.
-    const interestRows = await this.prisma.userInterest.findMany({
-      where: {
-        userId: { in: users.map((u) => u.id) },
-        interest: { category: { kind: 'INTEREST' } },
-      },
-      select: { userId: true, interestId: true },
-    });
+    const pairs = await this.loadPairs(minCommon, users.map((u) => u.id));
+    const adjacency = this.buildAdjacency(pairs, minCommon);
+    this.logger.log(`쌍 ${pairs.length}개, 노드 ${adjacency.size}개`);
 
-    const interestsOf = new Map<string, Set<string>>();
-    for (const row of interestRows) {
-      let set = interestsOf.get(row.userId);
-      if (!set) interestsOf.set(row.userId, (set = new Set()));
-      set.add(row.interestId);
-    }
-
-    const adjacency = await this.pairGraph(minCommon, users.map((u) => u.id));
     const groups = this.grow(adjacency, interestsOf, minCommon, minSize, maxSize);
     const maximal = this.dropSubsets(groups);
-    const filtered = await this.dropFullyConnected(maximal);
+    const filtered = this.dropFullyConnected(maximal, await this.connectedPairs());
 
     const weights = await this.rarityWeights(users.length);
     const newCutoff = Date.now() - NEW_MEMBER_DAYS * 86_400_000;
@@ -116,16 +115,51 @@ export class CandidateService {
   }
 
   /**
-   * 1단계 — 공통 관심사가 [P-04] 이상인 쌍만 남긴다.
-   * 필요조건이므로 여기서 걸러도 답을 잃지 않는다.
+   * 사용자와 관심사를 한 번만 읽는다. 미리보기는 기준값 네 개를 돌려 보므로
+   * 여기서 읽은 것을 그대로 재사용한다.
+   *
+   * 속성(층)은 공통 관심사가 아니다(D-72). 같은 층 사람끼리 묶이는 것은 추천의 목적이 아니다.
    */
-  private async pairGraph(
+  private async snapshot(): Promise<Snapshot> {
+    const users = await this.prisma.user.findMany({
+      where: { status: 'ACTIVE', requestSuspended: false },
+      select: { id: true, createdAt: true },
+    });
+
+    const interestRows = users.length
+      ? await this.prisma.userInterest.findMany({
+          where: {
+            userId: { in: users.map((u) => u.id) },
+            interest: { category: { kind: 'INTEREST' } },
+          },
+          select: { userId: true, interestId: true },
+        })
+      : [];
+
+    const interestsOf = new Map<string, Set<string>>();
+    const holders = new Map<string, number>();
+    for (const row of interestRows) {
+      let set = interestsOf.get(row.userId);
+      if (!set) interestsOf.set(row.userId, (set = new Set()));
+      set.add(row.interestId);
+      holders.set(row.interestId, (holders.get(row.interestId) ?? 0) + 1);
+    }
+
+    return { users, interestsOf, holders };
+  }
+
+  /**
+   * 1단계 — 공통 관심사가 [P-04] 이상인 쌍만 SQL 로 남긴다.
+   * 필요조건이므로 여기서 걸러도 답을 잃지 않는다.
+   *
+   * 미리보기는 **가장 낮은 기준값으로 한 번만** 부르고 나머지는 메모리에서 걸러 쓴다.
+   */
+  private loadPairs(
     minCommon: number,
     userIds: string[],
-  ): Promise<Map<string, Map<string, number>>> {
-    const pairs = await this.prisma.$queryRaw<
-      { u1: string; u2: string; c: number }[]
-    >(Prisma.sql`
+  ): Promise<{ u1: string; u2: string; c: number }[]> {
+    if (userIds.length < 2) return Promise.resolve([]);
+    return this.prisma.$queryRaw<{ u1: string; u2: string; c: number }[]>(Prisma.sql`
       SELECT a.user_id AS u1, b.user_id AS u2, count(*)::int AS c
       FROM user_interest a
       JOIN user_interest b
@@ -137,7 +171,13 @@ export class CandidateService {
       GROUP BY 1, 2
       HAVING count(*) >= ${minCommon}
     `);
+  }
 
+  /** 쌍 목록에서 기준값 하나짜리 인접 그래프를 만든다. */
+  private buildAdjacency(
+    pairs: { u1: string; u2: string; c: number }[],
+    minCommon: number,
+  ): Map<string, Map<string, number>> {
     const adjacency = new Map<string, Map<string, number>>();
     const link = (a: string, b: string, c: number) => {
       let map = adjacency.get(a);
@@ -145,6 +185,7 @@ export class CandidateService {
       map.set(b, c);
     };
     for (const pair of pairs) {
+      if (pair.c < minCommon) continue;
       link(pair.u1, pair.u2, pair.c);
       link(pair.u2, pair.u1, pair.c);
     }
@@ -158,7 +199,6 @@ export class CandidateService {
       adjacency.set(id, new Map(kept));
     }
 
-    this.logger.log(`쌍 ${pairs.length}개, 노드 ${adjacency.size}개`);
     return adjacency;
   }
 
@@ -169,9 +209,9 @@ export class CandidateService {
     minCommon: number,
     minSize: number,
     maxSize: number,
-  ): { memberIds: string[]; commonInterestIds: string[] }[] {
+  ): Group[] {
     const seen = new Set<string>();
-    const groups: { memberIds: string[]; commonInterestIds: string[] }[] = [];
+    const groups: Group[] = [];
 
     for (const [seed, neighbours] of adjacency) {
       for (const partner of neighbours.keys()) {
@@ -229,41 +269,63 @@ export class CandidateService {
     return new Set([...small].filter((id) => large.has(id)));
   }
 
-  /** 3단계 — 다른 후보의 부분집합이면 버린다(docs/10 §2). */
-  private dropSubsets(
-    groups: { memberIds: string[]; commonInterestIds: string[] }[],
-  ) {
+  /**
+   * 3단계 — 다른 후보의 부분집합이면 버린다(docs/10 §2).
+   *
+   * 큰 것부터 보면서, 이미 남긴 것 중에 나를 통째로 품는 것이 있으면 버린다.
+   * 후보 전부와 견주지 않고 **내 첫 멤버를 가진 것들**하고만 견준다 — 나를 품으려면
+   * 내 멤버를 전부 가져야 하고, 거기엔 첫 멤버도 들어 있다. 결과는 같고 비교 횟수만 준다.
+   * 기준값을 3까지 내리면 후보가 수만 개가 되므로 여기가 먼저 느려진다.
+   */
+  private dropSubsets(groups: Group[]): Group[] {
     const sorted = [...groups].sort(
       (a, b) => b.memberIds.length - a.memberIds.length,
     );
-    const kept: typeof sorted = [];
+
+    const kept: Group[] = [];
+    const keptSets = new Map<Group, Set<string>>();
+    // 첫 멤버 → 그 멤버를 가진 채 남은 후보들
+    const byFirstMember = new Map<string, Group[]>();
 
     for (const group of sorted) {
-      const members = new Set(group.memberIds);
-      const isSubset = kept.some(
-        (other) =>
-          other.memberIds.length > group.memberIds.length &&
-          group.memberIds.every((id) => other.memberIds.includes(id)) &&
-          members.size < other.memberIds.length,
-      );
-      if (!isSubset) kept.push(group);
+      const bucket = byFirstMember.get(group.memberIds[0]) ?? [];
+      const isSubset = bucket.some((other) => {
+        if (other.memberIds.length <= group.memberIds.length) return false;
+        const members = keptSets.get(other);
+        return group.memberIds.every((id) => members?.has(id));
+      });
+      if (isSubset) continue;
+
+      kept.push(group);
+      keptSets.set(group, new Set(group.memberIds));
+      for (const id of group.memberIds) {
+        const list = byFirstMember.get(id);
+        if (list) list.push(group);
+        else byFirstMember.set(id, [group]);
+      }
     }
 
     return kept;
   }
 
-  /** 4단계 — 전원이 이미 서로 연결된 그룹은 추천할 이유가 없다(docs/10 §2). */
-  private async dropFullyConnected(
-    groups: { memberIds: string[]; commonInterestIds: string[] }[],
-  ) {
-    if (groups.length === 0) return groups;
-
+  /** 이미 성립한 1:1 연결. `a|b`(정렬된 순서)로 담는다. */
+  private async connectedPairs(): Promise<Set<string>> {
     const connections = await this.prisma.connection.findMany({
       select: { userAId: true, userBId: true },
     });
-    const connected = new Set(
-      connections.map((c) => `${c.userAId}|${c.userBId}`),
+    return new Set(
+      connections.map((c) =>
+        c.userAId < c.userBId
+          ? `${c.userAId}|${c.userBId}`
+          : `${c.userBId}|${c.userAId}`,
+      ),
     );
+  }
+
+  /** 4단계 — 전원이 이미 서로 연결된 그룹은 추천할 이유가 없다(docs/10 §2). */
+  private dropFullyConnected(groups: Group[], connected: Set<string>): Group[] {
+    if (connected.size === 0) return groups;
+
     const isConnected = (a: string, b: string) =>
       connected.has(a < b ? `${a}|${b}` : `${b}|${a}`);
 
@@ -288,6 +350,111 @@ export class CandidateService {
         Math.log(1 + activeUsers / Math.max(1, interest.holderCount)),
       ]),
     );
+  }
+
+  /**
+   * 기준값(P-04)을 바꾸기 전에 **지금 데이터로** 결과를 미리 본다(D-91).
+   *
+   * 저장하는 것이 없다 — `network_candidate` 는 건드리지 않는다. 재계산과 같은 파이프라인을
+   * 기준값만 갈아 끼워 돌린다. SQL 은 가장 낮은 기준값으로 한 번만 치고 나머지 줄은
+   * 그 결과를 메모리에서 걸러 쓴다.
+   *
+   * "인기뿐" 비율이 이 화면의 핵심이다. 후보 수만 보면 기준값을 낮출수록 좋아 보이지만,
+   * 낮출수록 그 후보는 인기 관심사만으로 묶인 것이 된다(docs/10 §3, §4).
+   */
+  async preview(): Promise<OpsNetworkPreview> {
+    const startedAt = Date.now();
+    const [current, minSize, maxSize] = await Promise.all([
+      this.parameters.get('P-04'),
+      this.parameters.get('P-05a'),
+      this.parameters.get('P-05b'),
+    ]);
+
+    const thresholds = [...new Set([...PREVIEW_THRESHOLDS, current])].sort(
+      (a, b) => a - b,
+    );
+
+    const { users, interestsOf, holders } = await this.snapshot();
+    const activeUsers = users.length;
+
+    // 보유율 30% 이상이면 인기 관심사다. 이름까지 돌려줘 무엇을 인기로 봤는지 보이게 한다.
+    const popularIds = new Set<string>();
+    for (const [id, count] of holders) {
+      if (activeUsers > 0 && count / activeUsers >= POPULAR_RATIO) popularIds.add(id);
+    }
+    const popularNames = popularIds.size
+      ? (
+          await this.prisma.interest.findMany({
+            where: { id: { in: [...popularIds] } },
+            select: { name: true },
+            orderBy: { holderCount: 'desc' },
+          })
+        ).map((interest) => interest.name)
+      : [];
+
+    const empty = (minCommon: number): OpsNetworkPreviewRow => ({
+      minCommon,
+      candidates: 0,
+      coveredUsers: 0,
+      perUser: 0,
+      popularOnly: null,
+      current: minCommon === current,
+    });
+
+    if (activeUsers < minSize) {
+      return {
+        activeUsers,
+        popularThreshold: POPULAR_RATIO,
+        popularInterests: popularNames,
+        rows: thresholds.map(empty),
+        computeMs: Date.now() - startedAt,
+      };
+    }
+
+    const pairs = await this.loadPairs(
+      Math.min(...thresholds),
+      users.map((u) => u.id),
+    );
+    const connected = await this.connectedPairs();
+
+    const rows = thresholds.map((minCommon) => {
+      const adjacency = this.buildAdjacency(pairs, minCommon);
+      const groups = this.dropFullyConnected(
+        this.dropSubsets(this.grow(adjacency, interestsOf, minCommon, minSize, maxSize)),
+        connected,
+      );
+
+      const covered = new Set<string>();
+      let popularOnly = 0;
+      let slots = 0;
+      for (const group of groups) {
+        for (const id of group.memberIds) covered.add(id);
+        slots += group.memberIds.length;
+        if (group.commonInterestIds.every((id) => popularIds.has(id))) popularOnly += 1;
+      }
+
+      return {
+        minCommon,
+        candidates: groups.length,
+        coveredUsers: covered.size,
+        perUser: Number((slots / activeUsers).toFixed(2)),
+        popularOnly: groups.length === 0 ? null : popularOnly / groups.length,
+        current: minCommon === current,
+      };
+    });
+
+    const computeMs = Date.now() - startedAt;
+    this.logger.log(
+      `미리보기 ${thresholds.join('·')} — ${rows.map((r) => `${r.minCommon}:${r.candidates}`).join(' ')} (${computeMs}ms)`,
+    );
+
+    return {
+      activeUsers,
+      popularThreshold: POPULAR_RATIO,
+      popularInterests: popularNames,
+      rows,
+      computeMs,
+    };
   }
 
   /**
