@@ -1,21 +1,27 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import type { DisplayNameInput, OnboardingState } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { InterestsService } from '../interests/interests.service';
+import { CandidateService } from '../networks/candidate.service';
+import { ExposureService } from '../networks/exposure.service';
 import { ParametersService } from '../parameters/parameters.service';
 import { UserPresenter } from '../users/user.presenter';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly parameters: ParametersService,
     private readonly interests: InterestsService,
     private readonly users: UsersService,
     private readonly presenter: UserPresenter,
+    private readonly candidates: CandidateService,
+    private readonly exposure: ExposureService,
   ) {}
 
   /**
@@ -135,10 +141,47 @@ export class OnboardingService {
     });
     const interests = await this.interests.refsFor(user.id);
 
-    // TODO(M5): 온보딩 완료 즉시 Network 후보를 계산해 최선 1개를 노출한다(docs/10 §2a).
+    // 이번 호출에서 처음 ACTIVE 가 된 사람에게만. `complete()` 는 다시 불릴 수 있다.
+    if (user.status === 'ONBOARDING') await this.exposeForNewMember(refreshed);
+
     return {
       user: this.presenter.toSelfUser(refreshed, interests),
       state: await this.state(refreshed),
     };
+  }
+
+  /**
+   * 온보딩을 마치는 즉시 Network 추천 하나를 노출한다 (docs/10 §2a).
+   *
+   * 2주 집중 기간에는 **첫 세션에서** 네트워크를 보여줘야 한다. 하루 2회 배치만
+   * 있으면 아침에 가입한 사람은 저녁까지 빈 화면을 본다.
+   *
+   * 새 사용자는 재계산 전에는 어떤 후보에도 들어 있지 않으므로 후보 풀을 먼저
+   * 다시 만든다. 전체 재계산이지만 사람당 한 번뿐인 일이다(운영 56명 62ms,
+   * 개발 302명 100ms 실측). 느려지면 걸린 시간이 로그에 남는다 — 그때 증분 계산이나
+   * 큐로 옮긴다.
+   *
+   * **여기서 실패해도 온보딩은 성공해야 한다.** 추천은 다음 배치(09·18시)가 어차피
+   * 만들어 준다. 가입을 막을 이유가 되지 못한다.
+   *
+   * `network_enabled` 가 꺼져 있으면 `expose()` 가 스스로 아무것도 하지 않는다(D-75).
+   */
+  private async exposeForNewMember(user: User): Promise<void> {
+    const startedAt = Date.now();
+    try {
+      const candidates = await this.candidates.recomputeAll();
+      const { created } = await this.exposure.expose({
+        onlyFor: user.id,
+        limit: 1,
+      });
+      this.logger.log(
+        `온보딩 즉시 노출 — 후보 ${candidates.length}개 중 ${created}개 노출 (${Date.now() - startedAt}ms)`,
+      );
+    } catch (cause) {
+      this.logger.error(
+        `온보딩 즉시 노출 실패 (${Date.now() - startedAt}ms) — 온보딩은 그대로 진행한다`,
+        cause instanceof Error ? cause.stack : String(cause),
+      );
+    }
   }
 }

@@ -28,7 +28,7 @@ export class ExposureService {
 
   /**
    * 빈 슬롯을 우선순위 순으로 채운다.
-   * `onlyFor`가 주어지면 그 사용자를 포함하는 후보만 본다(온보딩 즉시 노출).
+   * `onlyFor`가 주어지면 그 사용자를 포함하는 후보만 본다(온보딩 즉시 노출, docs/10 §2a).
    */
   async expose(options: { onlyFor?: string; limit?: number } = {}) {
     // 기능이 꺼져 있으면 노출하지 않는다(docs/10 §4).
@@ -118,7 +118,7 @@ export class ExposureService {
 
       // 후보는 멤버 전원에게 동시에 노출된다. 알림도 전원에게 같이 나가야
       // 서로 기다리는 상태가 만들어진다 — 한 명만 알면 아무도 참여하지 않는다.
-      await this.notifyMembers(recommendation.id, candidate);
+      await this.notifyMembers(recommendation.id, candidate, options.onlyFor);
     }
 
     if (created > 0) this.logger.log(`추천 ${created}개 노출`);
@@ -135,18 +135,25 @@ export class ExposureService {
   private async notifyMembers(
     recommendationId: string,
     candidate: { memberIds: string[]; commonInterestIds: string[]; size: number },
+    /** 온보딩 즉시 노출로 생긴 것이면 그 새 멤버의 id. 나머지 멤버의 문구가 달라진다 */
+    newMemberId?: string,
   ): Promise<void> {
     const names = await this.namesFor(candidate.commonInterestIds);
+    const shared = `이 ${candidate.size}명은 관심사 ${candidate.commonInterestIds.length}개를 모두 공유합니다`;
 
     for (const userId of candidate.memberIds) {
+      // 새로 온 사람에게는 평소 문구다 — 자기가 방금 가입한 것을 알려 줄 필요가 없다.
+      // 나머지에게는 **왜 지금 생겼는지**를 말한다(docs/10 §2a). 여기서도 이름은 넣지 않는다(docs/12 §7).
+      const reason =
+        newMemberId && userId !== newMemberId
+          ? `새 멤버가 가입해 네트워크가 생겼습니다. ${shared}`
+          : shared;
+
       await this.notifications.notify({
         userId,
         type: 'NETWORK_RECOMMENDED',
         dedupeKey: `network-recommended:${recommendationId}`,
-        payload: {
-          reason: `이 ${candidate.size}명은 관심사 ${candidate.commonInterestIds.length}개를 모두 공유합니다`,
-          commonInterests: names,
-        },
+        payload: { reason, commonInterests: names },
         targetPath: `/networks?tab=recommended&open=${recommendationId}`,
       });
     }

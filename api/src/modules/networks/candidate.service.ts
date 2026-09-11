@@ -65,7 +65,28 @@ export class CandidateService {
     private readonly parameters: ParametersService,
   ) {}
 
+  /**
+   * 재계산은 한 번에 하나만 돈다.
+   *
+   * `recomputeAll` 은 `network_candidate` 를 통째로 비우고 다시 채운다. 배치(09·18시)와
+   * 온보딩 즉시 노출(docs/10 §2a)과 `/ops` 버튼이 같은 순간에 겹칠 수 있고, 같은 표를
+   * 동시에 지우는 트랜잭션 둘은 교착이나 직렬화 오류로 끝난다. 줄을 세우면 각 호출이
+   * **자기 차례에 최신 데이터를 보고** 돌아 결과도 정확해진다 — 앞 호출에 묻어가면
+   * 방금 온보딩한 사람이 그 계산에 안 들어 있을 수 있다.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+
   async recomputeAll(): Promise<Candidate[]> {
+    const run = this.queue.then(
+      () => this.runRecompute(),
+      () => this.runRecompute(),
+    );
+    // 앞사람이 실패해도 줄은 계속 움직여야 한다.
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async runRecompute(): Promise<Candidate[]> {
     const startedAt = Date.now();
     const [minCommon, minSize, maxSize] = await Promise.all([
       this.parameters.get('P-04'),
