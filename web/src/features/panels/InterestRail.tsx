@@ -32,12 +32,19 @@ export function InterestRail({
   catalog,
   selectedId,
   anchorIds,
+  hasNoInterests,
   onSelect,
   onRecenter,
 }: {
   graph: GraphResponse | null;
   catalog: InterestCatalog | null;
   selectedId: string | null;
+  /**
+   * 내가 고른 관심사가 하나도 없는가(D-93). 그래프 응답의 `mine` 노드를 세지 않고
+   * 밖에서 받는 이유는 그 값이 앵커에 좌우되지 않아야 하기 때문이다 — 남의 관심사를
+   * 중심에 놓고 보는 중에 "고른 관심사가 없습니다" 가 뜨면 거짓말이 된다.
+   */
+  hasNoInterests: boolean;
   /** 앵커인 관심사. 행에 "중심" 표시가 붙는다. */
   anchorIds: string[];
   onSelect: (interestId: string) => void;
@@ -158,7 +165,7 @@ export function InterestRail({
                  * 관심사가 하나도 없으면 제목만 남아 빈칸이 된다 — 고장처럼 보인다(D-93).
                  * 그래프가 비는 진짜 이유가 여기이므로, 이유와 갈 곳을 같이 준다.
                  */}
-                {mine.length === 0 ? (
+                {hasNoInterests ? (
                   <div className="mx-1.5 rounded-md border border-dashed bg-secondary/40 px-3 py-3">
                     <p className="text-[13px] leading-normal font-medium">
                       고른 관심사가 없습니다

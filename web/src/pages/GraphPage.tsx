@@ -258,12 +258,15 @@ export function GraphPage() {
 
   /**
    * 관심사를 하나도 고르지 않은 사람은 그래프에 자기 노드 하나만 보게 된다(D-93).
-   * 그 화면은 고장과 구별되지 않으므로 이유와 갈 곳을 캔버스 위에 겹쳐 준다.
-   * 관심사는 앵커가 ME 일 때만 응답에 들어오므로 판정도 그때만 한다.
+   * 그 화면은 고장과 구별되지 않으므로 이유와 갈 곳을 화면에 겹쳐 준다.
+   *
+   * 그래프 응답의 `mine` 노드를 세지 않고 내 프로필을 보는 이유는, 그것이 앵커와
+   * 화면 상태에 좌우되지 않는 유일한 답이기 때문이다. 로딩 중에는 1로 둬서
+   * 안내가 깜빡이지 않게 한다.
    */
-  const myInterestsShown =
-    base?.nodes.filter((node) => node.kind === 'INTEREST' && node.mine).length ?? 0;
-  const noInterests = anchor.type === 'ME' && Boolean(base) && myInterestsShown === 0;
+  const hasNoInterests = (me?.interests.length ?? 1) === 0;
+  /** 캔버스 겹침은 내 그래프일 때만. 남의 관심사를 구경하는 중에는 가리지 않는다. */
+  const noInterests = hasNoInterests && anchor.type === 'ME' && Boolean(base);
 
   /** 카메라 자동 맞춤의 유일한 트리거(docs/07 §1). 선택은 여기에 들어가지 않는다. */
   const cameraKey = `${anchor.type}:${anchorIds.join(',')}:${similarMode}`;
@@ -411,7 +414,7 @@ export function GraphPage() {
             그래프에서 사람을 찾는 것은 넓은 화면에서 해주세요.
           </PageLede>
           {/* 관심사 고르기는 좁은 화면에서도 된다 — 넓은 화면으로 옮기기 전에 끝내 두는 편이 낫다(D-93). */}
-          {me.interests.length === 0 && (
+          {hasNoInterests && (
             <Notice className="mb-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span>
@@ -447,6 +450,7 @@ export function GraphPage() {
       }}
     >
       <InterestRail
+        hasNoInterests={hasNoInterests}
         graph={base}
         catalog={catalog}
         selectedId={selection?.kind === 'INTEREST' ? selection.id : null}
