@@ -9,11 +9,15 @@
  * 공개 전 한 번 쓰라고 만든 것이다. 사람이 들어온 뒤에는 `/ops` 관리 탭에서 하나씩 고친다.
  *
  * 지우는 것:  category, interest(+user_interest, interest_post, user_interest_change,
- *             interest_question), icebreaker_question, network_recommendation(+members)
+ *             interest_question), icebreaker_question, network_candidate,
+ *             network_recommendation(+members)
  * 두는 것:    user, connection_request, notification, app_parameter, invite_code, analytics_event
  *
- * 네트워크 추천을 함께 비우는 이유는 그것이 관심사 id 를 배열로 들고 있어서다 — 관심사가 바뀌면
- * 근거가 사라진 추천만 남는다. 다음 `network.recompute` 배치가 새 관심사로 다시 만든다.
+ * 네트워크 후보와 추천을 함께 비우는 이유는 둘 다 관심사 id 를 **배열로** 들고 있어서다.
+ * 배열 컬럼이라 외래키가 없어 관심사를 지워도 조용히 남는다 — 이미 없는 관심사를 가리키는
+ * 후보가 그대로 있으면 `/ops` 의 후보 수가 거짓이 되고, 그 상태에서 노출이 돌면 "관심사 5개를
+ * 모두 공유합니다" 라고 써 놓고 정작 관심사 칩이 하나도 없는 카드가 만들어진다.
+ * 다음 `network.recompute` 배치가 새 관심사로 다시 만든다.
  *
  * 파일 형태는 이 파일 아래 `contentSchema` 가 유일한 기준이다. 예시는 prisma/content.example.json.
  */
@@ -149,6 +153,7 @@ async function main(): Promise<void> {
     nowSelections,
     nowPosts,
     nowNetworks,
+    nowCandidates,
   ] = await Promise.all([
     prisma.category.count(),
     prisma.interest.count(),
@@ -157,6 +162,7 @@ async function main(): Promise<void> {
     prisma.userInterest.count(),
     prisma.interestPost.count(),
     prisma.networkRecommendation.count(),
+    prisma.networkCandidate.count(),
   ]);
 
   const held = await prisma.interest.findMany({
@@ -178,7 +184,8 @@ async function main(): Promise<void> {
   console.log('\n지금 DB (전부 지우고 위 내용으로 바꾼다)');
   console.log(`  분류 ${nowCategories}개 · 관심사 ${nowInterests}개`);
   console.log(`  주제별 질문 ${nowQuestions}개 · 아이스브레이킹 ${nowIcebreakers}개`);
-  console.log(`  사람들의 관심사 선택 ${nowSelections}건 · 글 ${nowPosts}개 · 네트워크 추천 ${nowNetworks}건`);
+  console.log(`  사람들의 관심사 선택 ${nowSelections}건 · 글 ${nowPosts}개`);
+  console.log(`  네트워크 추천 ${nowNetworks}건 · 후보 ${nowCandidates}개`);
 
   if (losing.length) {
     console.log('\n사라지는 선택 (파일에 없는데 지금 누가 고르고 있는 관심사)');
@@ -198,6 +205,8 @@ async function main(): Promise<void> {
     async (tx) => {
       await tx.networkMember.deleteMany();
       await tx.networkRecommendation.deleteMany();
+      // 배열 컬럼이라 cascade 가 없다. 여기서 지우지 않으면 없는 관심사를 가리키는 후보가 남는다.
+      await tx.networkCandidate.deleteMany();
       await tx.icebreakerQuestion.deleteMany();
       // interest 를 지우면 interest_question · user_interest · interest_post ·
       // user_interest_change 가 cascade 로 따라 지워진다(schema.prisma).
