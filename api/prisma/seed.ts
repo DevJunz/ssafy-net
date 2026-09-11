@@ -5,8 +5,8 @@ import {
   PARAMETER_DEFS,
   PARAMETER_KEYS,
 } from '@ssafy-net/shared';
-import { ICEBREAKER_SEED, templateQuestionsFor } from './seed/icebreakers';
-import { INTEREST_SEED, seedItemAliases, seedItemName } from './seed/interests';
+import { CONTENT, QUESTIONS_BY_INTEREST } from './seed/content';
+import { templateQuestionsFor } from './seed/questions';
 
 const prisma = new PrismaClient();
 
@@ -40,67 +40,74 @@ async function seedInterests() {
 
   let attributes = 0;
 
-  for (const group of INTEREST_SEED) {
-    const kind = group.kind ?? 'INTEREST';
+  for (const group of CONTENT.categories) {
     const category = await prisma.category.upsert({
-      where: { name: group.category },
-      update: { sortOrder: categoryOrder, kind },
-      create: { name: group.category, sortOrder: categoryOrder, kind },
+      where: { name: group.name },
+      update: { sortOrder: categoryOrder, kind: group.kind },
+      create: { name: group.name, sortOrder: categoryOrder, kind: group.kind },
     });
     categoryOrder += 1;
 
     let interestOrder = 0;
     for (const item of group.interests) {
-      const name = seedItemName(item);
-      const aliases = seedItemAliases(item);
       await prisma.interest.upsert({
-        where: { name },
-        // 이름·별칭·분류는 시드가 원본이다. holderCount와 status는 운영 중 값이라 건드리지 않는다.
-        update: { categoryId: category.id, sortOrder: interestOrder, aliases },
-        create: { name, categoryId: category.id, sortOrder: interestOrder, aliases },
+        where: { name: item.name },
+        // 이름·별칭·분류는 파일이 원본이다. holderCount와 status는 운영 중 값이라 건드리지 않는다.
+        update: { categoryId: category.id, sortOrder: interestOrder, aliases: item.aliases },
+        create: {
+          name: item.name,
+          categoryId: category.id,
+          sortOrder: interestOrder,
+          aliases: item.aliases,
+        },
       });
       interestOrder += 1;
-      if (kind === 'ATTRIBUTE') attributes += 1;
+      if (group.kind === 'ATTRIBUTE') attributes += 1;
       else total += 1;
     }
   }
 
   console.log(
-    `관심사 ${total}개 / 분류 ${INTEREST_SEED.filter((g) => (g.kind ?? 'INTEREST') === 'INTEREST').length}개, 속성 ${attributes}개 확인 (D-71)`,
+    `관심사 ${total}개 / 분류 ${CONTENT.categories.filter((g) => g.kind === 'INTEREST').length}개, 속성 ${attributes}개 확인`,
   );
 }
 
 /** 포괄 아이스브레이킹(D-87). 문장으로 upsert 하므로 운영자가 고친 것은 그대로 남고, 지운 것은 다시 생긴다. */
 async function seedIcebreakers() {
   let created = 0;
-  for (const [index, text] of ICEBREAKER_SEED.entries()) {
+  for (const [index, text] of CONTENT.icebreakers.entries()) {
     const existing = await prisma.icebreakerQuestion.findUnique({ where: { text } });
     if (existing) continue;
     await prisma.icebreakerQuestion.create({ data: { text, sortOrder: index } });
     created += 1;
   }
-  console.log(`포괄 아이스브레이킹 질문 ${ICEBREAKER_SEED.length}개 확인 (새로 ${created}개)`);
+  console.log(`포괄 아이스브레이킹 질문 ${CONTENT.icebreakers.length}개 확인 (새로 ${created}개)`);
 }
 
 /**
- * 주제별 질문의 틀(D-87). 질문이 하나도 없는 이야깃거리 관심사에만 틀 문장 3개를 넣는다.
- * 운영자가 /ops 에서 고친 관심사는 건드리지 않는다. 진짜 질문은 운영자가 채운다.
+ * 주제별 질문(D-87). 질문이 하나도 없는 이야깃거리 관심사에만 넣는다 —
+ * 운영자가 /ops 에서 고친 관심사는 건드리지 않는다.
+ * 문장은 content.json 에서 가져오고, 파일에 없는 관심사(사용자가 직접 추가한 것 등)에만 틀을 쓴다.
  */
 async function seedInterestQuestions() {
   const interests = await prisma.interest.findMany({
     where: { category: { kind: 'INTEREST' }, questions: { none: {} } },
     select: { id: true, name: true },
   });
+  let fromFile = 0;
+  let fromTemplate = 0;
   for (const interest of interests) {
+    const written = QUESTIONS_BY_INTEREST.get(interest.name) ?? [];
+    const texts = written.length ? written : templateQuestionsFor(interest.name);
+    if (written.length) fromFile += 1;
+    else fromTemplate += 1;
     await prisma.interestQuestion.createMany({
-      data: templateQuestionsFor(interest.name).map((text, sortOrder) => ({
-        interestId: interest.id,
-        text,
-        sortOrder,
-      })),
+      data: texts.map((text, sortOrder) => ({ interestId: interest.id, text, sortOrder })),
     });
   }
-  console.log(`주제별 질문 틀: 관심사 ${interests.length}개에 새로 넣음`);
+  console.log(
+    `주제별 질문: 관심사 ${interests.length}개에 새로 넣음 (파일 ${fromFile}개 · 틀 ${fromTemplate}개)`,
+  );
 }
 
 async function seedInviteCode() {

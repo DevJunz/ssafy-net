@@ -32,7 +32,7 @@ const USER_COUNT = Number(process.env.SEED_USERS ?? 120);
 
 /** 개발자 조직 전제. 이 관심사들이 절반 가까이 겹치도록 만든다(R-04 재현). */
 const VERY_POPULAR = ['백엔드', '알고리즘', '취업 준비', '프론트엔드'];
-const POPULAR = ['AI·머신러닝', 'Spring', 'React', '코딩 테스트', '헬스', '영화', '여행', '카페·맛집'];
+const POPULAR = ['AI·머신러닝', 'Spring', 'React', '코딩테스트', '헬스', '영화', '여행', '카페·커피'];
 
 const SURNAMES = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배'.split('');
 const GIVEN = [
@@ -115,9 +115,18 @@ async function main() {
   const clusters: { size: number; interests: string[] }[] = [
     { size: 5, interests: ['클라이밍', '러닝', '캠핑', '등산', '사진'] },
     { size: 4, interests: ['보드게임', 'PC 게임', '애니메이션', '웹툰', '콘솔 게임'] },
-    { size: 6, interests: ['백엔드', 'DevOps', '클라우드·인프라', '보안', '오픈소스 기여'] },
-    { size: 4, interests: ['요리', '카페·맛집', '자취', '술·맥주', '여행'] },
+    { size: 6, interests: ['백엔드', 'DevOps·SRE', '클라우드', '보안', '오픈소스'] },
+    { size: 4, interests: ['요리', '카페·커피', '자취', '술', '여행'] },
   ];
+
+  // 아래 이름들은 content.json 의 관심사 이름을 그대로 적은 것이다. 목록이 바뀌어 이름이
+  // 사라지면 가중치와 클러스터가 조용히 빠진다 — 그러면 Network 후보가 안 생긴다. 먼저 알린다.
+  const referenced = [...VERY_POPULAR, ...POPULAR, ...clusters.flatMap((c) => c.interests)];
+  const unknown = [...new Set(referenced)].filter((name) => !byName.has(name));
+  if (unknown.length) {
+    console.warn(`주의: 이 스크립트가 아는 이름이 관심사 목록에 없다 — ${unknown.join(', ')}`);
+    console.warn('     seed/dev-users.ts 의 VERY_POPULAR·POPULAR·clusters 를 content.json 에 맞춘다.');
+  }
 
   const clusterAssignment = new Map<number, string[]>();
   let cursor = 0;
@@ -243,11 +252,21 @@ async function main() {
  * — 이것 자체가 R-04의 결과이고, 그래서 이 보정이 필요하다.
  */
 async function seedAroundRealUser(pool: { id: string; weight: number }[]) {
+  // 실제 계정이 여럿이면 운영자를 먼저 고른다 — 개발 서버에서 화면을 보는 사람이 그 사람이다.
   const real = await prisma.user.findFirst({
     where: { googleSub: { not: { startsWith: 'dev-seed-' } }, status: 'ACTIVE' },
+    orderBy: [{ isOperator: 'desc' }, { createdAt: 'asc' }],
     include: { interests: true },
   });
-  if (!real || real.interests.length === 0) return;
+  if (!real || real.interests.length === 0) {
+    // 관심사를 아직 안 고른 계정 주변에는 만들 수 없다. 먼저 고르고 다시 돌리라고 알린다.
+    if (real) {
+      console.warn(
+        `${real.email} 의 관심사가 비어 있어 주변 클러스터를 만들지 않았다 — 관심사를 고른 뒤 다시 돌린다.`,
+      );
+    }
+    return;
+  }
 
   const mine = real.interests.map((row) => row.interestId);
   const others = pool.filter((item) => !mine.includes(item.id));
