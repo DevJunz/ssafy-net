@@ -1,0 +1,1279 @@
+ ▐▛███▛█   Claude Code v2.1.270
+▝▜██████▀  Opus 5 · Claude Max
+  ▝▝ ▝▝    ~\Desktop\ssafy-net
+
+
+❯ 9시 18시 알람을 내가 운영 페이지에서 껏다 켰다 조정할 수 있게해줘             
+
+● 9시·18시 배치를 /ops에서 끄고 켤 수 있게 하려면 현재 스케줄러와 /ops 레버
+  구조를 먼저 봐야겠습니다.
+
+  Searched for 6 patterns, read 3 files, listed 6 directories, ran 4 shell commands (ctrl+o to expand)
+
+● Docker와 로컬 서버가 모두 내려가 있습니다. 코드부터 쓰고 마지막에 띄워서
+  확인하겠습니다. 먼저 공유 타입입니다.
+
+● Bash(cat >> packages/shared/src/ops.ts <<'EOF'…)
+  ⎿  ok
+  ⎿  Updated packages\shared\src\ops.ts (+67 -0)
+      396    candidates: number;
+      397    exposed: number;
+      398  }
+      399 +                                                              
+      400 +// ─────────────────────────────────────────────────────────  
+      401 +// 시각이 정해진 배치 (D-96)                                  
+      402 +// ─────────────────────────────────────────────────────────  
+      403 +                                                              
+      404 +/**                                                           
+      405 + * 운영자가 `/ops` 관리 탭에서 끄고 켜고 시각을 바꿀 수 있는  
+          +배치 (D-96).                                                  
+      406 + *                                                            
+      407 + * 전부를 열지 않는다. 여기 둘만 **시각 자체가 사람의 하루에  
+          +닿는 것**이다 —                                               
+      408 + * 정해진 시각에 메신저 DM 이 나간다. 나머지는 성격이 다르다: 
+          +매시·10분마다 도는 것들은                                     
+      409 + * 시각이 뜻을 갖지 않고(만료 시계를 따라갈 뿐이다), 게이트 판
+          +정은 발송이 없고,                                             
+      410 + * 주말 요약은 월요일 아침에 매여 있다(D-95).                 
+      411 + *                                                            
+      412 + * 시각은 **KST 정각**이다. 분 단위로 쪼개지 않는 이유는 배치 
+          +의 멱등성이 시각 슬롯에                                       
+      413 + * 걸려 있기 때문이다(design/20 §7) — 같은 시각 안에서 두 번  
+          +돌아도 한 번만 세는 것이                                      
+      414 + * 이 구조의 안전장치다.                                      
+      415 + */                                                           
+      416 +export interface OpsScheduledJobDef {                         
+      417 +  label: string;                                              
+      418 +  /** 운영자가 바꾸지 않았을 때의 시각 */                     
+      419 +  defaultHours: number[];                                     
+      420 +  /** 이 시각에 무엇이 나가는가 */                            
+      421 +  description: string;                                        
+      422 +  /** 끄면 무엇이 멈추는가 */                                 
+      423 +  offNote: string;                                            
+      424 +}                                                             
+      425 +                                                              
+      426 +export const OPS_SCHEDULED_JOB_NAMES = ['digest.send', 'networ
+          +k.recompute'] as const;                                       
+      427 +export type OpsScheduledJobName = (typeof OPS_SCHEDULED_JOB_NA
+          +MES)[number];                                                 
+      428 +                                                              
+      429 +export const OPS_SCHEDULED_JOBS: Record<OpsScheduledJobName, O
+          +psScheduledJobDef> = {                                        
+      430 +  'digest.send': {                                            
+      431 +    label: '묶음 알림',                                       
+      432 +    defaultHours: [9],                                        
+      433 +    description:                                              
+      434 +      '새로 온 사람 · 내 관심사의 새 글 · 아직 결정하지 않은  
+          +네트워크 추천을 한 통으로 묶어 보낸다. 보낼 것이 있는 사람에게
+          +만 간다.',                                                    
+      435 +    offNote:                                                  
+     … 30 more lines (ctrl+o to expand)
+
+● Update(packages\shared\src\ops.ts)
+  ⎿  Added 4 lines
+      71    schedule: string;
+      72    /** 이 시간을 넘게 성공이 없으면 늦은 것 */
+      73    staleAfterHours: number;
+      74 +  /** 운영자가 끌 수 있는 배치인가 (D-96). 나머지는 항상 돈다 *
+         +/                                                              
+      75 +  adjustable: boolean;                                         
+      76 +  /** 꺼져 있으면 돌지 않는다. 꺼진 배치는 늦었다고 하지 않는다
+         + */                                                            
+      77 +  enabled: boolean;                                            
+      78    lastStatus: 'done' | 'failed' | 'running' | null;
+      79    lastStartedAt: string | null;
+      80    lastFinishedAt: string | null;
+
+● Now the Prisma model and migration.
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  schema ok
+     migration ok
+  ⎿  Created
+     api\prisma\migrations\20260915090000_job_schedule\migration.sql (+11 
+     -0)
+       1 +-- 시각이 정해진 배치의 스위치와 시각 (D-96).                  
+       2 +-- 행이 없으면 코드의 기본값을 쓴다. 그래서 이 표가 비어 있어도
+         + 동작은 지금과 같다.                                           
+       3 +CREATE TABLE "job_schedule" (                                  
+       4 +    "job_name" TEXT NOT NULL,                                  
+       5 +    "enabled" BOOLEAN NOT NULL DEFAULT true,                   
+       6 +    "hours" INTEGER[] DEFAULT ARRAY[]::INTEGER[],              
+       7 +    "updated_at" TIMESTAMP(3) NOT NULL,                        
+       8 +    "updated_by" TEXT,                                         
+       9 +                                                               
+      10 +    CONSTRAINT "job_schedule_pkey" PRIMARY KEY ("job_name")    
+      11 +);                                                             
+  ⎿  … 1 more file changed
+
+● Write(api\src\jobs\job-schedule.service.ts)
+  ⎿  Wrote 145 lines to api\src\jobs\job-schedule.service.ts
+      1 import { Injectable } from '@nestjs/common';
+      2 import {
+      3   OPS_JOB_HOURS_MAX,
+      4   OPS_SCHEDULED_JOBS,
+      5   OPS_SCHEDULED_JOB_NAMES,
+      6   type OpsJobSchedule,
+      7   type OpsScheduledJobName,
+      8 } from '@ssafy-net/shared';
+      9 import { PrismaService } from '../../src/infra/prisma/prisma.serv
+        ice';
+     … +154 lines (ctrl+o to expand)
+
+● Bash(sed -i "s|from '../../src/infra/prisma/prisma.service'|from
+      '../infra/prisma/prisma.service'|" api/src/jobs/job-schedule.service.ts &&
+      grep -n "prisma.service"…)
+  ⎿  9:import { PrismaService } from '../infra/prisma/prisma.service';
+  ⎿  Updated api\src\jobs\job-schedule.service.ts (+1 -1)
+       6    type OpsJobSchedule,
+       7    type OpsScheduledJobName,
+       8  } from '@ssafy-net/shared';
+       9 -import { PrismaService } from '../../src/infra/prisma/prisma.se
+         -rvice';                                                        
+       9 +import { PrismaService } from '../infra/prisma/prisma.service';
+      10  
+      11  const CACHE_MS = 30_000;
+      12  const KST_OFFSET_MS = 9 * 3_600_000;
+
+● Update(api\src\jobs\jobs.service.ts)
+  ⎿  Added 4 lines, removed 2 lines
+      242    // Network
+      243    // ─────────────────────────────────────────────────────────
+      244  
+      245 -  /** 후보 풀 전체 재계산 + 빈 슬롯 노출 (docs/10 §2a). */    
+      246 -  @Cron('0 0 9,18 * * *', { timeZone: KST })                  
+      245 +  /**                                                         
+      246 +   * 후보 풀 전체 재계산 + 빈 슬롯 노출 (docs/10 §2a).        
+      247 +   * 시각은 운영자가 정한다(D-96). 부르는 것은 아래 `runSchedu
+          +ledJobs()`.                                                   
+      248 +   */                                                         
+      249    async recomputeNetworks() {
+      250      return this.run('network.recompute', this.slot(60), async 
+           () => {
+      251        const candidates = await this.candidates.recomputeAll();
+
+● Update(api\src\jobs\jobs.service.ts)
+  ⎿  Added 2 lines, removed 1 line
+      384     * "나에게 온 것"이 아니라 "새로 생긴 것"을 모아 보낸다.
+      385     *
+      386     * 보낼 것이 없으면 보내지 않는다. 빈 알림은 알림을 끄게 만
+           든다.
+      387 +   *                                                          
+      388 +   * 시각은 운영자가 정한다(D-96). 부르는 것은 아래 `runSchedu
+          +ledJobs()`.                                                   
+      389     */
+      388 -  @Cron('0 0 9 * * *', { timeZone: KST })                     
+      390    async sendDigest() {
+      391      return this.run('digest.send', this.slot(60), async () => 
+           {
+      392        const [minCommon, activeUsers] = await Promise.all([
+
+● Update(api\src\jobs\jobs.service.ts)
+  ⎿  Added 38 lines
+       84    }
+       85  
+       86    // ─────────────────────────────────────────────────────────
+       87 +  // 시각이 정해진 배치 (D-96)                                
+       88 +  // ─────────────────────────────────────────────────────────
+       89 +                                                              
+       90 +  /**                                                         
+       91 +   * 매시 정각에 깨어나, 그 시각에 걸린 잡을 부른다 (D-96).   
+       92 +   *                                                          
+       93 +   * 묶음 알림과 네트워크 재계산의 시각은 이제 코드가 아니라  
+          +운영자가 정한다                                               
+       94 +   * (`/ops` 관리 탭 → "알림 시각"). `@Cron` 의 식은 프로세스 
+          +가 뜰 때 굳으므로                                             
+       95 +   * 시각을 DB 에 두려면 디스패처가 필요하다 — 정각마다 깨어나
+          + 물어보는 쪽을 골랐다.                                        
+       96 +   * 스케줄러를 런타임에 다시 등록하는 것보다 실패할 자리가 적
+          +고, 잡 하나가                                                 
+       97 +   * 실패해도 다음 잡은 그대로 돈다.                          
+       98 +   *                                                          
+       99 +   * 분이 아니라 **시**만 고르게 한 것도 여기서 온다 — 멱등성 
+          +키가 시각 슬롯                                                
+      100 +   * (`slot(60)`)이라 같은 시각 안에서 두 번 깨어나도 한 번만 
+          +돈다(design/20 §7).                                           
+      101 +   *                                                          
+      102 +   * 프로세스가 그 시각에 꺼져 있었으면 그 판은 건너뛴다. 지금
+          +까지의 `@Cron` 과 같다.                                       
+      103 +   */                                                         
+      104 +  @Cron(CronExpression.EVERY_HOUR, { timeZone: KST })         
+      105 +  async runScheduledJobs() {                                  
+      106 +    const due = await this.schedules.dueAt(new Date());       
+      107 +    if (due.length === 0) return null;                        
+      108 +                                                              
+      109 +    const table = this.jobTable();                            
+      110 +    const ran: string[] = [];                                 
+      111 +    for (const name of due) {                                 
+      112 +      try {                                                   
+      113 +        await table[name]();                                  
+      114 +        ran.push(name);                                       
+      115 +      } catch (error) {                                       
+      116 +        // 잡 안의 실패는 run() 이 job_run 에 남긴다. 여기 오 
+          +는 것은 그 바깥(DB 두절 등)이다.                              
+      117 +        this.logger.error(`${name} 을(를) 부르지 못했다: ${Str
+          +ing(error)}`);                                                
+      118 +      }                                                       
+      119 +    }                                                         
+      120 +    if (ran.length > 0) this.logger.log(`시각 배치 — ${ran.joi
+          +n(' · ')}`);                                                  
+      121 +    return { ran };                                           
+      122 +  }                                                           
+      123 +                                                              
+      124 +  // ─────────────────────────────────────────────────────────
+      125    // 연결 요청
+      126    // ─────────────────────────────────────────────────────────
+      127  
+
+● Now the shared job table and the constructor injection.
+
+● Update(api\src\jobs\jobs.service.ts)
+  ⎿  Added 11 lines, removed 4 lines
+      532      return rows.map((row) => row.name);
+      533    }
+      534  
+      535 -  /** 운영자가 잡을 즉시 돌린다. 3일을 기다리지 않고 확인하기 
+          -위한 것이다. */                                               
+      536 -  async runNow(name: string): Promise<unknown> {              
+      537 -    // 강제 실행이므로 runKey를 매번 새로 만든다.             
+      538 -    const jobs: Record<string, () => Promise<unknown>> = {    
+      535 +  /** 이름 → 잡. 운영자의 즉시 실행과 시각 디스패처(D-96)가 같
+          +은 표를 본다. */                                              
+      536 +  private jobTable(): Record<string, () => Promise<unknown>> {
+      537 +    return {                                                  
+      538        'request.expire': () => this.expireRequests(),
+      539        'request.expiry-remind': () => this.remindExpiringReques
+           ts(),
+      540        'connection.initiator-remind': () => this.remindInitiato
+           rs(),
+     ...
+      547        'digest.send': () => this.sendDigest(),
+      548        'weekend.summary': () => this.flushWeekendNotifications(
+           ),
+      549      };
+      550 +  }                                                           
+      551  
+      552 +  /**                                                         
+      553 +   * 운영자가 잡을 즉시 돌린다. 3일을 기다리지 않고 확인하기  
+          +위한 것이다.                                                  
+      554 +   * 시각 스위치(D-96)를 꺼 둔 잡도 여기서는 돈다 — 끈 것은 자
+          +동 발송이지 손으로 돌리는 길이 아니다.                        
+      555 +   */                                                         
+      556 +  async runNow(name: string): Promise<unknown> {              
+      557 +    // 강제 실행이므로 runKey를 매번 새로 만든다.             
+      558 +    const jobs = this.jobTable();                             
+      559      const job = jobs[name];
+      560      if (!job) return { error: `알 수 없는 잡: ${name}`, availa
+           ble: Object.keys(jobs) };
+      561  
+
+● Update(api\src\jobs\jobs.service.ts)
+  ⎿  Added 1 line
+      34      private readonly exposure: ExposureService,
+      35      private readonly relations: RelationService,
+      36      private readonly presenter: UserPresenter,
+      37 +    private readonly schedules: JobScheduleService,            
+      38    ) {}
+      39  
+      40    /** 잡 하나를 실행하고 결과를 남긴다. runKey가 같으면 다시 돌
+          지 않는다. */
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+     import { Module } from '@nestjs/common';
+     import { ConnectionsModule } from '../modules/connections/connections.
+     … +20 lines (ctrl+o to expand)
+  ⎿  Updated api\src\jobs\jobs.module.ts (+19 -15)
+       1 -import { Module } from '@nestjs/common';                       
+       2 -import { ConnectionsModule } from '../modules/connections/conne
+         -ctions.module';                                                
+       3 -import { NetworksModule } from '../modules/networks/networks.mo
+         -dule';                                                         
+       4 -import { NotificationsModule } from '../modules/notifications/n
+         -otifications.module';                                          
+       5 -import { JobsController } from './jobs.controller';            
+       6 -import { JobsService } from './jobs.service';                  
+       7 -                                                               
+       8 -/** 배치 10종. `runNow` 는 운영자 화면의 Network 스위치도 쓴다(
+         -OpsModule, D-78). */                                           
+       9 -@Module({                                                      
+      10 -  imports: [ConnectionsModule, NetworksModule, NotificationsMod
+         -ule],                                                          
+      11 -  controllers: [JobsController],                               
+      12 -  providers: [JobsService],                                    
+      13 -  exports: [JobsService],                                      
+      14 -})                                                             
+      15 -export class JobsModule {}                                     
+       1 +import { Module } from '@nestjs/common';                       
+       2 +import { ConnectionsModule } from '../modules/connections/conne
+         +ctions.module';                                                
+       3 +import { NetworksModule } from '../modules/networks/networks.mo
+         +dule';                                                         
+       4 +import { NotificationsModule } from '../modules/notifications/n
+         +otifications.module';                                          
+       5 +import { JobScheduleService } from './job-schedule.service';   
+       6 +import { JobsController } from './jobs.controller';            
+       7 +import { JobsService } from './jobs.service';                  
+       8 +                                                               
+       9 +/**                                                            
+      10 + * 배치 11종. `runNow` 는 운영자 화면의 Network 스위치도 쓴다(O
+         +psModule, D-78).                                               
+      11 + * 시각이 정해진 둘(묶음 알림·네트워크 재계산)의 스위치와 시각 
+         +은 `JobScheduleService` 가 갖는다(D-96).                       
+      12 + */                                                            
+      13 +@Module({                                                      
+      14 +  imports: [ConnectionsModule, NetworksModule, NotificationsMod
+         +ule],                                                          
+      15 +  controllers: [JobsController],                               
+      16 +  providers: [JobsService, JobScheduleService],                
+      17 +  exports: [JobsService, JobScheduleService],                  
+      18 +})                                                             
+      19 +export class JobsModule {}                                     
+  ⎿  … 1 more file changed
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Bash(for f in api/prisma/schema.prisma api/src/jobs/jobs.module.ts
+      api/src/jobs/jobs.service.ts api/src/jobs/job-schedule.service.ts
+      packages/shared/src/ops.ts; do p…)
+  ⎿   api/prisma/schema.prisma     | 13 ++++++++
+      api/src/jobs/jobs.module.ts  | 10 +++++--
+      api/src/jobs/jobs.service.ts | 64 ++++++++++++++++++++++++++++++++++-
+     … +6 lines (ctrl+o to expand)
+  ⎿  Updated api\src\jobs\jobs.module.ts (+19 -19)
+       1 -import { Module } from '@nestjs/common';                       
+       2 -import { ConnectionsModule } from '../modules/connections/conne
+         -ctions.module';                                                
+       3 -import { NetworksModule } from '../modules/networks/networks.mo
+         -dule';                                                         
+       4 -import { NotificationsModule } from '../modules/notifications/n
+         -otifications.module';                                          
+       5 -import { JobScheduleService } from './job-schedule.service';   
+       6 -import { JobsController } from './jobs.controller';            
+       7 -import { JobsService } from './jobs.service';                  
+       8 -                                                               
+       9 -/**                                                            
+      10 - * 배치 11종. `runNow` 는 운영자 화면의 Network 스위치도 쓴다(O
+         -psModule, D-78).                                               
+      11 - * 시각이 정해진 둘(묶음 알림·네트워크 재계산)의 스위치와 시각 
+         -은 `JobScheduleService` 가 갖는다(D-96).                       
+      12 - */                                                            
+      13 -@Module({                                                      
+      14 -  imports: [ConnectionsModule, NetworksModule, NotificationsMod
+         -ule],                                                          
+      15 -  controllers: [JobsController],                               
+      16 -  providers: [JobsService, JobScheduleService],                
+      17 -  exports: [JobsService, JobScheduleService],                  
+      18 -})                                                             
+      19 -export class JobsModule {}                                     
+       1 +import { Module } from '@nestjs/common';                       
+       2 +import { ConnectionsModule } from '../modules/connections/conne
+         +ctions.module';                                                
+       3 +import { NetworksModule } from '../modules/networks/networks.mo
+         +dule';                                                         
+       4 +import { NotificationsModule } from '../modules/notifications/n
+         +otifications.module';                                          
+       5 +import { JobScheduleService } from './job-schedule.service';   
+       6 +import { JobsController } from './jobs.controller';            
+       7 +import { JobsService } from './jobs.service';                  
+       8 +                                                               
+       9 +/**                                                            
+      10 + * 배치 11종. `runNow` 는 운영자 화면의 Network 스위치도 쓴다(O
+         +psModule, D-78).                                               
+      11 + * 시각이 정해진 둘(묶음 알림·네트워크 재계산)의 스위치와 시각 
+         +은 `JobScheduleService` 가 갖는다(D-96).                       
+      12 + */                                                            
+      13 +@Module({                                                      
+      14 +  imports: [ConnectionsModule, NetworksModule, NotificationsMod
+         +ule],                                                          
+      15 +  controllers: [JobsController],                               
+      16 +  providers: [JobsService, JobScheduleService],                
+      17 +  exports: [JobsService, JobScheduleService],                  
+      18 +})                                                             
+      19 +export class JobsModule {}                                     
+  ⎿  … 2 more files changed
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated api\src\modules\ops\ops.service.ts (+33 -1)
+       5  import { ConfigService } from '@nestjs/config';
+       6  import type {
+       7    OpsCommonBucket,
+       8 +  OpsJobSchedule,                                              
+       9    OpsCreatedInterest,
+      10    OpsDayCount,
+      11    OpsEntryStat,
+     ...
+      22  } from '@ssafy-net/shared';
+      23  import {
+      24    OPS_EDITABLE_PARAMETERS,
+      25 +  OPS_SCHEDULED_JOBS,                                          
+      26    type OpsEditableParameterKey,
+      27 +  type OpsScheduledJobName,                                    
+      28  } from '@ssafy-net/shared';
+      29  import { AppError } from '../../common/app-error';
+      30  import { StatsService } from '../../common/stats.service';
+      31 +import { JobScheduleService } from '../../jobs/job-schedule.ser
+         +vice';                                                         
+      32  import { JobsService } from '../../jobs/jobs.service';
+      33  import { CandidateService } from '../networks/candidate.service
+          ';
+      34  import { NotificationsService } from '../notifications/notifica
+          tions.service';
+     ...
+       56  const STUCK_QUEUED_MINUTES = 30;
+       57  const PROCESS_STARTED_AT = new Date();
+       58  
+       59 +/**                                                           
+       60 + * 배치 표의 뼈대. `schedule` 과 `staleAfterHours` 는 사람이  
+          +읽는 값이다.                                                  
+       61 + *                                                            
+       62 + * 시각이 정해진 둘(`digest.send`·`network.recompute`)은 여기 
+          +값이 쓰이지 않는다 —                                          
+       63 + * 운영자가 정한 시각에서 만들어 덮어쓴다(D-96). 자리만 지킨다
+          +.                                                             
+       64 + */                                                           
+       65  const JOB_SCHEDULES: { name: string; schedule: string; staleAf
+           terHours: number }[] = [
+       66    { name: 'request.expire', schedule: '10분마다', staleAfterHo
+           urs: 1 },
+       67    { name: 'request.expiry-remind', schedule: '매시', staleAfte
+           rHours: 3 },
+       68    { name: 'connection.initiator-remind', schedule: '매시', sta
+           leAfterHours: 3 },
+       69    { name: 'connection.follow-up', schedule: '매시', staleAfter
+           Hours: 3 },
+       60 -  { name: 'network.recompute', schedule: '09:00 · 18:00', stal
+          -eAfterHours: 13 },                                            
+       70 +  { name: 'network.recompute', schedule: '09:00 · 18:00', stal
+          +eAfterHours: 17 },                                            
+       71    { name: 'network.expire', schedule: '매시', staleAfterHours:
+            3 },
+       72    { name: 'network.expiry-remind', schedule: '매시', staleAfte
+           rHours: 3 },
+       73    { name: 'network.initiator-remind', schedule: '매시', staleA
+           fterHours: 3 },
+       74    { name: 'gate.evaluate', schedule: '09:05', staleAfterHours:
+            26 },
+     … 34 more lines (ctrl+o to expand)
+
+● Now the jobs() method and the two new service methods.
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated api\src\modules\ops\ops.service.ts (+42 -6)
+      862      await this.parameters.setFlag('weekend_quiet', quiet);
+      863    }
+      864  
+      865 +  /** 시각이 정해진 배치의 스위치와 시각 (D-96). */           
+      866 +  schedules(): Promise<OpsJobSchedule[]> {                    
+      867 +    return this.jobSchedules.all();                           
+      868 +  }                                                           
+      869 +                                                              
+      870 +  /**                                                         
+      871 +   * 그 배치를 끄거나 켜고, 도는 시각을 바꾼다 (D-96).        
+      872 +   *                                                          
+      873 +   * 여기서 바꾸는 것은 **언제 도는가**뿐이다. 무엇을 보내는지
+          +는 그대로다 —                                                 
+      874 +   * 주말 규칙(D-95)도, 사람마다의 알림 설정(D-89)도 그 뒤에  
+          +그대로 걸린다.                                                
+      875 +   */                                                         
+      876 +  async setSchedule(                                          
+      877 +    name: OpsScheduledJobName,                                
+      878 +    input: { enabled: boolean; hours: number[] },             
+      879 +    actorId: string,                                          
+      880 +  ): Promise<OpsJobSchedule> {                                
+      881 +    if (input.enabled && input.hours.length === 0) {          
+      882 +      throw new AppError('VALIDATION_FAILED', `${OPS_SCHEDULED
+          +_JOBS[name].label}이(가) 돌 시각을 하나 이상 골라주세요.`);   
+      883 +    }                                                         
+      884 +    return this.jobSchedules.set(name, input, actorId);       
+      885 +  }                                                           
+      886 +                                                              
+      887    /** 운영자 목록(D-79). 표시명과 이메일뿐이다. 실명은 없다. *
+           /
+      888    async operators(actorId: string): Promise<OpsOperator[]> {
+      889      const users = await this.prisma.user.findMany({
+     ...
+      1096    }
+      1097  
+      1098    private async jobs(now: Date): Promise<OpsJob[]> {
+      1077 -    const runs = await this.prisma.jobRun.findMany({         
+      1078 -      orderBy: { startedAt: 'desc' },                        
+      1079 -      take: 400,                                             
+      1080 -      select: { jobName: true, status: true, startedAt: true,
+           - finishedAt: true, detail: true },                           
+      1081 -    });                                                      
+      1082 -    return JOB_SCHEDULES.map(({ name, schedule, staleAfterHou
+           -rs }) => {                                                   
+      1099 +    const [runs, schedules] = await Promise.all([            
+      1100 +      this.prisma.jobRun.findMany({                          
+      1101 +        orderBy: { startedAt: 'desc' },                      
+     … 33 more lines (ctrl+o to expand)
+
+  Ran 3 shell commands (ctrl+o to expand)
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated api\src\modules\ops\ops.service.ts (+5 -1)
+      879      actorId: string,
+      880    ): Promise<OpsJobSchedule> {
+      881      if (input.enabled && input.hours.length === 0) {
+      882 -      throw new AppError('VALIDATION_FAILED', `${OPS_SCHEDULED
+          -_JOBS[name].label}이(가) 돌 시각을 하나 이상 골라주세요.`);   
+      882 +      throw new AppError(                                     
+      883 +        'VALIDATION_FAILED',                                  
+      884 +        undefined,                                            
+      885 +        `${OPS_SCHEDULED_JOBS[name].label}이(가) 돌 시각을 하 
+          +나 이상 골라주세요.`,                                         
+      886 +      );                                                      
+      887      }
+      888      return this.jobSchedules.set(name, input, actorId);
+      889    }
+
+● Now the controller endpoints.
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated api\src\modules\ops\ops.controller.ts (+66 -0)
+      15  import type {
+      16    OpsAnnouncement,
+      17    OpsAnnounceResult,
+      18 +  OpsJobSchedule,                                              
+      19    OpsMetrics,
+      20    OpsNetworkPreview,
+      21    OpsNetworkSwitchResult,
+     ...
+      25  import {
+      26    OPS_EDITABLE_PARAMETERS,
+      27    OPS_EDITABLE_PARAMETER_KEYS,
+      28 +  OPS_JOB_HOURS_MAX,                                           
+      29 +  OPS_SCHEDULED_JOBS,                                          
+      30 +  OPS_SCHEDULED_JOB_NAMES,                                     
+      31    type OpsEditableParameterKey,
+      32 +  type OpsScheduledJobName,                                    
+      33  } from '@ssafy-net/shared';
+      34  import { z } from 'zod';
+      35  import { CurrentUser } from '../../common/current-user.decorato
+          r';
+     ...
+      45  const weekendSwitchSchema = z.object({ quiet: z.boolean({ messa
+          ge: 'quiet 는 true 또는 false 여야 합니다.' }) });
+      46  const addOperatorSchema = z.object({ email: z.string().trim().e
+          mail('이메일 형식이 아닙니다.') });
+      47  
+      48 +/**                                                            
+      49 + * 배치 시각(D-96). 시각은 KST 정각 0~23 이고, 껐을 때도 고르던
+         + 시각은 그대로 받아 둔다 —                                     
+      50 + * 다시 켤 때 돌아오게 하기 위해서다. "하나 이상" 은 켤 때만 따
+         +지므로 서비스가 본다.                                          
+      51 + */                                                            
+      52 +const scheduleSchema = z.object({                              
+      53 +  enabled: z.boolean({ message: 'enabled 는 true 또는 false 여 
+         +야 합니다.' }),                                                
+      54 +  hours: z                                                     
+      55 +    .array(z.number().int('정각(0~23)이어야 합니다.').min(0, '0
+         +~23 사이여야 합니다.').max(23, '0~23 사이여야 합니다.'))       
+      56 +    .max(OPS_JOB_HOURS_MAX, `시각은 ${OPS_JOB_HOURS_MAX}개까지 
+         +고를 수 있습니다.`),                                           
+      57 +});                                                            
+      58 +                                                               
+      59 +const scheduleNameSchema = z.enum(                             
+      60 +  OPS_SCHEDULED_JOB_NAMES as unknown as [OpsScheduledJobName, .
+         +..OpsScheduledJobName[]],                                      
+      61 +  { message: '운영 화면에서 시각을 바꿀 수 있는 배치가 아닙니다
+         +.' },                                                          
+      62 +);                                                             
+      63 +                                                               
+      64  /**
+      65   * 파라미터 저장(D-91). 키는 열어 둔 둘만 받는다 — 범위는 `OPS_
+          EDITABLE_PARAMETERS` 가 갖고,
+      66   * 값끼리의 관계(P-01 ≤ P-02)는 서비스가 본다.
+     … 51 more lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated api\src\modules\ops\ops.controller.ts (+2 -2)
+      254    })
+      255    setSchedule(
+      256      @CurrentUser() user: User,
+      257 -    @Param('name') name: string,                              
+      257 +    @Param('name', new ZodValidationPipe(scheduleNameSchema)) 
+          +name: OpsScheduledJobName,                                    
+      258      @Body(new ZodValidationPipe(scheduleSchema)) body: { enabl
+           ed: boolean; hours: number[] },
+      259    ): Promise<OpsJobSchedule> {
+      260 -    return this.ops.setSchedule(scheduleNameSchema.parse(name)
+          -, body, user.id);                                             
+      260 +    return this.ops.setSchedule(name, body, user.id);         
+      261    }
+      262  
+      263    @Get('operators')
+
+● Now build shared and generate the Prisma client so I can typecheck the API.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● API와 타입은 통과합니다. 이제 운영 화면 UI입니다.
+
+● Write(web\src\features\ops\JobSchedules.tsx)
+  ⎿  Wrote 198 lines to web\src\features\ops\JobSchedules.tsx
+       1 import type { OpsJobSchedule } from '@ssafy-net/shared';
+       2 import { OPS_JOB_HOURS_MAX } from '@ssafy-net/shared';
+       3 import { useCallback, useEffect, useState } from 'react';
+       4 import { toast } from 'sonner';
+       5 import { Badge } from '@/components/ui/badge';
+       6 import { Button } from '@/components/ui/button';
+       7 import { Skeleton } from '@/components/ui/skeleton';
+       8 import { api } from '../../api/client';
+       9 import { Muted } from '../../components/primitives';
+      10 import { Section } from './charts';
+     … +222 lines (ctrl+o to expand)
+
+● Bash(cd /c/Users/devju/Desktop/ssafy-net && python - <<'PY'
+      import io…)
+  ⎿  ok
+     error TS5058: The specified path does not exist: 'tsconfig.app.json'.
+  ⎿  Updated web\src\pages\OpsPage.tsx (+8 -2)
+      43    fmtUptime,
+      44  } from '../features/ops/charts';
+      45  import { AnnounceSection } from '../features/ops/AnnounceSectio
+          n';
+      46 +import { JobSchedulesSection } from '../features/ops/JobSchedul
+         +es';                                                           
+      47  import { NetworkThresholds } from '../features/ops/NetworkThres
+          holds';
+      48  import {
+      49    CategoriesSection,
+     ...
+      673          </div>
+      674        </Section>
+      675  
+      675 -      <Section title="배치" description="프로세스 안의 cron.  
+          -재시작 사이의 잡은 건너뛴다. 주기보다 오래 성공이 없으면 빨간 
+          -표시">                                                        
+      676 +      <Section title="배치" description="프로세스 안의 cron.  
+          +재시작 사이의 잡은 건너뛴다. 주기보다 오래 성공이 없으면 빨간 
+          +표시. 시각이 정해진 둘은 관리 탭의 알림 시각에서 끄고 켠다(D-9
+          +6) — 꺼 둔 잡은 늦었다고 하지 않는다">                        
+      677          <DataTable
+      678            head={['잡', '주기', '상태', '마지막 성공 뒤', '마지
+           막 시작', '걸린 시간', '오류']}
+      679            align={['left', 'left', 'left', 'right', 'left', 'ri
+           ght', 'left']}
+      680            rows={s.jobs.map((j) => [
+      681              <code key={j.name} className="text-[12px]">{j.name
+           }</code>,
+      681 -            j.schedule,                                       
+      682 +            j.enabled ? (                                     
+      683 +              j.schedule                                      
+      684 +            ) : (                                             
+      685 +              <span key={`${j.name}-off`} className="text-mute
+          +d-foreground">{j.schedule} (꺼짐)</span>                      
+      686 +            ),                                                
+      687              <JobStatus key={`${j.name}-s`} job={j} />,
+      688              fmtHours(j.hoursSinceSuccess),
+      689              fmtTime(j.lastStartedAt),
+     ...
+      839        <OperatorsSection />
+      840        <InviteSwitch />
+      841        <WeekendQuietSwitch />
+      842 +      <JobSchedulesSection />                                 
+      843        <CategoriesSection />
+      844        <InterestsSection />
+      845        <QuestionsSection />
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Typecheck는 양쪽 다 깨끗합니다. 이제 실제로 돌려서 확인하려면 DB가 필요합니다
+  — Docker Desktop을 띄워 보겠습니다.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Now the decision log entry.
+
+● Bash(cat >> docs/16_PRODUCT_DECISION_LOG.md <<'EOF'…)
+  ⎿  **분이 아니라 시만 고른다.** 배치의 멱등성이 시각 슬롯에 걸려
+     있어(같은
+      시각 안에서 두 번 깨어나도 한 번만 돈다) 분을 열면 그 안전장치를 다시
+      만들어야 한다. 09:30 이 필요해진 적이 아직 없고, 필요해지면 그때 정한
+     다.
+  ⎿  Updated docs\16_PRODUCT_DECISION_LOG.md (+14 -0)
+      350  **주말에 읽은 것은 월요일에 다시 알리지 않는다.** 주말에 앱을 
+           열어 본 사람은 이미 다 본 것이고(알림함을 열면 전부 읽음이 된
+           다, D-81), 그 사람에게 "주말 동안 3건이 왔습니다"는 소음이다. 
+           요약은 **아직 읽지 않은 것**만 센다.
+      351  
+      352  **요청 만료(3일)와 네트워크 만료 시계는 주말에도 그대로 흐른다
+           .** 만료 임박 리마인드도 주말에는 미뤄지므로, 금요일에 온 요청
+           이 주말 사이에 아무 기별 없이 만료될 수 있다. 알림 없이 조용히
+            만료되는 것보다 주말을 지키는 쪽을 골랐다 — 만료된 요청은 다
+           시 보낼 수 있고(D-83), 만료 자체가 되돌릴 수 없는 일은 아니다.
+      353 +                                                              
+      354 +### 정해진 시각에 나가는 알림은 운영자가 끄고 켜고 시각을 정한
+          +다 (2026-09-15)                                               
+      355 +                                                              
+      356 +| ID | 결정 | 이유 | 대체하는 결정 | 출처 |                   
+      357 +|---|---|---|---|---|                                         
+      358 +| **D-96** | **묶음 알림(기본 09:00)과 네트워크 추천 재계산(기
+          +본 09:00·18:00)** 의 시각을 운영자가 `/ops` 관리 탭에서 정한다
+          +. 끄면 그 알림이 자동으로 나가지 않고, 시각은 **KST 정각**으로
+          + 하루 최대 6개까지 고른다. 기본값은 지금까지와 같다 — 아무것도
+          + 바꾸지 않으면 09:00 과 09·18시 그대로다 | 알림이 닿는 곳은 사
+          +내 메신저 하나뿐이고(D-67), 그 하나가 울리는 시각을 지금까지는
+          + 코드가 정했다. 09:00 은 교육생이 입실하는 시각이라 정한 값이 
+          +었는데, 그 시각은 기수마다·주차마다 달라지고 운영자는 그때마다
+          + 배포를 기다려야 했다. 주말 전체를 끄는 레버(D-95)는 있으면서 
+          +**"평일 아침 9시"** 라는 훨씬 잦은 결정은 손댈 수 없었던 것이 
+          +어긋나 있다. 끄기까지 열어 둔 것은, 알림을 줄이는 가장 빠른 방
+          +법이 시각을 옮기는 것이 아니라 **한동안 안 보내는 것**일 때가 
+          +있기 때문이다 | 없음(비어 있던 자리) | 사용자 |               
+      359 +                                                              
+      360 +**바꾸는 것은 "언제" 뿐이다.** 무엇이 나가는지, 누구에게 나가 
+          +는지는 그대로다 — 주말 규칙(D-95)도 사람마다의 알림 설정(D-89)
+          +도 이 뒤에 그대로 걸린다. 보낼 것이 없는 사람에게 빈 묶음 알림
+          +이 가지 않는 것도 그대로다.                                   
+      361 +                                                              
+      362 +**분이 아니라 시만 고른다.** 배치의 멱등성이 시각 슬롯에 걸려 
+          +있어(같은 시각 안에서 두 번 깨어나도 한 번만 돈다) 분을 열면  
+          +그 안전장치를 다시 만들어야 한다. 09:30 이 필요해진 적이 아직 
+          +없고, 필요해지면 그때 정한다.                                 
+      363 +                                                              
+      364 +**끈 것은 자동 발송이지 배치 자체가 아니다.** 운영자는 `/ops` 
+          +의 "지금 다시 계산"과 즉시 실행으로 언제든 손으로 돌릴 수 있고
+          +, 가입 즉시 노출(D-94)도 그대로 돈다. 꺼 둔 배치를 서버 탭이 "
+          +늦었다"고 붉게 칠하지 않는 것도 같은 이유다 — 안 도는 것이 정 
+          +상인 상태다.                                                  
+      365 +                                                              
+      366 +**여기 없는 것 셋.** 매시·10분마다 도는 만료·리마인드는 시각이
+          + 뜻을 갖지 않고(만료 시계를 따라갈 뿐이다), 게이트 판정(09:05)
+          +은 발송이 없고, 주말 요약(월 09:00)은 D-95 의 약속에 매여 있다
+          + — 그것을 끄면 미뤄 둔 DM 이 영영 나가지 않는다.              
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Docker is up. Bringing up the DB and applying the migration.
+
+  Searched for 1 pattern, read 1 file, listed 1 directory, ran 12 shell commands (ctrl+o to expand)
+
+● Background command "Start API dev server in background" completed (exit code
+0)
+
+● Write(api\scripts\tmp-schedule-check.ts)
+  ⎿  Wrote 52 lines to api\scripts\tmp-schedule-check.ts
+       1 /* 임시 확인용. D-96 디스패처가 정한 시각에만, 켜 둔 잡만 부르는
+       2 import { NestFactory } from '@nestjs/core';
+       3 import { AppModule } from '../src/app.module';
+       4 import { PrismaService } from '../src/infra/prisma/prisma.servic
+       5 import { JobScheduleService, kstHour } from '../src/jobs/job-sch
+         edule.service';
+       7 
+       8 async function main() {
+       9   const app = await NestFactory.createApplicationContext(AppModu
+      10   const prisma = app.get(PrismaService);
+     … +64 lines (ctrl+o to expand)
+
+● Update(api\scripts\tmp-schedule-check.ts)
+  ⎿  Removed 4 lines
+      35    console.log('[3] dueAt(다른 시각) =', await schedules.dueAt(n
+          ow));
+      36    console.log('[3] runScheduledJobs =', await jobs.runScheduled
+          Jobs(), '(null 이어야 한다)');
+      37  
+      38 -  // 4) 끈 잡도 손으로는 돈다 — runNow 는 스위치를 보지 않는다.
+      39 -  await schedules.set('digest.send', { enabled: false, hours: [
+         -9] });                                                         
+      40 -  console.log('[4] runNow(digest.send) =', await jobs.runNow('d
+         -igest.send'));                                                 
+      41 -                                                               
+      38    // 뒷정리 — 기본값으로 되돌린다(행을 지우면 코드 기본값이다).
+      39    await prisma.jobRun.deleteMany({ where: { jobName: 'network.r
+          ecompute', runKey: slot } });
+      40    await prisma.jobSchedule.deleteMany({});
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(cd /c/Users/devju/Desktop/ssafy-net && rm
+      api/scripts/tmp-schedule-check.ts && SCRATCH=/c/Users/devju/AppData/Local/
+      Temp/claude/C--Users-devju-Desktop-ssafy-net…)
+  ⎿  request.expire       | 10분마다                  | 켜짐=true | 조정=fa
+     lse | stale=false | staleAfter=1
+     network.recompute    | 08:00 · 13:00 · 19:00  | 켜짐=true | 조정=true
+     … +5 lines (ctrl+o to expand)
+  ⎿  Deleted api\scripts\tmp-schedule-check.ts (+0 -48)
+       1 -/* 임시 확인용. D-96 디스패처가 정한 시각에만, 켜 둔 잡만 부르 
+         -는지 본다. 확인 뒤 지운다. */                                  
+       2 -import { NestFactory } from '@nestjs/core';                    
+       3 -import { AppModule } from '../src/app.module';                 
+       4 -import { PrismaService } from '../src/infra/prisma/prisma.servi
+         -ce';                                                           
+       5 -import { JobScheduleService, kstHour } from '../src/jobs/job-sc
+         -hedule.service';                                               
+       6 -import { JobsService } from '../src/jobs/jobs.service';        
+       7 -                                                               
+       8 -async function main() {                                        
+       9 -  const app = await NestFactory.createApplicationContext(AppMod
+         -ule, { logger: ['log', 'error'] });                            
+      10 -  const prisma = app.get(PrismaService);                       
+      11 -  const schedules = app.get(JobScheduleService);               
+      12 -  const jobs = app.get(JobsService);                           
+      13 -                                                               
+      14 -  const now = new Date();                                      
+      15 -  const hour = kstHour(now);                                   
+      16 -  const slot = new Date(now.getTime() - (now.getTime() % 3_600_
+         -000)).toISOString();                                           
+      17 -  console.log(`\n[확인] 지금 KST ${hour}시 · 슬롯 ${slot}`);   
+      18 -                                                               
+      19 -  // 1) 지금 시각에 걸어 둔 잡만 나와야 한다. 꺼 둔 잡은 같은  
+         -시각이어도 나오지 않는다.                                      
+      20 -  await schedules.set('network.recompute', { enabled: true, hou
+         -rs: [hour] });                                                 
+      21 -  await schedules.set('digest.send', { enabled: false, hours: [
+         -hour] });                                                      
+      22 -  console.log('[1] dueAt =', await schedules.dueAt(now), '(netw
+         -ork.recompute 만 나와야 한다)');                               
+      23 -                                                               
+      24 -  // 2) 디스패처가 실제로 그 잡을 부르는지. 같은 시각 슬롯에 do
+         -ne 을 미리 박아 두면                                           
+      25 -  //    run() 이 몸통을 건너뛰므로 알림은 나가지 않는다 — 부르 
+         -는 것까지만 본다.                                              
+      26 -  await prisma.jobRun.upsert({                                 
+      27 -    where: { jobName_runKey: { jobName: 'network.recompute', ru
+         -nKey: slot } },                                                
+      28 -    update: { status: 'done', finishedAt: new Date(), detail: {
+         - note: 'tmp-schedule-check' } },                               
+      29 -    create: { jobName: 'network.recompute', runKey: slot, statu
+         -s: 'done', finishedAt: new Date(), detail: { note: 'tmp-schedul
+         -e-check' } },                                                  
+      30 -  });                                                          
+      31 -  console.log('[2] runScheduledJobs =', await jobs.runScheduled
+         -Jobs());                                                       
+      32 -                                                               
+      33 -  // 3) 다른 시각만 걸어 두면 아무것도 돌지 않는다.            
+      34 -  await schedules.set('network.recompute', { enabled: true, hou
+         -rs: [(hour + 5) % 24] });                                      
+      35 -  console.log('[3] dueAt(다른 시각) =', await schedules.dueAt(n
+         -ow));                                                          
+      36 -  console.log('[3] runScheduledJobs =', await jobs.runScheduled
+         -Jobs(), '(null 이어야 한다)');                                 
+      37 -                                                               
+      38 -  // 뒷정리 — 기본값으로 되돌린다(행을 지우면 코드 기본값이다).
+      39 -  await prisma.jobRun.deleteMany({ where: { jobName: 'network.r
+         -ecompute', runKey: slot } });                                  
+      40 -  await prisma.jobSchedule.deleteMany({});                     
+     … 8 more lines (ctrl+o to expand)
+
+  Searched for 1 pattern, called claude-in-chrome, ran 4 shell commands (ctrl+o to expand)
+
+● Background command "Start web dev server" completed (exit code 0)
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated CLAUDE.md (+3 -1)
+      137  
+      138  **표시명 저장 버튼이 말없이 잠겨 있던 것을 고쳤다.** 사용자 피
+           드백("닉네임 변경시 저장 버튼 활성화가 안돼"). 원인은 둘이었다
+            — (1) 버튼이 입력 중 검사(`GET /onboarding/nickname-check`)의
+            `ok === true` 를 요구하는데 검사가 실패하면 조용히 `null` 로 
+           돌아가 버튼이 영영 안 켜졌다 (2) 진짜 이유인 **하루 1회 제한**
+           이 회색 한 줄(`Muted`)이라 눈에 안 띄었다. 이제 `DisplayNameFo
+           rm` 의 검사는 `idle·checking·ok·bad·unknown` 다섯 상태이고 **
+           버튼은 검사에 걸지 않는다**(최종 판정은 서버가 한다 — `package
+           s/shared/src/errors.ts` 에 한국어 문구가 이미 있다). 어떤 상태
+           든 버튼 아래 이유가 한 줄 뜨고, 하루 1회는 `Notice` 상자로 올
+           라왔다.
+      139  
+      140 -**알림이 나가는 시각(KST).** 09:00 묶음(보낼 것이 있는 사람만)
+          - · 09:00·18:00 네트워크 재계산 · 09:05 게이트 판정(발송 없음) 
+          -· 매시 만료/리마인드/후속 확인 · 10분마다 요청 만료 · **월요일
+          - 09:00 주말 요약**. 나머지는 즉시 — **단 토·일에는 메신저 DM  
+          -이 나가지 않는다(D-95).**                                     
+      140 +**알림이 나가는 시각(KST).** 09:00 묶음(보낼 것이 있는 사람만)
+          + · 09:00·18:00 네트워크 재계산 — **이 둘은 이제 기본값이고 운 
+          +영자가 `/ops` 에서 바꾼다(D-96)** · 09:05 게이트 판정(발송 없 
+          +음) · 매시 만료/리마인드/후속 확인 · 10분마다 요청 만료 · **월
+          +요일 09:00 주말 요약**. 나머지는 즉시 — **단 토·일에는 메신저 
+          +DM 이 나가지 않는다(D-95).**                                  
+      141 +                                                              
+      142 +**9시·18시 알림을 운영자가 끄고 켜고 시각을 바꾼다(D-96, 2026-
+          +09-15).** 사용자 요청. `/ops` 관리 탭 **"알림 시각"** 에서 묶 
+          +음 알림(기본 09:00)과 네트워크 재계산(기본 09:00·18:00)을 끄거
+          +나, KST 정각을 하루 6개까지 골라 저장한다(`GET·PUT /api/admin/
+          +ops/schedules/:name`). **바뀌는 것은 "언제" 뿐이다** — 주말 규
+          +칙(D-95)도 사람마다의 알림 설정(D-89)도 그 뒤에 그대로 걸린다.
+          + 구조: `@Cron` 식은 프로세스가 뜰 때 굳으므로 시각을 DB 에 두 
+          +려면 디스패처가 필요하다 — `JobsService.runScheduledJobs()` 가
+          + **매시 정각에 깨어나** `JobScheduleService.dueAt()` 에 물어보
+          +고 걸린 잡을 부른다. 그래서 **분이 아니라 시만 고른다**(멱등성
+          + 키가 시각 슬롯 `slot(60)` 이다). 기본값은 코드(`OPS_SCHEDULED
+          +_JOBS`)에 있고 표 `job_schedule` 은 **바꾼 것만** 담는다 — 행 
+          +을 지우면 기본값으로 돌아간다. **마이그레이션 하나**(`20260915
+          +090000_job_schedule`). 끈 배치는 `/ops` 서버 탭에서 "(꺼짐)"  
+          +으로 보이고 늦었다고 붉게 칠하지 않는다. 즉시 실행(`POST /admi
+          +n/jobs/run`)과 "지금 다시 계산", 가입 즉시 노출(D-94)은 꺼 둬 
+          +도 그대로 돈다. 같이 고친 것 둘: 서버 탭 배치 표에 빠져 있던 *
+          +*`weekend.summary` 가 보이고**, 하루 두 번 도는 잡의 늦음 기준
+          +이 13시간 → **시각 사이 가장 긴 간격 + 2시간**이 되어 아침마다
+          + 잠깐 붉어지던 것이 없어졌다.                                 
+      143  
+      144  **주말에는 메신저 알림을 보내지 않는다(D-95, 2026-09-11).** 토
+           ·일(KST)에는 DM 을 미루고 **월요일 09:00 에 사람마다 한 통**으
+           로 요약한다("주말 동안 알림 N건이 왔습니다. 그중 M건은 답을 기
+           다립니다"). **앱 알림함은 주말에도 그대로 쌓인다** — 막히는 것
+           은 DM 하나뿐이다. 예외는 운영자 공지(`ANNOUNCEMENT`)로 주말에
+           도 바로 나간다. 스위치는 `/ops` 관리 탭 "주말 알림"(`PUT /api/
+           admin/ops/weekend-quiet`, 플래그 `weekend_quiet`, 기본 켜짐). 
+           판정은 `api/src/modules/notifications/weekend.ts` 의 `isWeeken
+           dKst()` 하나이고 프로세스 TZ 에 기대지 않는다. **미뤄 둔 것은 
+           시각이 아니라 표시로 찾는다** — `notification_delivery` 에 `st
+           atus=SKIPPED` + `error='주말(D-95) — 월요일 요약 대기'` 로 남
+           기고, 요약에 실으면 표시를 바꾼다. 월요일에 서버가 꺼져 있었어
+           도 다음 실행이 그대로 이어받고, 두 번 돌아도 두 번 세지 않는다
+           . 주말에 이미 읽은 것은 세지 않는다. **마이그레이션은 없다**(D
+           IGEST 종류와 SKIPPED 상태를 그대로 쓴다). 배치 이름은 `weekend
+           .summary`.
+      145  
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  ok
+  ⎿  Updated CLAUDE.md (+10 -0)
+      40  
+      41  ### 다음 세션에서 이어서 할 것
+      42  
+      43 +**재개 지점(2026-09-15 새벽). 9시·18시 알림을 운영 화면에서 끄 
+         +고 켜고 시각을 바꾸게 했다(D-96). 대화록은 아직 `history/` 에  
+         +없다.**                                                        
+      44 +                                                               
+      45 +> **끝낸 자리.** `main` 에서 작업했고 **아직 커밋하지 않았다** 
+         +— 커밋하면 곧 운영 배포다. 바뀐 파일: `packages/shared/src/ops.
+         +ts` · `api/prisma/schema.prisma` + 마이그레이션 `20260915090000
+         +_job_schedule` · `api/src/jobs/{job-schedule.service.ts(새 파일
+         +),jobs.service.ts,jobs.module.ts}` · `api/src/modules/ops/{ops.
+         +service.ts,ops.controller.ts}` · `web/src/features/ops/JobSched
+         +ules.tsx`(새 파일) · `web/src/pages/OpsPage.tsx` · `docs/16`.  
+         +로컬 서버는 **켜 둔 채**다(API :3000, web :5173). Docker Deskto
+         +p 이 또 멈춰 있어 다시 띄웠다.                                 
+      46 +>                                                              
+      47 +> **확인한 것.** 마이그레이션 적용 · `GET·PUT /api/admin/ops/sc
+         +hedules` 실제 호출(중복 시각 제거·정렬·DB 저장 확인) · 디스패처
+         +가 **켜 둔 잡만, 그 시각에만** 부르는 것(같은 시각에 걸어 둔 꺼
+         +진 잡은 안 불렀다) · 다른 시각이면 아무것도 안 도는 것 · 행을  
+         +지우면 코드 기본값(09:00 / 09:00·18:00)으로 돌아가는 것 · `/ops
+         +` 지표의 배치 블록이 운영자가 정한 시각과 `(꺼짐)` 을 그대로 내
+         +는 것. 로컬 DB 는 **기본값으로 되돌려 놨다.**                  
+      48 +>                                                              
+      49 +> **⚠️ 화면은 눈으로 보지 못했다.** 브라우저 확장이 이번에도 연
+         +결돼 있지 않았다. `localhost:5173/ops` → 관리 탭 → "알림 시각" 
+         +을 한 번 열어 보면 끝난다(시각 칩 24개 · 저장 · 끄기/켜기 · 기 
+         +본값으로 · "다음 발송 오늘 18:00").                            
+      50 +>                                                              
+      51 +> **다음.** 올린다면 `dev` 로 먼저. 그 뒤는 아래 09-11 밤 재개 
+         +지점의 **운영 지표 결함 넷**이 그대로 다음 순번이다.           
+      52 +                                                               
+      53  **재개 지점(2026-09-12 새벽). 이 세션의 대화록은 아직 `history/
+          ` 에 없다.**
+      54  
+      55  > **끝낸 자리.** 작업 트리는 깨끗하고 **운영 `main` = 개발 `dev
+          ` = `64898d8`**. 둘 다 그 커밋으로 떠 있다(번들 `index-BpBZmJaM
+          .js`, 2026-09-12 00:05·00:59 KST 확인). 로컬 서버는 **켜 둔 채*
+          *다(API :3000, web :5173). 세션 중에 **Docker Desktop 이 멈춰 
+          있어** DB 와 API 가 죽어 있었고 다시 띄웠다.
+
+  Searched for 1 pattern, ran 1 shell command (ctrl+o to expand)
+● Update(web\src\features\ops\JobSchedules.tsx)
+  ⎿  Added 2 lines, removed 2 lines
+      190  
+      191        <Muted className="text-[12.5px]">
+      192          주말에는 메신저 DM 이 미뤄지는 것이 먼저다(D-95) — 토·
+           일에 이 시각이 와도 알림함에만 쌓이고 DM 은 월요일 요약이
+      193 -        가져갑니다. 끈 배치도 아래 &quot;지금 실행&quot;(`POST
+          - /admin/jobs/run`)으로는 손으로 돌릴 수 있습니다. 게이트 판정 
+      194 -        (09:05)과 주말 요약(월 09:00)은 시각이 다른 규칙에 매 
+          -여 있어 여기서 바꾸지 않습니다.                               
+      193 +        가져갑니다. 꺼도 손으로는 돌릴 수 있습니다 — 네트워크 
+          +추천은 제품 탭의 &quot;지금 다시 계산&quot;, 가입 직후 노출도 
+      194 +        그대로입니다. 게이트 판정(09:05)과 주말 요약(월 09:00)
+          +은 시각이 다른 규칙에 매여 있어 여기서 바꾸지 않습니다.       
+      195        </Muted>
+      196      </Section>
+      197    );
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Update(api\src\jobs\jobs.controller.ts)
+  ⎿  Added 2 lines, removed 5 lines
+      67        '| `network.expiry-remind` | Network 만료 하루 전 리마인
+          드 |\n' +
+      68        '| `network.initiator-remind` | 성립된 Network의 시작자 
+          재안내 |\n' +
+      69        '| `gate.evaluate` | 데이터 게이트 판정 기록 |\n' +
+      70 -      '| `digest.send` | 묶음 알림(첫 2주 일 1회, 이후 주 1회).
+         - **live 모드면 전원에게 DM** |                                 
+      71 -' +                                                            
+      72 -      '| `weekend.summary` | 주말에 미뤄 둔 DM 을 사람마다 한  
+         -통으로(D-95) |                                                 
+      73 -                                                               
+      74 -' +                                                            
+      70 +      '| `digest.send` | 묶음 알림(첫 2주 일 1회, 이후 주 1회).
+         + **live 모드면 전원에게 DM** |\n' +                            
+      71 +      '| `weekend.summary` | 주말에 미뤄 둔 DM 을 사람마다 한  
+         +통으로(D-95) |\n\n' +                                          
+      72        '`network.recompute` 와 `digest.send` 는 운영자가 끄고 켤
+           수 있지만(D-96), 여기 즉시 실행은 그 스위치를 보지 않는다 — 꺼
+           둬도 돈다.',
+      73    })
+      74    @ApiBody({
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 9시·18시 알림을 /ops에서 끄고 켜고 시각까지 바꿀 수 있게 했습니다. 아직 
+  커밋하지 않았습니다 — main에 올리면 2분 안에 운영 배포라서 확인 후 결정하시는
+  게 맞다고 봤습니다.
+
+  무엇이 생겼나
+
+  /ops → 관리 탭 → "알림 시각" 구역. 대상은 정해진 시각에 DM이 나가는 배치
+  둘입니다.
+
+  ┌────────────────────────────────┬──────────────┬────────────────────────┐
+  │              배치              │     기본     │          조작          │
+  ├────────────────────────────────┼──────────────┼────────────────────────┤
+  │ 묶음 알림 digest.send          │ 09:00        │ 끄기/켜기 · 시각       │
+  │                                │              │ 바꾸기                 │
+  ├────────────────────────────────┼──────────────┼────────────────────────┤
+  │ 네트워크 추천                  │ 09:00 ·      │ 끄기/켜기 · 시각       │
+  │ network.recompute              │ 18:00        │ 바꾸기                 │
+  └────────────────────────────────┴──────────────┴────────────────────────┘
+
+  시각은 0~23시 칩을 눌러 고르고(하루 6개까지), "저장"을 누르면 다음 정각부터 그
+  시각에 나갑니다. "기본값으로" 버튼과 "다음 발송 오늘 18:00" 표시가 같이
+  있습니다.
+
+  바뀌는 것은 "언제"뿐입니다. 주말 규칙(D-95)도 사람마다의 알림 설정(D-89)도 그
+  뒤에 그대로 걸리고, 꺼도 손으로는 돌릴 수 있습니다(제품 탭 "지금 다시 계산",
+  가입 즉시 노출 D-94).
+
+  구조
+
+  @Cron의 식은 프로세스가 뜰 때 굳어서 시각을 DB에 두려면 디스패처가 필요합니다.
+  JobsService.runScheduledJobs()가 매시 정각에 깨어나
+  JobScheduleService.dueAt()에 물어보고 걸린 잡만 부릅니다. 스케줄러를 런타임에
+  다시 등록하는 것보다 실패할 자리가 적습니다. 분이 아니라 시만 고르게 한 것도
+  여기서 왔습니다 — 멱등성 키가 시각 슬롯(slot(60))이라 같은 시각에 두 번
+  깨어나도 한 번만 돕니다.
+
+  기본값은 코드(OPS_SCHEDULED_JOBS)에 있고 새 표 job_schedule은 바꾼 것만
+  담습니다. 행을 지우면 09:00 / 09:00·18:00로 돌아갑니다. 마이그레이션
+  하나(20260915090000_job_schedule)가 붙습니다.
+
+  곁가지로 고친 것 둘
+
+  - 서버 탭 배치 표에 weekend.summary가 빠져 있었습니다. D-95의 마지막 확인이 그
+    잡 이력을 보는 것인데 표에 자리가 없었습니다 — 추가했습니다.
+  - 하루 두 번 도는 잡의 "늦음" 기준이 13시간 고정이라 18:00 다음 07:00부터
+    09:00까지 매일 아침 붉게 뜨는 상태였습니다. 시각 사이 가장 긴 간격 + 
+    2시간으로 바꿨고, 꺼 둔 배치는 늦었다고 하지 않습니다.
+
+  확인한 것 / 못 한 것
+
+  Docker Desktop이 또 멈춰 있어 띄우고 마이그레이션을 넣은 뒤 실제로 돌렸습니다
+  — API/PUT 호출(중복 시각 제거·정렬·저장), 디스패처가 켜 둔 잡만, 그 시각에만
+  부르는 것(같은 시각에 걸어 둔 꺼진 잡은 안 불렀습니다), 다른 시각이면 아무것도
+  안 도는 것, 행을 지우면 기본값으로 돌아가는 것, /ops 지표가 운영자가 정한
+  시각과 (꺼짐)을 내는 것. 로컬 DB는 기본값으로 되돌려 놨습니다.
+
+  ⚠️ 화면은 눈으로 보지 못했습니다 — 브라우저 확장이 이번에도 연결돼 있지
+  않습니다. 로컬 서버는 켜 뒀으니(API :3000, web :5173) localhost:5173/ops →
+  관리 탭에서 한 번 보시면 됩니다.
+
+  올린다면 dev 먼저가 맞을 텐데, 커밋·푸시할까요?
+
+✻ Worked for 8m 5s · done 오전 7:03
+
+❯ dev main에 동시 푸시                                                          
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● dev와 main이 같은 커밋(42e53de)에 있어 양쪽 다 fast-forward입니다. 커밋을 둘로
+  나눠(기능 / 재개 지점) 프로젝트 관례를 따르겠습니다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  Traceback (most recent call last):
+       File "<stdin>", line 9, in <module>
+     UnicodeEncodeError: 'cp949' codec can't encode character '\u2014' in p
+     … +4 lines (ctrl+o to expand)
+  ⎿  Updated CLAUDE.md (+0 -10)
+      40  
+      41  ### 다음 세션에서 이어서 할 것
+      42  
+      43 -**재개 지점(2026-09-15 새벽). 9시·18시 알림을 운영 화면에서 끄 
+         -고 켜고 시각을 바꾸게 했다(D-96). 대화록은 아직 `history/` 에  
+         -없다.**                                                        
+      44 -                                                               
+      45 -> **끝낸 자리.** `main` 에서 작업했고 **아직 커밋하지 않았다** 
+         -— 커밋하면 곧 운영 배포다. 바뀐 파일: `packages/shared/src/ops.
+         -ts` · `api/prisma/schema.prisma` + 마이그레이션 `20260915090000
+         -_job_schedule` · `api/src/jobs/{job-schedule.service.ts(새 파일
+         -),jobs.service.ts,jobs.module.ts}` · `api/src/modules/ops/{ops.
+         -service.ts,ops.controller.ts}` · `web/src/features/ops/JobSched
+         -ules.tsx`(새 파일) · `web/src/pages/OpsPage.tsx` · `docs/16`.  
+         -로컬 서버는 **켜 둔 채**다(API :3000, web :5173). Docker Deskto
+         -p 이 또 멈춰 있어 다시 띄웠다.                                 
+      46 ->                                                              
+      47 -> **확인한 것.** 마이그레이션 적용 · `GET·PUT /api/admin/ops/sc
+         -hedules` 실제 호출(중복 시각 제거·정렬·DB 저장 확인) · 디스패처
+         -가 **켜 둔 잡만, 그 시각에만** 부르는 것(같은 시각에 걸어 둔 꺼
+         -진 잡은 안 불렀다) · 다른 시각이면 아무것도 안 도는 것 · 행을  
+         -지우면 코드 기본값(09:00 / 09:00·18:00)으로 돌아가는 것 · `/ops
+         -` 지표의 배치 블록이 운영자가 정한 시각과 `(꺼짐)` 을 그대로 내
+         -는 것. 로컬 DB 는 **기본값으로 되돌려 놨다.**                  
+      48 ->                                                              
+      49 -> **⚠️ 화면은 눈으로 보지 못했다.** 브라우저 확장이 이번에도 연
+         -결돼 있지 않았다. `localhost:5173/ops` → 관리 탭 → "알림 시각" 
+         -을 한 번 열어 보면 끝난다(시각 칩 24개 · 저장 · 끄기/켜기 · 기 
+         -본값으로 · "다음 발송 오늘 18:00").                            
+      50 ->                                                              
+      51 -> **다음.** 올린다면 `dev` 로 먼저. 그 뒤는 아래 09-11 밤 재개 
+         -지점의 **운영 지표 결함 넷**이 그대로 다음 순번이다.           
+      52 -                                                               
+      43  **재개 지점(2026-09-12 새벽). 이 세션의 대화록은 아직 `history/
+          ` 에 없다.**
+      44  
+      45  > **끝낸 자리.** 작업 트리는 깨끗하고 **운영 `main` = 개발 `dev
+          ` = `64898d8`**. 둘 다 그 커밋으로 떠 있다(번들 `index-BpBZmJaM
+          .js`, 2026-09-12 00:05·00:59 KST 확인). 로컬 서버는 **켜 둔 채*
+          *다(API :3000, web :5173). 세션 중에 **Docker Desktop 이 멈춰 
+          있어** DB 와 API 가 죽어 있었고 다시 띄웠다.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Now the resume-point commit, with the text corrected to reflect that it is
+  being pushed.
+
+● Bash(python - <<'PY'
+      import io…)
+  ⎿  d207067 재개 지점 — 9시·18시 알림 시각을 운영 화면에 열었다(D-96)
+     4352c9a 9시·18시 알림의 시각을 운영자가 정한다(D-96)
+     42e53de 재개 지점 — 주말 알림(D-95)을 올렸고 D-94 도 함께 운영에 갔다
+     (작업 트리 깨끗)
+  ⎿  Updated CLAUDE.md (+12 -0)
+      40  
+      41  ### 다음 세션에서 이어서 할 것
+      42  
+      43 +**재개 지점(2026-09-15 새벽). 9시·18시 알림을 운영 화면에서 끄 
+         +고 켜고 시각을 바꾸게 했다(D-96). 대화록은 아직 `history/` 에  
+         +없다.**                                                        
+      44 +                                                               
+      45 +> **끝낸 자리.** `main` 과 `dev` 를 **같은 커밋으로 동시에 올렸
+         +다**(사용자 지시). 운영·개발 VM 둘 다 자동 배포가 받는다. **마 
+         +이그레이션이 하나 붙는다**(`20260915090000_job_schedule`) — 컨 
+         +테이너 시작 때 `migrate deploy` 가 적용하므로 손으로 할 일은 없
+         +다. 로컬 서버는 **켜 둔 채**다(API :3000, web :5173). Docker De
+         +sktop 이 또 멈춰 있어 다시 띄웠다.                             
+      46 +>                                                              
+      47 +> **무엇이 열렸나.** `/ops` 관리 탭 **"알림 시각"** — 묶음 알림
+         +(기본 09:00)과 네트워크 재계산(기본 09:00·18:00)을 끄고 켜고, K
+         +ST 정각을 하루 6개까지 골라 저장한다. 바뀌는 것은 **"언제" 뿐이
+         +다**. 구조와 이유는 위 "9시·18시 알림을 운영자가…" 문단에 있다.
+      48 +>                                                              
+      49 +> **확인한 것.** 마이그레이션 적용 · `GET·PUT /api/admin/ops/sc
+         +hedules` 실제 호출(중복 시각 제거·정렬·DB 저장) · 디스패처가 **
+         +켜 둔 잡만, 그 시각에만** 부르는 것(같은 시각에 걸어 둔 꺼진 잡
+         +은 안 불렀다) · 다른 시각이면 아무것도 안 도는 것 · 행을 지우면
+         + 코드 기본값으로 돌아가는 것 · `/ops` 지표의 배치 블록이 정한  
+         +시각과 `(꺼짐)` 을 그대로 내는 것. 로컬 DB 는 **기본값으로 되돌
+         +려 놨다.**                                                     
+      50 +>                                                              
+      51 +> **⚠️ 화면은 눈으로 보지 못했다.** 브라우저 확장이 이번에도 연
+         +결돼 있지 않았다. 배포 뒤 `dev.ssafy-networking.store/ops` → 관
+         +리 탭 → "알림 시각" 을 한 번 열어 보면 끝난다(시각 칩 24개 · 저
+         +장 · 끄기/켜기 · 기본값으로 · "다음 발송 오늘 18:00"). 배포 확 
+         +인은 `curl -s https://ssafy-networking.store/ | grep assets` 로
+         + 번들 이름을 본다.                                             
+      52 +>                                                              
+      53 +> **다음.** 아래 09-11 밤 재개 지점의 **운영 지표 결함 넷(③ 관 
+         +심사 0명 타일 → ① 진입점 계측 → ⑤ `APP_ENV` 표시 → ② 수락률 라 
+         +벨)** 이 그대로 다음 순번이다.                                 
+      54 +                                                               
+      55  **재개 지점(2026-09-12 새벽). 이 세션의 대화록은 아직 `history/
+          ` 에 없다.**
+      56  
+      57  > **끝낸 자리.** 작업 트리는 깨끗하고 **운영 `main` = 개발 `dev
+          ` = `64898d8`**. 둘 다 그 커밋으로 떠 있다(번들 `index-BpBZmJaM
+          .js`, 2026-09-12 00:05·00:59 KST 확인). 로컬 서버는 **켜 둔 채*
+          *다(API :3000, web :5173). 세션 중에 **Docker Desktop 이 멈춰 
+          있어** DB 와 API 가 죽어 있었고 다시 띄웠다.
+
+  Pushed to main, ran 2 shell commands (ctrl+o to expand)
+
+● 푸시는 끝났습니다. 빌드가 도는 동안 정리해 두겠습니다.
+
+  - main → d207067, dev → d207067 (둘 다 42e53de에서 fast-forward)
+  - 커밋 둘: 4352c9a 기능(D-96), d207067 재개 지점
+  - GitHub Actions 빌드 둘 다 큐에 올라갔습니다 (지난번 기준 3분쯤)
+
+  Read 1 file (ctrl+o to expand)
+
+● 빌드 완료를 기다리는 중입니다 — 끝나면 상태를 알려드리겠습니다.
+
+✻ Cogitated for 1m 1s · done 오전 7:06
+
+※ recap: 9시·18시 알림을 운영 페이지에서 끄고 켜고 시각을 바꾸는 기능을 만들어 main과 dev에 동시에 푸시했습니다. 지금은 GitHub Actions 빌드가 끝나기를 기다리는 중이고, 완료되면 두 서버 배포 상태를 확인해 알려드리겠습니다. (disable recaps in /config)
+
+● Background command "Wait for image builds to finish" completed (exit code 0)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● 배포까지 끝났습니다. 운영·개발 서버 둘 다 올라갔습니다.
+
+  ┌────────────────────────┬──────────────────────┬─────────────────────────┐
+  │                        │ 운영 ssafy-networkin │ 개발 dev.ssafy-networki │
+  │                        │       g.store        │        ng.store         │
+  ├────────────────────────┼──────────────────────┼─────────────────────────┤
+  │ 커밋                   │ d207067              │ d207067                 │
+  ├────────────────────────┼──────────────────────┼─────────────────────────┤
+  │                        │ index-qjYmYoBY.js    │                         │
+  │ 번들                   │ (전                  │ 같음                    │
+  │                        │ index-BpBZmJaM.js)   │                         │
+  ├────────────────────────┼──────────────────────┼─────────────────────────┤
+  │ /api/health            │ {"ok":true}          │ {"ok":true}             │
+  ├────────────────────────┼──────────────────────┼─────────────────────────┤
+  │ 새 경로 /api/admin/ops │ 401(있음) — 없는     │ 401(있음)               │
+  │ /schedules             │ 경로는 404           │                         │
+  └────────────────────────┴──────────────────────┴─────────────────────────┘
+
+  Actions 빌드 둘 다 초록불(2분 37초·2분 44초)이었고, 마이그레이션
+  20260915090000_job_schedule은 컨테이너 시작 때 migrate deploy로 붙었습니다.
+  손으로 할 일은 없습니다.
+
+  지금 보시면 되는 곳
+
+  https://ssafy-networking.store/ops → 관리 탭 → "알림 시각". 아직 아무것도
+  바꾸지 않았으니 묶음 알림 09:00, 네트워크 추천 09:00·18:00 그대로입니다. 시각
+  칩을 눌러 고르고 저장하면 다음 정각부터 그 시각에 나갑니다.
+
+  ⚠️ 화면은 제가 눈으로 보지 못했습니다 — 브라우저 확장이 이번에도 연결돼 있지
+  않아 API와 디스패처 동작만 로컬에서 끝까지 확인했습니다. 화면에서 이상한 점이
+  보이면 말씀해 주세요.
+
+  로컬 서버는 켜 둔 채입니다(API :3000, web :5173). 커밋 메시지·docs/16
+  D-96·CLAUDE.md 재개 지점에 결정과 구조를 남겨 뒀습니다.
+
+✻ Baked for 14s · done 오전 7:16
