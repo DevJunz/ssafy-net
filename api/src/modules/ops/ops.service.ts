@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
   OpsCommonBucket,
+  OpsJobSchedule,
   OpsCreatedInterest,
   OpsDayCount,
   OpsEntryStat,
@@ -21,10 +22,13 @@ import type {
 } from '@ssafy-net/shared';
 import {
   OPS_EDITABLE_PARAMETERS,
+  OPS_SCHEDULED_JOBS,
   type OpsEditableParameterKey,
+  type OpsScheduledJobName,
 } from '@ssafy-net/shared';
 import { AppError } from '../../common/app-error';
 import { StatsService } from '../../common/stats.service';
+import { JobScheduleService } from '../../jobs/job-schedule.service';
 import { JobsService } from '../../jobs/jobs.service';
 import { CandidateService } from '../networks/candidate.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -52,18 +56,45 @@ const KST_OFFSET_MS = 9 * HOUR_MS;
 const STUCK_QUEUED_MINUTES = 30;
 const PROCESS_STARTED_AT = new Date();
 
+/**
+ * 배치 표의 뼈대. `schedule` 과 `staleAfterHours` 는 사람이 읽는 값이다.
+ *
+ * 시각이 정해진 둘(`digest.send`·`network.recompute`)은 여기 값이 쓰이지 않는다 —
+ * 운영자가 정한 시각에서 만들어 덮어쓴다(D-96). 자리만 지킨다.
+ */
 const JOB_SCHEDULES: { name: string; schedule: string; staleAfterHours: number }[] = [
   { name: 'request.expire', schedule: '10분마다', staleAfterHours: 1 },
   { name: 'request.expiry-remind', schedule: '매시', staleAfterHours: 3 },
   { name: 'connection.initiator-remind', schedule: '매시', staleAfterHours: 3 },
   { name: 'connection.follow-up', schedule: '매시', staleAfterHours: 3 },
-  { name: 'network.recompute', schedule: '09:00 · 18:00', staleAfterHours: 13 },
+  { name: 'network.recompute', schedule: '09:00 · 18:00', staleAfterHours: 17 },
   { name: 'network.expire', schedule: '매시', staleAfterHours: 3 },
   { name: 'network.expiry-remind', schedule: '매시', staleAfterHours: 3 },
   { name: 'network.initiator-remind', schedule: '매시', staleAfterHours: 3 },
   { name: 'gate.evaluate', schedule: '09:05', staleAfterHours: 26 },
   { name: 'digest.send', schedule: '09:00', staleAfterHours: 26 },
+  // 주 1회다. 월요일에 서버가 떠 있기만 하면 되고, 한 판을 통째로 놓쳐야 늦은 것이다.
+  { name: 'weekend.summary', schedule: '월 09:00', staleAfterHours: 180 },
 ];
+
+/** [9, 18] → "09:00 · 18:00". 운영자가 고른 시각을 그대로 읽힌다 */
+function hoursLabel(hours: number[]): string {
+  if (hours.length === 0) return '시각 없음';
+  return hours.map((hour) => `${String(hour).padStart(2, '0')}:00`).join(' · ');
+}
+
+/**
+ * 시각 사이의 가장 긴 간격 + 2시간. 이만큼 성공이 없으면 늦은 것이다.
+ * 하루 한 번이면 26시간 — 고정값 26을 쓰던 때와 같다.
+ */
+function staleAfterFor(hours: number[]): number {
+  if (hours.length <= 1) return 26;
+  const gaps = hours.map((hour, index) => {
+    const next = hours[(index + 1) % hours.length];
+    return (next - hour + 24) % 24 || 24;
+  });
+  return Math.max(...gaps) + 2;
+}
 
 const ENTRIES: OpsRequestEntry[] = [
   'SIMILAR',
@@ -116,6 +147,7 @@ export class OpsService {
     // 지표 헬퍼 jobs()·notifications() 와 이름이 겹쳐 다르게 부른다.
     private readonly jobRunner: JobsService,
     private readonly notifier: NotificationsService,
+    private readonly jobSchedules: JobScheduleService,
   ) {}
 
   async metrics(days: number): Promise<OpsMetrics> {
@@ -830,6 +862,32 @@ export class OpsService {
     await this.parameters.setFlag('weekend_quiet', quiet);
   }
 
+  /** 시각이 정해진 배치의 스위치와 시각 (D-96). */
+  schedules(): Promise<OpsJobSchedule[]> {
+    return this.jobSchedules.all();
+  }
+
+  /**
+   * 그 배치를 끄거나 켜고, 도는 시각을 바꾼다 (D-96).
+   *
+   * 여기서 바꾸는 것은 **언제 도는가**뿐이다. 무엇을 보내는지는 그대로다 —
+   * 주말 규칙(D-95)도, 사람마다의 알림 설정(D-89)도 그 뒤에 그대로 걸린다.
+   */
+  async setSchedule(
+    name: OpsScheduledJobName,
+    input: { enabled: boolean; hours: number[] },
+    actorId: string,
+  ): Promise<OpsJobSchedule> {
+    if (input.enabled && input.hours.length === 0) {
+      throw new AppError(
+        'VALIDATION_FAILED',
+        undefined,
+        `${OPS_SCHEDULED_JOBS[name].label}이(가) 돌 시각을 하나 이상 골라주세요.`,
+      );
+    }
+    return this.jobSchedules.set(name, input, actorId);
+  }
+
   /** 운영자 목록(D-79). 표시명과 이메일뿐이다. 실명은 없다. */
   async operators(actorId: string): Promise<OpsOperator[]> {
     const users = await this.prisma.user.findMany({
@@ -1042,12 +1100,22 @@ export class OpsService {
   }
 
   private async jobs(now: Date): Promise<OpsJob[]> {
-    const runs = await this.prisma.jobRun.findMany({
-      orderBy: { startedAt: 'desc' },
-      take: 400,
-      select: { jobName: true, status: true, startedAt: true, finishedAt: true, detail: true },
-    });
-    return JOB_SCHEDULES.map(({ name, schedule, staleAfterHours }) => {
+    const [runs, schedules] = await Promise.all([
+      this.prisma.jobRun.findMany({
+        orderBy: { startedAt: 'desc' },
+        take: 400,
+        select: { jobName: true, status: true, startedAt: true, finishedAt: true, detail: true },
+      }),
+      this.jobSchedules.all(),
+    ]);
+    return JOB_SCHEDULES.map((row) => {
+      const { name } = row;
+      // 운영자가 시각을 정하는 잡은 표에 그 시각을 보여준다. 꺼져 있으면 늦었다고 하지 않는다(D-96).
+      const own = schedules.find((s) => s.name === name);
+      const schedule = own ? hoursLabel(own.hours) : row.schedule;
+      const staleAfterHours = own ? staleAfterFor(own.hours) : row.staleAfterHours;
+      const enabled = own?.enabled ?? true;
+
       const mine = runs.filter((r) => r.jobName === name);
       const last = mine[0];
       const lastDone = mine.find((r) => r.status === 'done');
@@ -1060,6 +1128,8 @@ export class OpsService {
         name,
         schedule,
         staleAfterHours,
+        adjustable: Boolean(own),
+        enabled,
         lastStatus: (last?.status as OpsJob['lastStatus']) ?? null,
         lastStartedAt: last?.startedAt.toISOString() ?? null,
         lastFinishedAt: last?.finishedAt?.toISOString() ?? null,
@@ -1068,7 +1138,9 @@ export class OpsService {
         lastError: detail?.error ?? null,
         hoursSinceSuccess,
         // 프로세스가 갓 떴으면 아직 돌 기회가 없었던 것이다. 기동 뒤 주기가 지나야 늦은 것으로 본다.
+        // 꺼 둔 잡은 안 도는 것이 정상이므로 늦었다고 하지 않는다(D-96).
         stale:
+          enabled &&
           (hoursSinceSuccess === null || hoursSinceSuccess > staleAfterHours) &&
           now.getTime() - PROCESS_STARTED_AT.getTime() > staleAfterHours * HOUR_MS,
       };

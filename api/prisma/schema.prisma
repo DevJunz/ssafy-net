@@ -674,6 +674,19 @@ model FeatureFlag {
   @@map("feature_flag")
 }
 
+// 시각이 정해진 배치의 스위치와 시각 (D-96). 운영자가 /ops 관리 탭에서 바꾼다.
+// 행이 없으면 코드의 기본값이다 — 빈 DB 도 지금과 똑같이 돈다.
+model JobSchedule {
+  jobName   String   @id @map("job_name")
+  enabled   Boolean  @default(true)
+  // KST 정각. 오름차순으로 저장한다
+  hours     Int[]    @default([])
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("job_schedule")
+}
+
 // 배치 멱등성 (design/20 §7). 재실행해도 알림이 두 번 가지 않게 한다.
 model JobRun {
   id         BigInt    @id @default(autoincrement())

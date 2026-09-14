@@ -71,6 +71,10 @@ export interface OpsJob {
   schedule: string;
   /** 이 시간을 넘게 성공이 없으면 늦은 것 */
   staleAfterHours: number;
+  /** 운영자가 끌 수 있는 배치인가 (D-96). 나머지는 항상 돈다 */
+  adjustable: boolean;
+  /** 꺼져 있으면 돌지 않는다. 꺼진 배치는 늦었다고 하지 않는다 */
+  enabled: boolean;
   lastStatus: 'done' | 'failed' | 'running' | null;
   lastStartedAt: string | null;
   lastFinishedAt: string | null;
@@ -395,4 +399,71 @@ export interface OpsParameterUpdateResult {
   /** 저장 직후 돌린 `network.recompute` 의 결과 */
   candidates: number;
   exposed: number;
+}
+
+// ─────────────────────────────────────────────────────────
+// 시각이 정해진 배치 (D-96)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * 운영자가 `/ops` 관리 탭에서 끄고 켜고 시각을 바꿀 수 있는 배치 (D-96).
+ *
+ * 전부를 열지 않는다. 여기 둘만 **시각 자체가 사람의 하루에 닿는 것**이다 —
+ * 정해진 시각에 메신저 DM 이 나간다. 나머지는 성격이 다르다: 매시·10분마다 도는 것들은
+ * 시각이 뜻을 갖지 않고(만료 시계를 따라갈 뿐이다), 게이트 판정은 발송이 없고,
+ * 주말 요약은 월요일 아침에 매여 있다(D-95).
+ *
+ * 시각은 **KST 정각**이다. 분 단위로 쪼개지 않는 이유는 배치의 멱등성이 시각 슬롯에
+ * 걸려 있기 때문이다(design/20 §7) — 같은 시각 안에서 두 번 돌아도 한 번만 세는 것이
+ * 이 구조의 안전장치다.
+ */
+export interface OpsScheduledJobDef {
+  label: string;
+  /** 운영자가 바꾸지 않았을 때의 시각 */
+  defaultHours: number[];
+  /** 이 시각에 무엇이 나가는가 */
+  description: string;
+  /** 끄면 무엇이 멈추는가 */
+  offNote: string;
+}
+
+export const OPS_SCHEDULED_JOB_NAMES = ['digest.send', 'network.recompute'] as const;
+export type OpsScheduledJobName = (typeof OPS_SCHEDULED_JOB_NAMES)[number];
+
+export const OPS_SCHEDULED_JOBS: Record<OpsScheduledJobName, OpsScheduledJobDef> = {
+  'digest.send': {
+    label: '묶음 알림',
+    defaultHours: [9],
+    description:
+      '새로 온 사람 · 내 관심사의 새 글 · 아직 결정하지 않은 네트워크 추천을 한 통으로 묶어 보낸다. 보낼 것이 있는 사람에게만 간다.',
+    offNote:
+      '끄면 묶음 알림이 나가지 않는다. 연결 요청·수락 같은 즉시 알림은 그대로 나간다.',
+  },
+  'network.recompute': {
+    label: '네트워크 추천',
+    defaultHours: [9, 18],
+    description:
+      '후보를 다시 계산해 빈 슬롯에 노출하고, 노출된 사람에게 추천 알림을 보낸다. 가입 직후에도 한 번 돈다(D-94).',
+    offNote:
+      '끄면 이 시각의 재계산이 멈춘다. 가입 즉시 노출(D-94)과 `/ops` 의 "지금 다시 계산" 은 그대로 돈다.',
+  },
+};
+
+/** 한 배치에 고를 수 있는 시각의 최대 개수. 하루에 이보다 자주 알리면 묶음 알림의 뜻이 없어진다 */
+export const OPS_JOB_HOURS_MAX = 6;
+
+/** `GET /api/admin/ops/schedules` 의 한 줄 (D-96). */
+export interface OpsJobSchedule {
+  name: OpsScheduledJobName;
+  label: string;
+  description: string;
+  offNote: string;
+  enabled: boolean;
+  /** KST 정각. 오름차순, 중복 없음 */
+  hours: number[];
+  defaultHours: number[];
+  /** 기본값 그대로인가. 아니면 화면이 "기본값으로" 를 띄운다 */
+  isDefault: boolean;
+  /** 마지막으로 바꾼 때(ISO). 한 번도 바꾸지 않았으면 null */
+  updatedAt: string | null;
 }

@@ -15,6 +15,7 @@ import type { User } from '@prisma/client';
 import type {
   OpsAnnouncement,
   OpsAnnounceResult,
+  OpsJobSchedule,
   OpsMetrics,
   OpsNetworkPreview,
   OpsNetworkSwitchResult,
@@ -24,7 +25,11 @@ import type {
 import {
   OPS_EDITABLE_PARAMETERS,
   OPS_EDITABLE_PARAMETER_KEYS,
+  OPS_JOB_HOURS_MAX,
+  OPS_SCHEDULED_JOBS,
+  OPS_SCHEDULED_JOB_NAMES,
   type OpsEditableParameterKey,
+  type OpsScheduledJobName,
 } from '@ssafy-net/shared';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/current-user.decorator';
@@ -39,6 +44,22 @@ const networkSwitchSchema = z.object({ enabled: z.boolean({ message: 'enabled �
 const inviteSwitchSchema = z.object({ required: z.boolean({ message: 'required 는 true 또는 false 여야 합니다.' }) });
 const weekendSwitchSchema = z.object({ quiet: z.boolean({ message: 'quiet 는 true 또는 false 여야 합니다.' }) });
 const addOperatorSchema = z.object({ email: z.string().trim().email('이메일 형식이 아닙니다.') });
+
+/**
+ * 배치 시각(D-96). 시각은 KST 정각 0~23 이고, 껐을 때도 고르던 시각은 그대로 받아 둔다 —
+ * 다시 켤 때 돌아오게 하기 위해서다. "하나 이상" 은 켤 때만 따지므로 서비스가 본다.
+ */
+const scheduleSchema = z.object({
+  enabled: z.boolean({ message: 'enabled 는 true 또는 false 여야 합니다.' }),
+  hours: z
+    .array(z.number().int('정각(0~23)이어야 합니다.').min(0, '0~23 사이여야 합니다.').max(23, '0~23 사이여야 합니다.'))
+    .max(OPS_JOB_HOURS_MAX, `시각은 ${OPS_JOB_HOURS_MAX}개까지 고를 수 있습니다.`),
+});
+
+const scheduleNameSchema = z.enum(
+  OPS_SCHEDULED_JOB_NAMES as unknown as [OpsScheduledJobName, ...OpsScheduledJobName[]],
+  { message: '운영 화면에서 시각을 바꿀 수 있는 배치가 아닙니다.' },
+);
 
 /**
  * 파라미터 저장(D-91). 키는 열어 둔 둘만 받는다 — 범위는 `OPS_EDITABLE_PARAMETERS` 가 갖고,
@@ -192,6 +213,51 @@ export class OpsController {
   ): Promise<{ quiet: boolean }> {
     await this.ops.setWeekendQuiet(body.quiet);
     return { quiet: body.quiet };
+  }
+
+  @Get('schedules')
+  @ApiOperation({
+    summary: '시각이 정해진 배치의 스위치와 시각 (D-96)',
+    description:
+      '묶음 알림(기본 09:00)과 네트워크 추천 재계산(기본 09:00·18:00). ' +
+      '`hours` 는 KST 정각이고, 한 번도 바꾸지 않았으면 코드의 기본값이 나온다(`updatedAt` 이 null). ' +
+      '나머지 배치(매시·10분마다·게이트 판정·주말 요약)는 시각이 다른 규칙에 매여 있어 여기 없다.',
+  })
+  schedules(): Promise<OpsJobSchedule[]> {
+    return this.ops.schedules();
+  }
+
+  @Put('schedules/:name')
+  @ApiOperation({
+    summary: '배치 시각 바꾸기 / 끄기 (D-96)',
+    description:
+      '끄면 그 배치가 자동으로 돌지 않는다 — 알림도 나가지 않는다. 껐다 켜도 고르던 시각은 그대로다. ' +
+      '바꾼 시각은 **다음 정각부터** 걸린다(매시 정각의 디스패처가 읽는다). ' +
+      '`POST /admin/jobs/run` 의 즉시 실행과 `/ops` 의 "지금 다시 계산" 은 꺼 둬도 그대로 돈다. ' +
+      '주말 규칙(D-95)과 사람마다의 알림 설정(D-89)은 그 뒤에 그대로 걸린다.',
+  })
+  @ApiParam({ name: 'name', enum: [...OPS_SCHEDULED_JOB_NAMES], description: '배치 이름' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['enabled', 'hours'],
+      properties: {
+        enabled: { type: 'boolean' },
+        hours: {
+          type: 'array',
+          items: { type: 'integer', minimum: 0, maximum: 23 },
+          maxItems: OPS_JOB_HOURS_MAX,
+          example: OPS_SCHEDULED_JOBS['network.recompute'].defaultHours,
+        },
+      },
+    },
+  })
+  setSchedule(
+    @CurrentUser() user: User,
+    @Param('name', new ZodValidationPipe(scheduleNameSchema)) name: OpsScheduledJobName,
+    @Body(new ZodValidationPipe(scheduleSchema)) body: { enabled: boolean; hours: number[] },
+  ): Promise<OpsJobSchedule> {
+    return this.ops.setSchedule(name, body, user.id);
   }
 
   @Get('operators')

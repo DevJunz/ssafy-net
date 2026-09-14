@@ -15,6 +15,7 @@ const JOB_NAMES = [
   'network.initiator-remind',
   'gate.evaluate',
   'digest.send',
+  'weekend.summary',
 ];
 
 /**
@@ -66,7 +67,9 @@ export class JobsController {
       '| `network.expiry-remind` | Network 만료 하루 전 리마인드 |\n' +
       '| `network.initiator-remind` | 성립된 Network의 시작자 재안내 |\n' +
       '| `gate.evaluate` | 데이터 게이트 판정 기록 |\n' +
-      '| `digest.send` | 묶음 알림(첫 2주 일 1회, 이후 주 1회). **live 모드면 전원에게 DM** |',
+      '| `digest.send` | 묶음 알림(첫 2주 일 1회, 이후 주 1회). **live 모드면 전원에게 DM** |\n' +
+      '| `weekend.summary` | 주말에 미뤄 둔 DM 을 사람마다 한 통으로(D-95) |\n\n' +
+      '`network.recompute` 와 `digest.send` 는 운영자가 끄고 켤 수 있지만(D-96), 여기 즉시 실행은 그 스위치를 보지 않는다 — 꺼 둬도 돈다.',
   })
   @ApiBody({
     schema: {

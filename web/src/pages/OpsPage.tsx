@@ -43,6 +43,7 @@ import {
   fmtUptime,
 } from '../features/ops/charts';
 import { AnnounceSection } from '../features/ops/AnnounceSection';
+import { JobSchedulesSection } from '../features/ops/JobSchedules';
 import { NetworkThresholds } from '../features/ops/NetworkThresholds';
 import {
   CategoriesSection,
@@ -672,13 +673,17 @@ function ServerTab({ data }: { data: OpsMetrics }) {
         </div>
       </Section>
 
-      <Section title="배치" description="프로세스 안의 cron. 재시작 사이의 잡은 건너뛴다. 주기보다 오래 성공이 없으면 빨간 표시">
+      <Section title="배치" description="프로세스 안의 cron. 재시작 사이의 잡은 건너뛴다. 주기보다 오래 성공이 없으면 빨간 표시. 시각이 정해진 둘은 관리 탭의 알림 시각에서 끄고 켠다(D-96) — 꺼 둔 잡은 늦었다고 하지 않는다">
         <DataTable
           head={['잡', '주기', '상태', '마지막 성공 뒤', '마지막 시작', '걸린 시간', '오류']}
           align={['left', 'left', 'left', 'right', 'left', 'right', 'left']}
           rows={s.jobs.map((j) => [
             <code key={j.name} className="text-[12px]">{j.name}</code>,
-            j.schedule,
+            j.enabled ? (
+              j.schedule
+            ) : (
+              <span key={`${j.name}-off`} className="text-muted-foreground">{j.schedule} (꺼짐)</span>
+            ),
             <JobStatus key={`${j.name}-s`} job={j} />,
             fmtHours(j.hoursSinceSuccess),
             fmtTime(j.lastStartedAt),
@@ -834,6 +839,7 @@ function AdminTab({ activeUsers }: { activeUsers: number }) {
       <OperatorsSection />
       <InviteSwitch />
       <WeekendQuietSwitch />
+      <JobSchedulesSection />
       <CategoriesSection />
       <InterestsSection />
       <QuestionsSection />
